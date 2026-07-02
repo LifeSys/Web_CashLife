@@ -1,0 +1,68 @@
+import type { Person } from '@/types';
+
+export const mockPeople: Person[] = [
+  {
+    id: 'person-1',
+    nombre: 'Juan García',
+    deuda: 500,
+    tipoDeuda: 'PRESTADO',
+    transacciones: ['tx-15'],
+    createdAt: new Date('2024-04-15'),
+  },
+  {
+    id: 'person-2',
+    nombre: 'María López',
+    deuda: 1200,
+    tipoDeuda: 'PRESTAMISTA',
+    transacciones: ['tx-16'],
+    createdAt: new Date('2024-03-20'),
+  },
+  {
+    id: 'person-3',
+    nombre: 'Carlos Rodríguez',
+    deuda: 800,
+    tipoDeuda: 'PRESTADO',
+    transacciones: ['tx-17'],
+    createdAt: new Date('2024-05-10'),
+  },
+  {
+    id: 'person-4',
+    nombre: 'Ana Martínez',
+    deuda: 0,
+    tipoDeuda: null,
+    transacciones: [],
+    createdAt: new Date('2024-02-14'),
+  },
+  {
+    id: 'person-5',
+    nombre: 'Pedro Sánchez',
+    deuda: 350,
+    tipoDeuda: 'PRESTAMISTA',
+    transacciones: ['tx-18'],
+    createdAt: new Date('2024-05-25'),
+  },
+  {
+    id: 'person-6',
+    nombre: 'Lucia Fernández',
+    deuda: 1500,
+    tipoDeuda: 'PRESTADO',
+    transacciones: ['tx-19'],
+    createdAt: new Date('2024-04-01'),
+  },
+  {
+    id: 'person-7',
+    nombre: 'Roberto Díaz',
+    deuda: 650,
+    tipoDeuda: 'PRESTAMISTA',
+    transacciones: ['tx-20'],
+    createdAt: new Date('2024-05-15'),
+  },
+  {
+    id: 'person-8',
+    nombre: 'Gabriela Torres',
+    deuda: 0,
+    tipoDeuda: null,
+    transacciones: [],
+    createdAt: new Date('2024-03-05'),
+  },
+];

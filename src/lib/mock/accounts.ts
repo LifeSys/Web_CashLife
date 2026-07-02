@@ -1,0 +1,60 @@
+import type { Account } from '@/types';
+
+export const mockAccounts: Account[] = [
+  {
+    id: 'acc-1',
+    nombre: 'Efectivo',
+    saldo: 2500,
+    color: '#EF4444',
+    icono: 'Wallet',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-2',
+    nombre: 'BCP',
+    saldo: 15000,
+    color: '#3B82F6',
+    icono: 'CreditCard',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-3',
+    nombre: 'Interbank',
+    saldo: 8500,
+    color: '#9333EA',
+    icono: 'CreditCard',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-4',
+    nombre: 'BBVA',
+    saldo: 22000,
+    color: '#1E40AF',
+    icono: 'CreditCard',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-5',
+    nombre: 'Yape',
+    saldo: 1200,
+    color: '#F59E0B',
+    icono: 'Smartphone',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-6',
+    nombre: 'Plin',
+    saldo: 800,
+    color: '#06B6D4',
+    icono: 'Smartphone',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'acc-7',
+    nombre: 'Caja Fuerte',
+    saldo: 5000,
+    color: '#10B981',
+    icono: 'Vault',
+    createdAt: new Date('2024-01-01'),
+  },
+];
