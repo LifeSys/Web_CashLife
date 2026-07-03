@@ -11,6 +11,7 @@ export const FIRESTORE_COLLECTIONS = {
   SETTINGS: 'settings',
   CATEGORIES: 'categories',
   CREDIT_CARDS: 'creditCards',
+  WALLETS: 'wallets',
   SUBSCRIPTIONS: 'subscriptions',
 } as const;
 
@@ -36,7 +37,7 @@ export const FIRESTORE_DOCUMENTS = {
  * No se crean cuentas ni tarjetas por defecto.
  * Cada usuario las configura libremente durante el onboarding.
  */
-type DefaultAccount = { nombre: string; tipo: 'cash' | 'bank' | 'wallet' | 'safe_box' | 'debit'; color: string; icono: string };
+type DefaultAccount = { nombre: string; tipo: 'cash' | 'bank' | 'safe_box'; color: string; icono: string };
 
 export const DEFAULT_ACCOUNTS: readonly DefaultAccount[] = [];
 
