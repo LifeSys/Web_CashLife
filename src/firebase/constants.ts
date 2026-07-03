@@ -33,17 +33,12 @@ export const FIRESTORE_DOCUMENTS = {
 } as const;
 
 /**
- * Cuentas por defecto para nuevo usuario
+ * No se crean cuentas ni tarjetas por defecto.
+ * Cada usuario las configura libremente durante el onboarding.
  */
-export const DEFAULT_ACCOUNTS = [
-  { nombre: 'Efectivo', tipo: 'cash', color: '#EF4444', icono: 'Wallet' },
-  { nombre: 'BCP', tipo: 'bank', color: '#3B82F6', icono: 'CreditCard' },
-  { nombre: 'Interbank', tipo: 'bank', color: '#9333EA', icono: 'CreditCard' },
-  { nombre: 'BBVA', tipo: 'bank', color: '#1E40AF', icono: 'CreditCard' },
-  { nombre: 'Yape', tipo: 'wallet', color: '#F59E0B', icono: 'Smartphone' },
-  { nombre: 'Plin', tipo: 'wallet', color: '#06B6D4', icono: 'Smartphone' },
-  { nombre: 'Caja Fuerte', tipo: 'safe_box', color: '#10B981', icono: 'Vault' },
-] as const;
+type DefaultAccount = { nombre: string; tipo: 'cash' | 'bank' | 'wallet' | 'safe_box' | 'debit'; color: string; icono: string };
+
+export const DEFAULT_ACCOUNTS: readonly DefaultAccount[] = [];
 
 /**
  * Categorías por defecto para nuevo usuario
