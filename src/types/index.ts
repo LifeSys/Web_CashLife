@@ -84,6 +84,7 @@ export interface CreditCard {
   fechaCorte: string;
   fechaMaximaPago: string;
   pagoMinimo: number;
+  tasaInteres?: number;
   color: string;
   icono: string;
   createdAt: Timestamp | Date;
