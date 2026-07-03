@@ -1,30 +1,21 @@
+'use client';
+
 import useSWR from 'swr';
 import { categoryService } from '@/services/category.service';
+import { useAuth } from '@/providers/AuthProvider';
 
 export function useCategories() {
-  const { data: categorias = [], isLoading, error } = useSWR(
-    'categories',
-    () => categoryService.getAll(),
-    { revalidateOnFocus: false }
+  const { user } = useAuth();
+  const { data: categorias = [], isLoading, error, mutate } = useSWR(
+    user?.uid ? ['categories', user.uid] : null,
+    () => user?.uid ? categoryService.getAll(user.uid) : null,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
 
   return {
     categorias,
     isLoading,
     error,
-  };
-}
-
-export function useCategoriesByType(type: 'gasto' | 'ingreso') {
-  const { data: categorias = [], isLoading, error } = useSWR(
-    ['categories', type],
-    () => categoryService.getByType(type),
-    { revalidateOnFocus: false }
-  );
-
-  return {
-    categorias,
-    isLoading,
-    error,
+    mutate,
   };
 }

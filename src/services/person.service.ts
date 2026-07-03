@@ -1,69 +1,44 @@
-import type { Person, DebtType } from '@/types';
-import { mockPeople } from '@/lib/mock/people';
+import { Person } from '@/types';
+import { PersonRepository } from '@/lib/repositories/person.repository';
 
 class PersonService {
-  async getAll(): Promise<Person[]> {
-    return Promise.resolve([...mockPeople]);
+  private repository = new PersonRepository();
+
+  async getAll(uid: string): Promise<Person[]> {
+    return this.repository.getAll(uid);
   }
 
-  async getById(id: string): Promise<Person | null> {
-    return Promise.resolve(mockPeople.find(p => p.id === id) || null);
+  async getById(uid: string, id: string): Promise<Person | null> {
+    return this.repository.getById(uid, id);
   }
 
-  async getTotalDebt(debtType?: DebtType): Promise<number> {
-    let people = mockPeople;
-    if (debtType) {
-      people = people.filter(p => p.tipoDeuda === debtType);
+  async getTotalDebt(uid: string, personType?: 'PRESTAMISTA' | 'DEUDOR'): Promise<number> {
+    const people = await this.repository.getAll(uid);
+    let filtered = people;
+    if (personType) {
+      filtered = people.filter(p => p.tipo === personType);
     }
-    return Promise.resolve(
-      people.reduce((sum, person) => sum + person.deuda, 0)
-    );
+    return filtered.reduce((sum, person) => sum + person.deuda, 0);
   }
 
-  async getDebtors(): Promise<Person[]> {
-    return Promise.resolve(
-      mockPeople.filter(p => p.tipoDeuda === 'PRESTADO' && p.deuda > 0)
-    );
+  async getByType(uid: string, type: 'PRESTAMISTA' | 'DEUDOR'): Promise<Person[]> {
+    const people = await this.repository.getAll(uid);
+    return people.filter(p => p.tipo === type && p.deuda > 0);
   }
 
-  async getLenders(): Promise<Person[]> {
-    return Promise.resolve(
-      mockPeople.filter(p => p.tipoDeuda === 'PRESTAMISTA' && p.deuda > 0)
-    );
+  async create(
+    uid: string,
+    person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
+  ): Promise<Person> {
+    return this.repository.create(uid, person);
   }
 
-  async updateDebt(id: string, newDebt: number): Promise<Person | null> {
-    const person = mockPeople.find(p => p.id === id);
-    if (!person) return Promise.resolve(null);
-    
-    person.deuda = newDebt;
-    return Promise.resolve(person);
+  async update(uid: string, id: string, data: Partial<Person>): Promise<Person | null> {
+    return this.repository.update(uid, id, data);
   }
 
-  async create(person: Omit<Person, 'id' | 'createdAt'>): Promise<Person> {
-    const newPerson: Person = {
-      ...person,
-      id: `person-${Date.now()}`,
-      createdAt: new Date(),
-    };
-    mockPeople.push(newPerson);
-    return Promise.resolve(newPerson);
-  }
-
-  async update(id: string, data: Partial<Person>): Promise<Person | null> {
-    const person = mockPeople.find(p => p.id === id);
-    if (!person) return Promise.resolve(null);
-    
-    Object.assign(person, data);
-    return Promise.resolve(person);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const index = mockPeople.findIndex(p => p.id === id);
-    if (index === -1) return Promise.resolve(false);
-    
-    mockPeople.splice(index, 1);
-    return Promise.resolve(true);
+  async delete(uid: string, id: string): Promise<boolean> {
+    return this.repository.delete(uid, id);
   }
 }
 

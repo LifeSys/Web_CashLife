@@ -1,27 +1,15 @@
-import type { Settings } from '@/types';
+import { Settings } from '@/types';
+import { SettingsRepository } from '@/lib/repositories/settings.repository';
 
 class SettingsService {
-  private settings: Settings = {
-    id: 'settings-1',
-    usuarioId: 'user-1',
-    saldoInicial: 50000,
-    moneda: 'PEN',
-    tema: 'oscuro',
-    notificaciones: true,
-    updatedAt: new Date(),
-  };
+  private repository = new SettingsRepository();
 
-  async get(): Promise<Settings> {
-    return Promise.resolve({ ...this.settings });
+  async get(uid: string): Promise<Settings> {
+    return this.repository.get(uid);
   }
 
-  async update(data: Partial<Settings>): Promise<Settings> {
-    this.settings = {
-      ...this.settings,
-      ...data,
-      updatedAt: new Date(),
-    };
-    return Promise.resolve({ ...this.settings });
+  async update(uid: string, data: Partial<Settings>): Promise<Settings> {
+    return this.repository.update(uid, data);
   }
 }
 

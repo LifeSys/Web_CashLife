@@ -5,19 +5,23 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { LoadingSkeleton } from '@/components/common/LoadingSkeleton';
 
-export default function Home() {
+export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/login');
-      }
+    if (!loading && !user) {
+      router.push('/login');
     }
   }, [user, loading, router]);
 
-  return <LoadingSkeleton />;
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  return <>{children}</>;
 }

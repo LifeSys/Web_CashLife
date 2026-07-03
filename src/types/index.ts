@@ -1,61 +1,90 @@
 // Tipos de datos centralizados para CashLife
+import { Timestamp } from 'firebase/firestore';
 
-export type TransactionType = 'GASTO' | 'INGRESO' | 'TRANSFERENCIA' | 'PRESTAMO';
-export type DebtType = 'PRESTADO' | 'PRESTAMISTA' | null;
-
+// User (Perfil del usuario)
 export interface User {
-  id: string;
-  nombre: string;
+  uid: string;
   email: string;
+  nombre: string;
   avatar?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
 }
 
+// Account (Cuenta bancaria/billetera)
 export interface Account {
   id: string;
   nombre: string;
   saldo: number;
+  tipo: 'cash' | 'bank' | 'wallet' | 'safe_box';
   color: string;
   icono: string;
-  createdAt: Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
 }
 
+// Transaction (Movimiento financiero)
 export interface Transaction {
   id: string;
-  tipo: TransactionType;
   monto: number;
+  tipo: 'expense' | 'income' | 'transfer' | 'loan' | 'loan_payment';
   descripcion: string;
-  cuentaId: string;
-  categoriaId: string;
-  personaId?: string;
-  fecha: Date;
+  fecha: Timestamp | Date;
+  cuenta: string; // accountId (relación)
+  categoria?: string; // categoryId (relación)
+  persona?: string; // personId (relación, solo si es préstamo)
   notas?: string;
-  createdAt: Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+  isDeleted: boolean;
+  deletedAt?: Timestamp | Date;
+  deletedBy?: string;
 }
 
-export interface Person {
-  id: string;
-  nombre: string;
-  deuda: number;
-  tipoDeuda: DebtType;
-  transacciones: string[];
-  createdAt: Date;
-}
-
+// Category (Categoría de gasto)
 export interface Category {
   id: string;
   nombre: string;
   icono: string;
   color: string;
-  tipo?: 'gasto' | 'ingreso';
-  createdAt: Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
 }
 
-export interface Settings {
+// Person (Persona para préstamos/deudas)
+export interface Person {
   id: string;
-  usuarioId: string;
+  nombre: string;
+  deuda: number;
+  tipo: 'PRESTAMISTA' | 'DEUDOR';
+  fecha: Timestamp | Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+// Settings (Configuración del usuario)
+export interface Settings {
   saldoInicial: number;
   moneda: string;
   tema: 'oscuro' | 'claro';
   notificaciones: boolean;
-  updatedAt: Date;
+  updatedAt: Timestamp | Date;
+}
+
+// Auth Context
+export interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  signUp(email: string, password: string, nombre: string): Promise<void>;
+  signIn(email: string, password: string): Promise<void>;
+  signOut(): Promise<void>;
+  error?: Error;
 }

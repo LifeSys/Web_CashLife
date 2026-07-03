@@ -1,25 +1,31 @@
+'use client';
+
 import useSWR from 'swr';
 import { transactionService } from '@/services/transaction.service';
+import { useAuth } from '@/providers/AuthProvider';
 import type { Transaction } from '@/types';
 
 export function useTransactions() {
-  const { data: transacciones = [], isLoading, error } = useSWR(
-    'transactions',
-    () => transactionService.getAll(),
-    { revalidateOnFocus: false }
+  const { user } = useAuth();
+  const { data: transacciones = [], isLoading, error, mutate } = useSWR(
+    user?.uid ? ['transactions', user.uid] : null,
+    () => user?.uid ? transactionService.getAll(user.uid) : null,
+    { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
 
   return {
-    transacciones,
+    transacciones: transacciones?.items || [],
     isLoading,
     error,
+    mutate,
   };
 }
 
 export function useTransactionsByDateRange(startDate: Date, endDate: Date) {
+  const { user } = useAuth();
   const { data: transacciones = [], isLoading, error } = useSWR(
-    ['transactions-range', startDate.toISOString(), endDate.toISOString()],
-    () => transactionService.getByDateRange(startDate, endDate),
+    user?.uid ? ['transactions-range', user.uid, startDate.toISOString(), endDate.toISOString()] : null,
+    () => user?.uid ? transactionService.getByDateRange(user.uid, startDate, endDate) : null,
     { revalidateOnFocus: false }
   );
 
@@ -31,9 +37,10 @@ export function useTransactionsByDateRange(startDate: Date, endDate: Date) {
 }
 
 export function useTransactionsByAccount(accountId: string) {
+  const { user } = useAuth();
   const { data: transacciones = [], isLoading, error } = useSWR(
-    ['transactions-account', accountId],
-    () => transactionService.getByAccount(accountId),
+    user?.uid ? ['transactions-account', user.uid, accountId] : null,
+    () => user?.uid ? transactionService.getByAccount(user.uid, accountId) : null,
     { revalidateOnFocus: false }
   );
 

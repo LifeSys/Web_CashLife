@@ -1,21 +1,24 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
-import { useCategoriesByType } from '@/hooks/useCategories';
+import { useCategories } from '@/hooks/useCategories';
 import { usePeople } from '@/hooks/usePeople';
-import type { TransactionType } from '@/types';
+import type { Transaction } from '@/types';
 import { transactionService } from '@/services/transaction.service';
+import { toast } from 'sonner';
 
 interface MovementFormProps {
   onClose: () => void;
 }
 
 export function MovementForm({ onClose }: MovementFormProps) {
-  const { cuentas } = useAccounts();
+  const { user } = useAuth();
+  const { cuentas, mutate: mutateCuentas } = useAccounts();
+  const { categorias } = useCategories();
   const { personas } = usePeople();
-  const [tipo, setTipo] = useState<TransactionType>('GASTO');
-  const { categorias } = useCategoriesByType(tipo === 'INGRESO' ? 'ingreso' : 'gasto');
+  const [tipo, setTipo] = useState<Transaction['tipo']>('expense');
 
   const [formData, setFormData] = useState({
     monto: '',
@@ -36,35 +39,39 @@ export function MovementForm({ onClose }: MovementFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.monto) {
-      alert('Por favor ingresa un monto');
+    if (!formData.monto || !user?.uid) {
+      toast.error('Por favor completa todos los campos');
       return;
     }
 
     try {
-      await transactionService.create({
+      await transactionService.create(user.uid, {
         tipo,
         monto: parseFloat(formData.monto),
         descripcion: formData.descripcion || 'Sin descripción',
-        cuentaId: formData.cuentaId,
-        categoriaId: formData.categoriaId,
-        personaId: formData.personaId || undefined,
+        cuenta: formData.cuentaId,
+        categoria: formData.categoriaId || undefined,
+        persona: formData.personaId || undefined,
         notas: formData.notas || undefined,
         fecha: new Date(),
       });
 
+      // Invalidar cache de cuentas (el saldo cambió)
+      mutateCuentas();
+      
+      toast.success('Movimiento registrado correctamente');
       onClose();
     } catch (error) {
-      console.error('Error registrando movimiento:', error);
-      alert('Error al registrar movimiento');
+      console.error('[v0] Error registrando movimiento:', error);
+      toast.error('Error al registrar movimiento');
     }
   };
 
-  const movementTypes: { value: TransactionType; label: string }[] = [
-    { value: 'GASTO', label: 'Gasto' },
-    { value: 'INGRESO', label: 'Ingreso' },
-    { value: 'PRESTAMO', label: 'Préstamo' },
-    { value: 'TRANSFERENCIA', label: 'Transferencia' },
+  const movementTypes: { value: Transaction['tipo']; label: string }[] = [
+    { value: 'expense', label: 'Gasto' },
+    { value: 'income', label: 'Ingreso' },
+    { value: 'loan', label: 'Préstamo' },
+    { value: 'transfer', label: 'Transferencia' },
   ];
 
   return (
@@ -150,7 +157,7 @@ export function MovementForm({ onClose }: MovementFormProps) {
       </div>
 
       {/* Persona (solo para préstamos) */}
-      {tipo === 'PRESTAMO' && (
+      {tipo === 'loan' && (
         <div>
           <label className="text-sm font-medium">Persona *</label>
           <select

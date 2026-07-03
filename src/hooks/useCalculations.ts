@@ -1,3 +1,5 @@
+'use client';
+
 import { useMemo } from 'react';
 import type { Transaction } from '@/types';
 
@@ -18,31 +20,35 @@ const getMonthDateRange = () => {
   return { startOfMonth, endOfMonth };
 };
 
+const convertToDate = (date: any): Date => {
+  return date instanceof Date ? date : new Date(date);
+};
+
 export function useCalculations(transacciones: Transaction[], saldoTotal?: number) {
   const stats = useMemo(() => {
     const { startOfMonth, endOfMonth } = getMonthDateRange();
 
     const transaccionesDelMes = transacciones.filter(t => {
-      const tDate = new Date(t.fecha);
-      return tDate >= startOfMonth && tDate <= endOfMonth;
+      const tDate = convertToDate(t.fecha);
+      return tDate >= startOfMonth && tDate <= endOfMonth && !t.isDeleted;
     });
 
     const ingresosDelMes = transaccionesDelMes
-      .filter(t => t.tipo === 'INGRESO')
+      .filter(t => t.tipo === 'income')
       .reduce((sum, t) => sum + t.monto, 0);
 
     const gastosDelMes = transaccionesDelMes
-      .filter(t => t.tipo === 'GASTO')
+      .filter(t => t.tipo === 'expense')
       .reduce((sum, t) => sum + t.monto, 0);
 
     const balance = ingresosDelMes - gastosDelMes;
 
     const dineroPrestado = transacciones
-      .filter(t => t.tipo === 'PRESTAMO' && !t.personaId?.includes('person-2') && !t.personaId?.includes('person-5') && !t.personaId?.includes('person-7'))
+      .filter(t => t.tipo === 'loan' && !t.isDeleted)
       .reduce((sum, t) => sum + t.monto, 0);
 
     const dineroPorCobrar = transacciones
-      .filter(t => t.tipo === 'PRESTAMO' && (t.personaId?.includes('person-2') || t.personaId?.includes('person-5') || t.personaId?.includes('person-7')))
+      .filter(t => t.tipo === 'loan_payment' && !t.isDeleted)
       .reduce((sum, t) => sum + t.monto, 0);
 
     return {
@@ -64,18 +70,19 @@ export function useExpensesByCategory(transacciones: Transaction[]) {
     const { startOfMonth, endOfMonth } = getMonthDateRange();
 
     const transaccionesDelMes = transacciones.filter(t => {
-      const tDate = new Date(t.fecha);
-      return tDate >= startOfMonth && tDate <= endOfMonth && t.tipo === 'GASTO';
+      const tDate = convertToDate(t.fecha);
+      return tDate >= startOfMonth && tDate <= endOfMonth && t.tipo === 'expense' && !t.isDeleted;
     });
 
     const byCategory: Record<string, { amount: number; count: number }> = {};
 
     transaccionesDelMes.forEach(t => {
-      if (!byCategory[t.categoriaId]) {
-        byCategory[t.categoriaId] = { amount: 0, count: 0 };
+      const catId = t.categoria || 'sin-categoria';
+      if (!byCategory[catId]) {
+        byCategory[catId] = { amount: 0, count: 0 };
       }
-      byCategory[t.categoriaId].amount += t.monto;
-      byCategory[t.categoriaId].count += 1;
+      byCategory[catId].amount += t.monto;
+      byCategory[catId].count += 1;
     });
 
     return byCategory;
@@ -87,16 +94,18 @@ export function useMonthlyTrend(transacciones: Transaction[]) {
     const months: Record<string, { ingresos: number; gastos: number }> = {};
 
     transacciones.forEach(t => {
-      const date = new Date(t.fecha);
+      if (t.isDeleted) return;
+      
+      const date = convertToDate(t.fecha);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
       if (!months[monthKey]) {
         months[monthKey] = { ingresos: 0, gastos: 0 };
       }
 
-      if (t.tipo === 'INGRESO') {
+      if (t.tipo === 'income') {
         months[monthKey].ingresos += t.monto;
-      } else if (t.tipo === 'GASTO') {
+      } else if (t.tipo === 'expense') {
         months[monthKey].gastos += t.monto;
       }
     });
