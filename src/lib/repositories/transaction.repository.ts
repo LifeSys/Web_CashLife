@@ -180,22 +180,35 @@ export class TransactionRepository extends BaseRepository {
     calculateNewBalance: (currentBalance: number) => number
   ): Promise<Transaction> {
     return await runTransaction(db, async (t) => {
-      // 1. Obtener documento de cuenta
-      const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
-      const accountSnap = await t.get(accountRef);
-      if (!accountSnap.exists()) {
-        throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
+      if (transaction.creditCardId) {
+        const cardRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}/${transaction.creditCardId}`);
+        const cardSnap = await t.get(cardRef);
+        if (!cardSnap.exists()) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
+        const data = cardSnap.data();
+        const currentUsed = (data.usedAmount ?? data.montoUtilizado ?? 0) as number;
+        const nextUsed = currentUsed + transaction.monto;
+        const limit = (data.creditLimit ?? data.lineaCredito ?? 0) as number;
+        t.update(cardRef, { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedAt: Timestamp.now(), updatedBy: uid });
+      } else {
+        // 1. Obtener documento de cuenta real. Si el movimiento vino por billetera,
+        // transaction.cuenta debe ser la cuenta bancaria vinculada, no la billetera.
+        const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
+        const accountSnap = await t.get(accountRef);
+        if (!accountSnap.exists()) {
+          throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
+        }
+
+        const currentSaldo = accountSnap.data().saldo as number;
+        const newSaldo = calculateNewBalance(currentSaldo);
+
+        // 2. Actualizar saldo de cuenta
+        t.update(accountRef, {
+          saldo: newSaldo,
+          balance: newSaldo,
+          updatedAt: Timestamp.now(),
+          updatedBy: uid,
+        });
       }
-
-      const currentSaldo = accountSnap.data().saldo as number;
-      const newSaldo = calculateNewBalance(currentSaldo);
-
-      // 2. Actualizar saldo de cuenta
-      t.update(accountRef, {
-        saldo: newSaldo,
-        updatedAt: Timestamp.now(),
-        updatedBy: uid,
-      });
 
       // 3. Crear documento de transacción
       const txRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`));

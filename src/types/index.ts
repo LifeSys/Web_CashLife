@@ -11,14 +11,19 @@ export interface User {
   updatedAt: Timestamp | Date;
 }
 
-// Account (Cuenta bancaria/billetera)
+// Account (dinero real: efectivo, cuenta bancaria o caja fuerte)
 export interface Account {
   id: string;
-  nombre: string;
-  saldo: number;
-  tipo: 'cash' | 'bank' | 'wallet' | 'safe_box' | 'debit';
-  banco?: string;
+  nombre: string; // legacy alias for name
+  saldo: number; // legacy alias for balance
+  tipo: 'cash' | 'bank' | 'safe_box';
+  banco?: string; // legacy alias for bank
   subtipo?: 'savings' | 'checking';
+  bank?: string;
+  name?: string;
+  balance?: number;
+  currency?: string;
+  hasDebitCard?: boolean;
   color: string;
   icono: string;
   createdAt: Timestamp | Date;
@@ -34,7 +39,9 @@ export interface Transaction {
   tipo: 'expense' | 'income' | 'transfer' | 'loan' | 'loan_payment';
   descripcion: string;
   fecha: Timestamp | Date;
-  cuenta: string; // accountId (relación)
+  cuenta: string; // accountId real afectado (wallets resuelven a linkedAccountId)
+  walletId?: string; // medio de pago digital, no saldo propio
+  creditCardId?: string; // tarjeta de crédito usada para aumentar deuda
   categoria?: string; // categoryId (relación)
   persona?: string; // personId (relación, solo si es préstamo)
   notas?: string;
@@ -74,17 +81,37 @@ export interface Person {
 
 
 
-// CreditCard (Tarjeta de crédito independiente)
+export interface Wallet {
+  id: string;
+  type: 'Yape' | 'Plin' | 'Otra';
+  linkedAccountId: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+// CreditCard (Tarjeta de crédito independiente: deuda, no saldo de cuenta)
 export interface CreditCard {
   id: string;
-  banco: string;
-  nombre: string;
-  lineaCredito: number;
-  montoUtilizado: number;
-  fechaCorte: string;
-  fechaMaximaPago: string;
-  pagoMinimo: number;
-  tasaInteres?: number;
+  banco: string; // legacy alias for bank
+  nombre: string; // legacy alias for name
+  lineaCredito: number; // legacy alias for creditLimit
+  montoUtilizado: number; // legacy alias for usedAmount
+  fechaCorte: string; // legacy alias for cutDay
+  fechaMaximaPago: string; // legacy alias for paymentDay
+  pagoMinimo: number; // legacy alias for minimumPayment
+  tasaInteres?: number; // legacy alias for interestRate
+  bank?: string;
+  name?: string;
+  brand?: 'Visa' | 'Mastercard' | 'American Express' | 'Diners' | 'Otra';
+  creditLimit?: number;
+  usedAmount?: number;
+  availableAmount?: number;
+  cutDay?: number;
+  paymentDay?: number;
+  minimumPayment?: number;
+  interestRate?: number;
   color: string;
   icono: string;
   createdAt: Timestamp | Date;

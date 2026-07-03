@@ -1,6 +1,7 @@
 import { Transaction } from '@/types';
 import { TransactionRepository } from '@/lib/repositories/transaction.repository';
 import { PaginationOptions } from '@/lib/repositories/base.repository';
+import { walletService } from '@/services/wallet.service';
 
 /**
  * Lógica de negocio para transacciones
@@ -45,9 +46,18 @@ class TransactionService {
     uid: string,
     transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>
   ): Promise<Transaction> {
+    const normalizedTransaction = { ...transaction };
+    if (normalizedTransaction.walletId) {
+      const wallets = await walletService.getAll(uid);
+      const wallet = wallets.find((item) => item.id === normalizedTransaction.walletId);
+      if (!wallet) throw new Error('Billetera no encontrada');
+      normalizedTransaction.cuenta = wallet.linkedAccountId;
+    }
+
     // Función que calcula el nuevo saldo según el tipo de transacción
     const calculateNewBalance = (currentBalance: number): number => {
-      switch (transaction.tipo) {
+      if (normalizedTransaction.creditCardId && normalizedTransaction.tipo !== 'loan_payment') return currentBalance;
+      switch (normalizedTransaction.tipo) {
         case 'expense':
           return currentBalance - transaction.monto;
         case 'income':
@@ -63,7 +73,7 @@ class TransactionService {
       }
     };
 
-    return this.repository.create(uid, transaction, calculateNewBalance);
+    return this.repository.create(uid, normalizedTransaction, calculateNewBalance);
   }
 
   async update(uid: string, id: string, data: Partial<Transaction>): Promise<Transaction | null> {
