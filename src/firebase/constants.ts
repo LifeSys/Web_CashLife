@@ -10,6 +10,8 @@ export const FIRESTORE_COLLECTIONS = {
   PEOPLE: 'people',
   SETTINGS: 'settings',
   CATEGORIES: 'categories',
+  CREDIT_CARDS: 'creditCards',
+  SUBSCRIPTIONS: 'subscriptions',
 } as const;
 
 /**
@@ -67,4 +69,5 @@ export const DEFAULT_SETTINGS = {
   moneda: 'PEN',
   tema: 'oscuro',
   notificaciones: true,
+  onboardingCompleted: false,
 } as const;

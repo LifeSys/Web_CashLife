@@ -16,7 +16,9 @@ export interface Account {
   id: string;
   nombre: string;
   saldo: number;
-  tipo: 'cash' | 'bank' | 'wallet' | 'safe_box';
+  tipo: 'cash' | 'bank' | 'wallet' | 'safe_box' | 'debit';
+  banco?: string;
+  subtipo?: 'savings' | 'checking';
   color: string;
   icono: string;
   createdAt: Timestamp | Date;
@@ -70,13 +72,49 @@ export interface Person {
   updatedBy: string;
 }
 
+
+
+// CreditCard (Tarjeta de crédito independiente)
+export interface CreditCard {
+  id: string;
+  banco: string;
+  nombre: string;
+  lineaCredito: number;
+  montoUtilizado: number;
+  fechaCorte: string;
+  fechaMaximaPago: string;
+  pagoMinimo: number;
+  color: string;
+  icono: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+// Subscription (Pago recurrente)
+export interface Subscription {
+  id: string;
+  nombre: string;
+  monto: number;
+  frecuencia: 'monthly' | 'weekly' | 'yearly';
+  fechaVencimiento: string;
+  cuentaId?: string;
+  activo: boolean;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
 // Settings (Configuración del usuario)
 export interface Settings {
   saldoInicial: number;
   moneda: string;
   tema: 'oscuro' | 'claro';
   notificaciones: boolean;
-  updatedAt: Timestamp | Date;
+  onboardingCompleted: boolean;
+  updatedAt?: Timestamp | Date;
 }
 
 // Auth Context
