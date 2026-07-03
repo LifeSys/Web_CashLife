@@ -45,7 +45,7 @@ export function useOnboarding() {
     createAccount: (account: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => run('Cuenta guardada', (uid) => accountService.create(uid, account)),
     createCreditCard: (card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => run('Tarjeta guardada', (uid) => creditCardService.create(uid, card)),
     createSubscription: (subscription: Omit<Subscription, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => run('Pago recurrente guardado', (uid) => subscriptionService.create(uid, subscription)),
-    createPerson: (person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => run('Préstamo guardado', (uid) => personService.create(uid, person)),
+    createPerson: (person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) => run('Registro guardado', (uid) => personService.create(uid, person)),
     complete: () => run('Onboarding completado', (uid) => settingsService.update(uid, { onboardingCompleted: true })),
   };
 }
