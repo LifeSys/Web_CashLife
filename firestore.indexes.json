@@ -1,0 +1,91 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "tipo",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "cuenta",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transactions",
+      "queryScope": "Collection",
+      "fields": [
+        {
+          "fieldPath": "isDeleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "persona",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "fecha",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

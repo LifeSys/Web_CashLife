@@ -172,8 +172,13 @@ export class TransactionRepository extends BaseRepository {
   /**
    * OPERACIÓN ATÓMICA: Crear transacción y actualizar saldo de cuenta
    * Si ocurre un error, TODO se revierte
+   * @param calculateNewBalance Función que calcula el nuevo saldo
    */
-  async create(uid: string, transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>): Promise<Transaction> {
+  async create(
+    uid: string,
+    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>,
+    calculateNewBalance: (currentBalance: number) => number
+  ): Promise<Transaction> {
     return await runTransaction(db, async (t) => {
       // 1. Obtener documento de cuenta
       const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
@@ -183,35 +188,16 @@ export class TransactionRepository extends BaseRepository {
       }
 
       const currentSaldo = accountSnap.data().saldo as number;
-      let newSaldo = currentSaldo;
+      const newSaldo = calculateNewBalance(currentSaldo);
 
-      // 2. Calcular nuevo saldo según tipo de transacción
-      switch (transaction.tipo) {
-        case 'expense':
-          newSaldo = currentSaldo - transaction.monto;
-          break;
-        case 'income':
-          newSaldo = currentSaldo + transaction.monto;
-          break;
-        case 'transfer':
-          newSaldo = currentSaldo - transaction.monto;
-          break;
-        case 'loan':
-          newSaldo = currentSaldo - transaction.monto;
-          break;
-        case 'loan_payment':
-          newSaldo = currentSaldo + transaction.monto;
-          break;
-      }
-
-      // 3. Actualizar saldo de cuenta
+      // 2. Actualizar saldo de cuenta
       t.update(accountRef, {
         saldo: newSaldo,
         updatedAt: Timestamp.now(),
         updatedBy: uid,
       });
 
-      // 4. Crear documento de transacción
+      // 3. Crear documento de transacción
       const txRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`));
       const txData = this.createAuditedData(
         {
@@ -223,7 +209,7 @@ export class TransactionRepository extends BaseRepository {
 
       t.set(txRef, txData);
 
-      // 5. Retornar transacción creada
+      // 4. Retornar transacción creada
       return {
         id: txRef.id,
         ...this.convertTimestampsToDate(txData),
@@ -298,14 +284,14 @@ export class TransactionRepository extends BaseRepository {
           break;
       }
 
-      // 4. Actualizar saldo
+      // 4. Actualizar saldo en la cuenta
       t.update(accountRef, {
         saldo: revertedSaldo,
         updatedAt: Timestamp.now(),
         updatedBy: uid,
       });
 
-      // 5. Soft delete de transacción
+      // 5. Marcar transacción como soft-deleted (NUNCA eliminar)
       t.update(txRef, {
         isDeleted: true,
         deletedAt: Timestamp.now(),

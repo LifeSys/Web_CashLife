@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ========== AUTENTICACIÓN REQUERIDA ==========
+    // Solo usuarios autenticados pueden acceder
+    
+    // ========== USUARIOS Y SUS DATOS ==========
+    // Estructura: users/{uid}/profile, users/{uid}/settings, users/{uid}/{subcollections}
+    match /users/{uid} {
+      // Usuario solo puede leer y escribir sus propios datos
+      allow read, write: if request.auth.uid == uid;
+      
+      // Documentos de perfil y settings
+      match /{document=**} {
+        allow read, write: if request.auth.uid == uid;
+      }
+      
+      // Transacciones (subcollección)
+      // - Validar que no se modifique monto, cuenta después de crear
+      // - Validar que solo se pueda hacer soft-delete
+      match /transactions/{transaction} {
+        allow read: if request.auth.uid == uid;
+        allow create: if request.auth.uid == uid 
+          && request.resource.data.tipo in ['expense', 'income', 'transfer', 'loan', 'loan_payment']
+          && request.resource.data.monto > 0
+          && request.resource.data.cuenta != null;
+        allow update: if request.auth.uid == uid
+          && !('monto' in request.resource.data.keys() || 'cuenta' in request.resource.data.keys())
+          && (request.resource.data.isDeleted == true || resource.data.isDeleted == false);
+        allow delete: if false; // Nunca eliminar, solo soft-delete
+      }
+      
+      // Cuentas (subcollección)
+      match /accounts/{account} {
+        allow read: if request.auth.uid == uid;
+        allow create: if request.auth.uid == uid 
+          && request.resource.data.nombre != null
+          && request.resource.data.saldo >= 0;
+        allow update: if request.auth.uid == uid;
+        allow delete: if false; // No permitir eliminación de cuentas
+      }
+      
+      // Categorías (subcollección)
+      match /categories/{category} {
+        allow read: if request.auth.uid == uid;
+        allow create: if request.auth.uid == uid 
+          && request.resource.data.nombre != null;
+        allow update: if request.auth.uid == uid;
+        allow delete: if false; // No permitir eliminación de categorías
+      }
+      
+      // Personas (subcollección)
+      match /people/{person} {
+        allow read: if request.auth.uid == uid;
+        allow create: if request.auth.uid == uid 
+          && request.resource.data.nombre != null;
+        allow update: if request.auth.uid == uid;
+        allow delete: if request.auth.uid == uid;
+      }
+    }
+    
+    // ========== DENEGAR TODO LO DEMÁS ==========
+    // Protección por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
