@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { OperationModal } from '@/components/common/OperationModal';
+import { EventFormModal } from '@/components/events/EventFormModal';
 
 export function FloatingActionButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -47,7 +47,7 @@ export function FloatingActionButton() {
             </button>
 
             {/* Modal Content */}
-            <OperationModal onClose={() => setIsOpen(false)} />
+            <EventFormModal onClose={() => setIsOpen(false)} />
           </div>
         </div>
       )}
