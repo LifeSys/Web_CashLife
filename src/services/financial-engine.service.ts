@@ -2,6 +2,7 @@ import { Transaction } from '@/types';
 import { transactionService } from './transaction.service';
 import { receivableService, payableService, scheduledPaymentService } from './financial.service';
 import { EventoFinanciero, EventoFinancieroTipo } from '@/types/EventTypes';
+import { eventLogger } from './event-logger.service';
 
 export type TransactionInput = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>;
 
@@ -103,6 +104,7 @@ class FinancialEngineService {
    * Orquesta la creación de transacciones y obligaciones según el tipo de evento
    */
   async procesarEvento(uid: string, evento: EventoFinanciero) {
+    const startTime = performance.now();
     try {
       switch (evento.tipo) {
         // MOVIMIENTO DE DINERO
@@ -237,8 +239,15 @@ class FinancialEngineService {
         default:
           throw new Error(`Tipo de evento desconocido: ${evento.tipo}`);
       }
+
+      // Log exitoso
+      const duracion = performance.now() - startTime;
+      eventLogger.logEvento(uid, evento, true, duracion);
     } catch (error) {
+      const duracion = performance.now() - startTime;
+      const err = error instanceof Error ? error : new Error('Error desconocido');
       console.error('[FinancialEngine] Error procesando evento:', error);
+      eventLogger.logEvento(uid, evento, false, duracion, err);
       throw error;
     }
   }
