@@ -1,16 +1,54 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Landmark, Users, HandCoins, Building2, CreditCard, TrendingUp, TrendingDown, Wallet, CalendarClock, Send, Download, LogOut } from 'lucide-react';
+import {
+  Landmark,
+  Users,
+  HandCoins,
+  Building2,
+  CreditCard,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  CalendarClock,
+  Send,
+  Download,
+  LogOut,
+  ArrowUpRight,
+  ArrowDownLeft,
+} from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
-import { usePayableObligations, useReceivableDebts, useScheduledPayments } from '@/hooks/useFinancial';
+import {
+  usePayableObligations,
+  useReceivableDebts,
+  useScheduledPayments,
+} from '@/hooks/useFinancial';
 import { useCreditCards } from '@/hooks/useCreditCards';
-import { DashboardMetric, SectionHeader, TimelineItem, EmptyState } from '@/components/design-system';
+import {
+  DashboardMetric,
+  SectionHeader,
+  TimelineItem,
+  EmptyState,
+  ActionGrid,
+  StatisticsCard,
+  ContainerCard,
+} from '@/components/design-system';
 import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
 
-const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
-const toDate = (value: unknown) => value instanceof Date ? value : value && typeof value === 'object' && 'toDate' in value ? (value as { toDate(): Date }).toDate() : new Date(String(value));
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('es-PE', {
+    style: 'currency',
+    currency: 'PEN',
+  }).format(value || 0);
+const toDate = (value: unknown) =>
+  value instanceof Date
+    ? value
+    : value &&
+        typeof value === 'object' &&
+        'toDate' in value
+      ? (value as { toDate(): Date }).toDate()
+      : new Date(String(value));
 
 export default function DashboardPage() {
   const { transacciones } = useTransactions();
@@ -41,83 +79,112 @@ export default function DashboardPage() {
   const greeting = today.getHours() < 12 ? 'Buenos días' : today.getHours() < 18 ? 'Buenas tardes' : 'Buenas noches';
 
   return (
-    <div className="space-y-8 p-4 md:p-6 max-w-7xl mx-auto">
-      {/* BLOQUE 1: Encabezado Premium */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
+      {/* BLOQUE 1: Encabezado Premium con saludo */}
+      <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold">{greeting}</h1>
-          <p className="text-muted-foreground mt-1">
-            {today.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            {greeting}
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm md:text-base">
+            {today.toLocaleDateString('es-PE', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}
           </p>
         </div>
       </div>
 
-      {/* BLOQUE 2: Resumen Financiero Principal (4 Métricas) */}
-      <div>
-        <SectionHeader title="Resumen Financiero" />
+      {/* BLOQUE 2: Resumen Financiero Principal (4 Métricas Mejoradas) */}
+      <div className="space-y-6">
+        <SectionHeader title="Resumen Financiero" subtitle="Estado actual de tu patrimonio" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <DashboardMetric
             label="Dinero Disponible"
             value={formatCurrency(data.availableMoney)}
             icon={<Wallet className="w-5 h-5" />}
             variant="success"
+            animated
           />
           <DashboardMetric
             label="Patrimonio Neto"
             value={formatCurrency(data.netWorth)}
             icon={<Landmark className="w-5 h-5" />}
             variant="primary"
+            animated
           />
           <DashboardMetric
             label="Me Deben"
             value={formatCurrency(data.receivableTotal)}
             icon={<Users className="w-5 h-5" />}
             variant="info"
+            animated
           />
           <DashboardMetric
             label="Total Debo"
             value={formatCurrency(data.totalDebt)}
             icon={<HandCoins className="w-5 h-5" />}
             variant="warning"
+            animated
           />
         </div>
       </div>
 
       {/* BLOQUE 3: Actividad Reciente */}
-      <div>
-        <SectionHeader title="Actividad Reciente" subtitle={`${transacciones.length} movimientos`} />
+      <div className="space-y-6">
+        <SectionHeader
+          title="Actividad Reciente"
+          subtitle={`${transacciones.length} movimientos este mes`}
+        />
         {transacciones.length > 0 ? (
-          <div className="bg-card border border-border rounded-2xl p-6">
+          <ContainerCard padding="lg" shadow="md">
             <RecentTransactions transactions={transacciones.slice(0, 6)} />
-          </div>
+          </ContainerCard>
         ) : (
           <EmptyState
             icon="📊"
             title="Sin movimientos aún"
-            description="Crea tu primer movimiento para comenzar"
+            description="Registra tu primer movimiento para comenzar"
             action={{ label: 'Crear movimiento', onClick: () => {} }}
+            size="md"
           />
         )}
       </div>
 
       {/* BLOQUE 4: Próximos Pagos */}
-      <div>
-        <SectionHeader title="Próximos Pagos" subtitle={`${data.upcoming.length} pagos activos`} />
+      <div className="space-y-6">
+        <SectionHeader
+          title="Próximos Pagos"
+          subtitle={`${data.upcoming.length} obligaciones pendientes`}
+        />
         {data.upcoming.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {data.upcoming.map((payment) => (
-              <div key={payment.id} className="bg-card border border-border rounded-2xl p-6">
+              <ContainerCard
+                key={payment.id}
+                padding="lg"
+                shadow="md"
+                className="hover:shadow-lg transition-all duration-200"
+              >
                 <div className="flex items-start justify-between mb-4">
                   <div>
-                    <p className="text-sm text-muted-foreground">{payment.name}</p>
-                    <p className="text-2xl font-bold mt-2">{formatCurrency(payment.amount)}</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                      {payment.name}
+                    </p>
+                    <p className="text-2xl font-bold mt-3">
+                      {formatCurrency(payment.amount)}
+                    </p>
                   </div>
-                  <CalendarClock className="w-5 h-5 text-amber-500" />
+                  <div className="p-3 bg-amber-500/10 rounded-lg">
+                    <CalendarClock className="w-5 h-5 text-amber-500" />
+                  </div>
                 </div>
-                <button className="w-full bg-primary text-primary-foreground font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors text-sm">
+                <button className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 text-sm active:scale-95">
                   Pagar ahora
                 </button>
-              </div>
+              </ContainerCard>
             ))}
           </div>
         ) : (
@@ -125,49 +192,83 @@ export default function DashboardPage() {
             icon="✓"
             title="Sin pagos próximos"
             description="Todas tus obligaciones están al día"
+            size="md"
           />
         )}
       </div>
 
       {/* BLOQUE 5: Accesos Rápidos */}
-      <div>
-        <SectionHeader title="Accesos Rápidos" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all flex flex-col items-center gap-3">
-            <Send className="w-6 h-6 text-blue-500" />
-            <span className="text-sm font-semibold">Transferir</span>
-          </button>
-          <button className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all flex flex-col items-center gap-3">
-            <Download className="w-6 h-6 text-green-500" />
-            <span className="text-sm font-semibold">Depositar</span>
-          </button>
-          <button className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all flex flex-col items-center gap-3">
-            <LogOut className="w-6 h-6 text-red-500" />
-            <span className="text-sm font-semibold">Retirar</span>
-          </button>
-          <button className="bg-card border border-border rounded-2xl p-6 hover:shadow-md transition-all flex flex-col items-center gap-3">
-            <CreditCard className="w-6 h-6 text-purple-500" />
-            <span className="text-sm font-semibold">Facturación</span>
-          </button>
-        </div>
+      <div className="space-y-6">
+        <SectionHeader title="Accesos Rápidos" subtitle="Tus acciones más utilizadas" />
+        <ActionGrid
+          actions={[
+            {
+              id: 'transfer',
+              icon: <Send className="w-5 h-5" />,
+              label: 'Transferir',
+              onClick: () => {},
+            },
+            {
+              id: 'deposit',
+              icon: <Download className="w-5 h-5" />,
+              label: 'Depositar',
+              onClick: () => {},
+            },
+            {
+              id: 'withdraw',
+              icon: <LogOut className="w-5 h-5" />,
+              label: 'Retirar',
+              onClick: () => {},
+            },
+            {
+              id: 'billing',
+              icon: <CreditCard className="w-5 h-5" />,
+              label: 'Facturación',
+              onClick: () => {},
+            },
+          ]}
+          columns={4}
+          gap="md"
+        />
       </div>
 
-      {/* BLOQUE 6: Métricas Secundarias (opcional en móvil) */}
-      <div className="hidden lg:block">
-        <SectionHeader title="Otras Métricas" />
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <p className="text-sm text-muted-foreground mb-2">Ingresos Mes</p>
-            <p className="text-2xl font-bold text-green-500">{formatCurrency(data.monthIncome)}</p>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <p className="text-sm text-muted-foreground mb-2">Gastos Mes</p>
-            <p className="text-2xl font-bold text-red-500">{formatCurrency(data.monthExpenses)}</p>
-          </div>
-          <div className="bg-card border border-border rounded-2xl p-6">
-            <p className="text-sm text-muted-foreground mb-2">Tarjetas Utilizadas</p>
-            <p className="text-2xl font-bold text-purple-500">{formatCurrency(data.creditUsed)}</p>
-          </div>
+      {/* BLOQUE 6: Métricas Secundarias (Ingresos, Gastos, Tarjetas) */}
+      <div className="space-y-6">
+        <SectionHeader title="Estadísticas del Mes" subtitle="Resumen de ingresos y gastos" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <StatisticsCard
+            title="Ingresos"
+            icon={<ArrowDownLeft className="w-5 h-5" />}
+            variant="success"
+            data={[
+              {
+                value: formatCurrency(data.monthIncome),
+                label: 'Total',
+              },
+            ]}
+          />
+          <StatisticsCard
+            title="Gastos"
+            icon={<ArrowUpRight className="w-5 h-5" />}
+            variant="danger"
+            data={[
+              {
+                value: formatCurrency(data.monthExpenses),
+                label: 'Total',
+              },
+            ]}
+          />
+          <StatisticsCard
+            title="Tarjetas"
+            icon={<CreditCard className="w-5 h-5" />}
+            variant="info"
+            data={[
+              {
+                value: formatCurrency(data.creditUsed),
+                label: 'Utilizado',
+              },
+            ]}
+          />
         </div>
       </div>
     </div>
