@@ -44,10 +44,13 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
     fechaVencimiento: '',
     acreedor: '',
     tipoAcreedor: 'person' as const,
+    medioPago: '' as 'efectivo' | 'cuenta_bancaria' | 'tarjeta_credito' | '',
   });
 
   const montoRef = useRef<HTMLInputElement>(null);
   const cashAccounts = useMemo(() => cuentas.filter((cuenta) => cuenta.tipo !== 'credit_card'), [cuentas]);
+  const efectivoAccounts = useMemo(() => cuentas.filter((cuenta) => cuenta.tipo === 'cash'), [cuentas]);
+  const bankAccounts = useMemo(() => cuentas.filter((cuenta) => cuenta.tipo === 'bank'), [cuentas]);
 
   // Agrupar eventos por categoría
   const eventosPorCategoria = useMemo(() => {
@@ -99,6 +102,20 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
   const selectedDebt = debts.find((d) => d.id === formData.deudaId);
   const selectedObligation = obligations.find((o) => o.id === formData.obligacionId);
 
+  // Obtener cuentas según medio de pago seleccionado
+  const getAccountsByPaymentMethod = (method: string) => {
+    switch (method) {
+      case 'efectivo':
+        return efectivoAccounts;
+      case 'cuenta_bancaria':
+        return bankAccounts;
+      case 'tarjeta_credito':
+        return []; // Las tarjetas se manejan aparte
+      default:
+        return cashAccounts;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -113,16 +130,32 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
       // Validar y crear evento según tipo
       switch (tipoEvento) {
         case EventoFinancieroTipo.GASTO:
-          if (!formData.cuentaId) return toast.error('Selecciona una cuenta');
+          if (!formData.medioPago) return toast.error('Selecciona un medio de pago');
           if (!formData.categoriaId) return toast.error('Selecciona una categoría');
-          evento = EventBuilder.crearGasto(
-            monto,
-            formData.cuentaId,
-            formData.categoriaId,
-            formData.descripcion,
-            new Date(),
-            formData.notas
-          );
+          
+          // Si el gasto es con tarjeta de crédito, crear evento CARGO_TARJETA en lugar de GASTO
+          if (formData.medioPago === 'tarjeta_credito') {
+            if (!formData.tarjetaId) return toast.error('Selecciona una tarjeta');
+            evento = EventBuilder.crearCargoTarjeta(
+              monto,
+              formData.tarjetaId,
+              formData.categoriaId,
+              formData.descripcion,
+              new Date(),
+              formData.notas
+            );
+          } else {
+            // Gasto normal con efectivo o cuenta bancaria
+            if (!formData.cuentaId) return toast.error('Selecciona una cuenta');
+            evento = EventBuilder.crearGasto(
+              monto,
+              formData.cuentaId,
+              formData.categoriaId,
+              formData.descripcion,
+              new Date(),
+              formData.notas
+            );
+          }
           break;
 
         case EventoFinancieroTipo.INGRESO:
@@ -282,22 +315,99 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
     switch (tipoEvento) {
       case EventoFinancieroTipo.GASTO:
       case EventoFinancieroTipo.INGRESO:
+        // Selector de medio de pago para GASTO
+        if (tipoEvento === EventoFinancieroTipo.GASTO) {
+          campos.push(
+            <div key="medioPago">
+              <label className="text-sm font-medium">¿Cómo realizaste este gasto?</label>
+              <select
+                value={formData.medioPago}
+                onChange={(e) => 
+                  setFormData((p) => ({
+                    ...p,
+                    medioPago: e.target.value as 'efectivo' | 'cuenta_bancaria' | 'tarjeta_credito' | '',
+                    cuentaId: '', // Limpiar selección anterior
+                    tarjetaId: '',
+                  }))
+                }
+                className="w-full rounded-lg border bg-muted px-4 py-3"
+              >
+                <option value="">Selecciona un medio de pago</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="cuenta_bancaria">Cuenta Bancaria</option>
+                <option value="tarjeta_credito">Tarjeta de Crédito</option>
+              </select>
+            </div>
+          );
+        }
+
+        // Mostrar selector de cuentas o tarjetas según el medio de pago
+        if (tipoEvento === EventoFinancieroTipo.INGRESO || formData.medioPago) {
+          if (tipoEvento === EventoFinancieroTipo.INGRESO) {
+            // Para INGRESO, siempre mostrar selector de cuentas
+            campos.push(
+              <div key="cuenta">
+                <label className="text-sm font-medium">Cuenta</label>
+                <select
+                  value={formData.cuentaId}
+                  onChange={(e) => setFormData((p) => ({ ...p, cuentaId: e.target.value }))}
+                  className="w-full rounded-lg border bg-muted px-4 py-3"
+                >
+                  <option value="">Selecciona una cuenta</option>
+                  {cashAccounts.map((cuenta) => (
+                    <option key={cuenta.id} value={cuenta.id}>
+                      {cuenta.nombre} · S/{cuenta.saldo ?? cuenta.balance ?? 0}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          } else if (formData.medioPago === 'tarjeta_credito') {
+            // Para GASTO con tarjeta: mostrar selector de tarjetas
+            campos.push(
+              <div key="tarjeta">
+                <label className="text-sm font-medium">Tarjeta de Crédito</label>
+                <select
+                  value={formData.tarjetaId}
+                  onChange={(e) => setFormData((p) => ({ ...p, tarjetaId: e.target.value }))}
+                  className="w-full rounded-lg border bg-muted px-4 py-3"
+                >
+                  <option value="">Selecciona una tarjeta</option>
+                  {creditCards.map((card) => (
+                    <option key={card.id} value={card.id}>
+                      {card.nombre} · usado S/{card.usedAmount ?? card.montoUtilizado ?? 0}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          } else {
+            // Para GASTO con efectivo o cuenta bancaria: mostrar cuentas filtradas
+            const cuentasDisponibles = getAccountsByPaymentMethod(formData.medioPago);
+            campos.push(
+              <div key="cuenta">
+                <label className="text-sm font-medium">
+                  {formData.medioPago === 'efectivo' ? 'Caja/Efectivo' : 'Cuenta Bancaria'}
+                </label>
+                <select
+                  value={formData.cuentaId}
+                  onChange={(e) => setFormData((p) => ({ ...p, cuentaId: e.target.value }))}
+                  className="w-full rounded-lg border bg-muted px-4 py-3"
+                >
+                  <option value="">Selecciona una cuenta</option>
+                  {cuentasDisponibles.map((cuenta) => (
+                    <option key={cuenta.id} value={cuenta.id}>
+                      {cuenta.nombre} · S/{cuenta.saldo ?? cuenta.balance ?? 0}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          }
+        }
+
+        // Mostrar selector de categoría
         campos.push(
-          <div key="cuenta">
-            <label className="text-sm font-medium">Cuenta</label>
-            <select
-              value={formData.cuentaId}
-              onChange={(e) => setFormData((p) => ({ ...p, cuentaId: e.target.value }))}
-              className="w-full rounded-lg border bg-muted px-4 py-3"
-            >
-              <option value="">Selecciona una cuenta</option>
-              {cashAccounts.map((cuenta) => (
-                <option key={cuenta.id} value={cuenta.id}>
-                  {cuenta.nombre} · S/{cuenta.saldo ?? cuenta.balance ?? 0}
-                </option>
-              ))}
-            </select>
-          </div>,
           <div key="categoria">
             <label className="text-sm font-medium">Categoría</label>
             <select
