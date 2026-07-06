@@ -8,7 +8,7 @@ export class CreditCardRepository extends BaseRepository {
   async getAll(uid: string): Promise<CreditCard[]> {
     const q = query(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}`), orderBy('nombre', 'asc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ ...this.convertTimestampsToDate(doc.data() as CreditCard), id: doc.id } as CreditCard));
+    return snapshot.docs.map((doc) => (this.withDocId<CreditCard>(doc.id, doc.data())));
   }
 
   async create(uid: string, card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<CreditCard> {

@@ -1,32 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { PlusCircle } from 'lucide-react';
+import { useAuth } from '@/providers/AuthProvider';
+import { useAccounts } from '@/hooks/useAccounts';
 import { useScheduledPayments } from '@/hooks/useFinancial';
+import { scheduledPaymentService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 
-const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
-
-export default function Page() {
-  const { scheduledPayments } = useScheduledPayments();
-  const total = scheduledPayments.reduce((sum, item) => sum + (item.amount || 0), 0);
-
-  return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Pagos Programados</h1>
-          <p className="text-muted-foreground">Recordatorios locales sin descuento automático</p>
-        </div>
-        <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><PlusCircle className="h-4 w-4" /> Nuevo registro</button>
-      </div>
-      <div className="rounded-xl border border-border bg-card p-4"><p className="text-sm text-muted-foreground">Total consolidado</p><p className="text-3xl font-bold">{formatCurrency(total)}</p></div>
-      <div className="grid gap-4">
-        {scheduledPayments.map((item) => (
-          <article key={item.id} className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-start justify-between gap-4"><div><h2 className="font-bold">{item.name}</h2><p className="text-sm text-muted-foreground">{'status' in item ? `Estado: ${item.status}` : 'Registro financiero'}</p></div><strong>{formatCurrency(item.amount)}</strong></div>
-          </article>
-        ))}
-        {!scheduledPayments.length && <div className="rounded-xl border border-dashed border-border p-8 text-center text-muted-foreground">Aún no hay registros. Usa el botón “Nuevo registro” para empezar.</div>}
-      </div>
-    </div>
-  );
-}
+const money=(n:number)=>new Intl.NumberFormat('es-PE',{style:'currency',currency:'PEN'}).format(n||0);
+const currentPeriod=()=>{const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
+export default function Page(){const {user}=useAuth(); const {cuentas}=useAccounts(); const {scheduledPayments,mutate}=useScheduledPayments(); const [name,setName]=useState(''); const [amount,setAmount]=useState(''); const [day,setDay]=useState('23'); const [account,setAccount]=useState(''); const [period,setPeriod]=useState(currentPeriod()); const create=async()=>{if(!user?.uid||!name)return; await scheduledPaymentService.create(user.uid,{name,amount:Number(amount||0),category:'Otros',dueDay:Number(day||1),frequency:'monthly',active:true,reminders:[],suggestedAccountId:account||undefined}); setName('');setAmount(''); mutate();}; const pay=async(id:string,suggested?:string)=>{if(!user?.uid)return; const accountId=prompt('ID de cuenta desde donde pagar', suggested||account||cuentas[0]?.id||'')||''; if(accountId){await financialEngine.payScheduledPayment(user.uid,{paymentId:id,period,accountId}); mutate();}}; return <div className="space-y-6 p-4 md:p-6"><div><h1 className="text-2xl md:text-3xl font-bold">Pagos Programados</h1><p className="text-muted-foreground">Libreta mensual con historial por periodo.</p></div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_130px_90px_1fr_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Movistar" value={name} onChange={e=>setName(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" placeholder="109.90" value={amount} onChange={e=>setAmount(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" value={day} onChange={e=>setDay(e.target.value)}/><select className="rounded border bg-muted px-3 py-2" value={account} onChange={e=>setAccount(e.target.value)}><option value="">Cuenta sugerida</option>{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select><button onClick={create} className="rounded bg-primary px-4 py-2 text-primary-foreground"><PlusCircle className="inline h-4 w-4"/> Crear</button></section><div className="flex gap-2 items-center"><label>Periodo:</label><input className="rounded border bg-muted px-3 py-2" value={period} onChange={e=>setPeriod(e.target.value)} /></div><div className="grid gap-4">{scheduledPayments.map(p=><article key={p.id} className="rounded-xl border bg-card p-4"><div className="flex justify-between"><div><h2 className="font-bold">{p.name}</h2><p className="text-sm text-muted-foreground">Mensual · día {p.dueDay} · periodo {period}: Pendiente/Pagado/Vencido/Omitido</p></div><div className="text-right"><b>{money(p.amount)}</b><br/><button onClick={()=>pay(p.id,p.suggestedAccountId)} className="text-primary font-bold">Marcar pagado</button></div></div><p className="mt-3 text-xs text-muted-foreground">Historial: users/{'{uid}'}/scheduledPayments/{p.id}/periods/{'{yyyyMM}'}</p></article>)}</div></div>}

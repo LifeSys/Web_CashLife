@@ -23,10 +23,7 @@ export class CategoryRepository extends BaseRepository {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Category),
-    } as Category));
+    return snapshot.docs.map((doc) => (this.withDocId<Category>(doc.id, doc.data())));
   }
 
   /**
@@ -36,10 +33,7 @@ export class CategoryRepository extends BaseRepository {
     const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}/${id}`);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
-    return {
-      id: docSnap.id,
-      ...this.convertTimestampsToDate(docSnap.data() as Category),
-    };
+    return this.withDocId<Category>(docSnap.id, docSnap.data());
   }
 
   /**
@@ -76,13 +70,7 @@ export class CategoryRepository extends BaseRepository {
       const updateData = this.updateAuditedData(data, uid);
       t.update(docRef, updateData);
 
-      return {
-        id: docSnap.id,
-        ...this.convertTimestampsToDate({
-          ...docSnap.data(),
-          ...updateData,
-        } as Category),
-      };
+      return this.withDocId<Category>(docSnap.id, { ...docSnap.data(), ...updateData });
     });
   }
 }

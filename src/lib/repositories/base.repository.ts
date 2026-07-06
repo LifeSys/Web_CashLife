@@ -4,50 +4,28 @@ export interface PaginationOptions {
   limit?: number;
   orderBy?: string;
   orderDirection?: 'asc' | 'desc';
-  startAfter?: any;
+  startAfter?: unknown;
 }
 
 export interface PaginatedResult<T> {
   items: T[];
   hasMore: boolean;
-  lastCursor?: any;
+  lastCursor?: unknown;
 }
 
 export class BaseRepository {
-  /**
-   * Convierte Timestamps de Firestore a Date
-   */
-  protected convertTimestampsToDate<T extends Record<string, any>>(data: T): T {
-    const converted = { ...data };
+  protected convertTimestampsToDate<T>(data: T): T {
+    const converted = { ...(data as Record<string, unknown>) };
     for (const key in converted) {
-      if (converted[key] instanceof Timestamp) {
-        (converted[key] as any) = (converted[key] as Timestamp).toDate();
+      const value = converted[key];
+      if (value instanceof Timestamp) {
+        converted[key] = value.toDate();
       }
     }
-    return converted;
+    return converted as T;
   }
 
-  /**
-   * Convierte múltiples documentos
-   */
-  protected convertDocumentsToDate<T extends Record<string, any>>(
-    items: T[]
-  ): T[] {
-    return items.map((item) => this.convertTimestampsToDate(item));
-  }
-
-  /**
-   * Crea un registro con auditoría automática
-   */
-  protected createAuditedData<T extends Record<string, any>>(
-    data: T,
-    uid: string
-  ): T & {
-    createdAt: Timestamp;
-    updatedAt: Timestamp;
-    createdBy: string;
-    updatedBy: string;
-  } {
+  protected createAuditedData<T extends object>(data: T, uid: string) {
     return {
       ...data,
       createdAt: Timestamp.now(),
@@ -57,20 +35,16 @@ export class BaseRepository {
     };
   }
 
-  /**
-   * Actualiza auditoría de un registro
-   */
-  protected updateAuditedData<T extends Record<string, any>>(
-    data: T,
-    uid: string
-  ): Partial<T> & {
-    updatedAt: Timestamp;
-    updatedBy: string;
-  } {
+  protected updateAuditedData<T extends object>(data: T, uid: string) {
     return {
       ...data,
       updatedAt: Timestamp.now(),
       updatedBy: uid,
     };
+  }
+
+  protected withDocId<T>(id: string, data: object): T {
+    const normalized = this.convertTimestampsToDate(data);
+    return { ...(normalized as object), id } as T;
   }
 }

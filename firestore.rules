@@ -1,68 +1,93 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ========== AUTENTICACIÓN REQUERIDA ==========
-    // Solo usuarios autenticados pueden acceder
-    
-    // ========== USUARIOS Y SUS DATOS ==========
-    // Estructura: users/{uid}/profile, users/{uid}/settings, users/{uid}/{subcollections}
+    function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    function positiveAmount(field) { return request.resource.data[field] is number && request.resource.data[field] >= 0; }
+
     match /users/{uid} {
-      // Usuario solo puede leer y escribir sus propios datos
-      allow read, write: if request.auth.uid == uid;
-      
-      // Documentos de perfil y settings
-      match /{document=**} {
-        allow read, write: if request.auth.uid == uid;
-      }
-      
-      // Transacciones (subcollección)
-      // - Validar que no se modifique monto, cuenta después de crear
-      // - Validar que solo se pueda hacer soft-delete
+      allow read, write: if owns(uid);
+
       match /transactions/{transaction} {
-        allow read: if request.auth.uid == uid;
-        allow create: if request.auth.uid == uid 
-          && request.resource.data.tipo in ['expense', 'income', 'transfer', 'loan', 'loan_payment']
-          && request.resource.data.monto > 0
-          && request.resource.data.cuenta != null;
-        allow update: if request.auth.uid == uid
-          && !('monto' in request.resource.data.keys() || 'cuenta' in request.resource.data.keys())
-          && (request.resource.data.isDeleted == true || resource.data.isDeleted == false);
-        allow delete: if false; // Nunca eliminar, solo soft-delete
+        allow read: if owns(uid);
+        allow create: if owns(uid)
+          && request.resource.data.tipo in ['expense', 'income', 'transfer', 'loan', 'loan_payment', 'receivable_payment', 'payable_payment', 'credit_card_charge', 'credit_card_payment', 'scheduled_payment']
+          && request.resource.data.monto > 0;
+        allow update: if owns(uid)
+          && !('monto' in request.resource.data.diff(resource.data).affectedKeys())
+          && !('cuenta' in request.resource.data.diff(resource.data).affectedKeys());
+        allow delete: if false;
       }
-      
-      // Cuentas (subcollección)
+
       match /accounts/{account} {
-        allow read: if request.auth.uid == uid;
-        allow create: if request.auth.uid == uid 
-          && request.resource.data.nombre != null
-          && request.resource.data.saldo >= 0;
-        allow update: if request.auth.uid == uid;
-        allow delete: if false; // No permitir eliminación de cuentas
+        allow read: if owns(uid);
+        allow create: if owns(uid) && request.resource.data.nombre != null && positiveAmount('saldo');
+        allow update: if owns(uid);
+        allow delete: if false;
       }
-      
-      // Categorías (subcollección)
+
       match /categories/{category} {
-        allow read: if request.auth.uid == uid;
-        allow create: if request.auth.uid == uid 
-          && request.resource.data.nombre != null;
-        allow update: if request.auth.uid == uid;
-        allow delete: if false; // No permitir eliminación de categorías
+        allow read: if owns(uid);
+        allow create: if owns(uid) && request.resource.data.nombre != null;
+        allow update: if owns(uid);
+        allow delete: if false;
       }
-      
-      // Personas (subcollección)
+
       match /people/{person} {
-        allow read: if request.auth.uid == uid;
-        allow create: if request.auth.uid == uid 
-          && request.resource.data.nombre != null;
-        allow update: if request.auth.uid == uid;
-        allow delete: if request.auth.uid == uid;
+        allow read: if owns(uid);
+        allow create: if owns(uid) && request.resource.data.nombre != null;
+        allow update: if owns(uid);
+        allow delete: if owns(uid);
       }
+
+      match /creditCards/{card} {
+        allow read: if owns(uid);
+        allow create: if owns(uid) && request.resource.data.nombre != null && request.resource.data.lineaCredito >= 0;
+        allow update: if owns(uid);
+        allow delete: if false;
+      }
+
+      match /wallets/{wallet} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+      }
+
+      match /receivableDebts/{debt} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+      }
+      match /receivablePayments/{payment} {
+        allow read, create: if owns(uid) && request.resource.data.amount > 0;
+        allow update, delete: if false;
+      }
+      match /payableObligations/{obligation} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+      }
+      match /payablePayments/{payment} {
+        allow read, create: if owns(uid) && request.resource.data.amount > 0;
+        allow update, delete: if false;
+      }
+      match /scheduledPayments/{payment} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+        match /periods/{period} {
+          allow read, create, update: if owns(uid)
+            && (!('status' in request.resource.data.keys()) || request.resource.data.status in ['pending', 'paid', 'overdue', 'skipped']);
+          allow delete: if false;
+        }
+      }
+      match /incomes/{income} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+      }
+      match /subscriptions/{subscription} {
+        allow read, create, update: if owns(uid);
+        allow delete: if false;
+      }
+      match /settings/{document=**} { allow read, write: if owns(uid); }
+      match /{document=**} { allow read, write: if owns(uid); }
     }
-    
-    // ========== DENEGAR TODO LO DEMÁS ==========
-    // Protección por defecto
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    match /{document=**} { allow read, write: if false; }
   }
 }
