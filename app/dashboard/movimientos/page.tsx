@@ -22,7 +22,7 @@ export default function MovimientosPage() {
     const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
 
     return transacciones.filter(t => {
-      const tDate = new Date(t.fecha);
+      const tDate = t.fecha instanceof Date ? t.fecha : t.fecha.toDate();
       const tDateOnly = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
 
       if (filtro === 'hoy') return tDateOnly.getTime() === today.getTime();
@@ -74,7 +74,7 @@ export default function MovimientosPage() {
               <MovementCard
                 key={tx.id}
                 transaction={tx}
-                categoryName={getCategoryName(tx.categoriaId)}
+                categoryName={getCategoryName(tx.categoria ?? tx.categoriaId ?? '')}
               />
             ))}
           </div>

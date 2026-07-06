@@ -56,9 +56,11 @@ class TransactionService {
 
     // Función que calcula el nuevo saldo según el tipo de transacción
     const calculateNewBalance = (currentBalance: number): number => {
-      if (normalizedTransaction.creditCardId && normalizedTransaction.tipo !== 'loan_payment') return currentBalance;
+      if (normalizedTransaction.creditCardId && normalizedTransaction.tipo !== 'credit_card_payment') return currentBalance;
       switch (normalizedTransaction.tipo) {
         case 'expense':
+        case 'payable_payment':
+        case 'scheduled_payment':
           return currentBalance - transaction.monto;
         case 'income':
           return currentBalance + transaction.monto;
@@ -67,7 +69,10 @@ class TransactionService {
         case 'loan':
           return currentBalance - transaction.monto;
         case 'loan_payment':
+        case 'receivable_payment':
           return currentBalance + transaction.monto;
+        case 'credit_card_payment':
+          return currentBalance - transaction.monto;
         default:
           return currentBalance;
       }

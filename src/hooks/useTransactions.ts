@@ -7,46 +7,30 @@ import type { Transaction } from '@/types';
 
 export function useTransactions() {
   const { user } = useAuth();
-  const { data: transacciones = [], isLoading, error, mutate } = useSWR(
+  const { data, isLoading, error, mutate } = useSWR(
     user?.uid ? ['transactions', user.uid] : null,
-    () => user?.uid ? transactionService.getAll(user.uid) : null,
+    () => transactionService.getAll(user!.uid as string),
     { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
-
-  return {
-    transacciones: transacciones?.items || [],
-    isLoading,
-    error,
-    mutate,
-  };
+  return { transacciones: data?.items ?? [], hasMore: data?.hasMore ?? false, isLoading, error, mutate };
 }
 
 export function useTransactionsByDateRange(startDate: Date, endDate: Date) {
   const { user } = useAuth();
-  const { data: transacciones = [], isLoading, error } = useSWR(
+  const { data, isLoading, error } = useSWR<Transaction[]>(
     user?.uid ? ['transactions-range', user.uid, startDate.toISOString(), endDate.toISOString()] : null,
-    () => user?.uid ? transactionService.getByDateRange(user.uid, startDate, endDate) : null,
+    () => transactionService.getByDateRange(user!.uid as string, startDate, endDate),
     { revalidateOnFocus: false }
   );
-
-  return {
-    transacciones,
-    isLoading,
-    error,
-  };
+  return { transacciones: data ?? [], isLoading, error };
 }
 
 export function useTransactionsByAccount(accountId: string) {
   const { user } = useAuth();
-  const { data: transacciones = [], isLoading, error } = useSWR(
-    user?.uid ? ['transactions-account', user.uid, accountId] : null,
-    () => user?.uid ? transactionService.getByAccount(user.uid, accountId) : null,
+  const { data, isLoading, error } = useSWR<Transaction[]>(
+    user?.uid && accountId ? ['transactions-account', user.uid, accountId] : null,
+    () => transactionService.getByAccount(user!.uid as string, accountId),
     { revalidateOnFocus: false }
   );
-
-  return {
-    transacciones,
-    isLoading,
-    error,
-  };
+  return { transacciones: data ?? [], isLoading, error };
 }

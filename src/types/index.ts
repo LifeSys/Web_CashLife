@@ -1,23 +1,25 @@
-// Tipos de datos centralizados para CashLife
 import { Timestamp } from 'firebase/firestore';
 
-// User (Perfil del usuario)
+export type FireDate = Timestamp | Date;
+export type Currency = 'PEN' | 'USD' | string;
+
 export interface User {
-  uid: string;
+  id?: string;
+  uid?: string;
   email: string;
   nombre: string;
   avatar?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
 }
 
-// Account (dinero real: efectivo, cuenta bancaria o caja fuerte)
+export type AccountType = 'cash' | 'bank' | 'safe_box' | 'credit_card';
 export interface Account {
   id: string;
-  nombre: string; // legacy alias for name
-  saldo: number; // legacy alias for balance
-  tipo: 'cash' | 'bank' | 'safe_box' | 'credit_card';
-  banco?: string; // legacy alias for bank
+  nombre: string;
+  saldo: number;
+  tipo?: AccountType;
+  banco?: string;
   subtipo?: 'savings' | 'checking';
   creditLimit?: number;
   cutDay?: number;
@@ -26,87 +28,117 @@ export interface Account {
   bank?: string;
   name?: string;
   balance?: number;
-  currency?: string;
+  currency?: Currency;
   hasDebitCard?: boolean;
-  color: string;
-  icono: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  color?: string;
+  icono?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
-// Transaction (Movimiento financiero)
+export type TransactionType =
+  | 'expense'
+  | 'income'
+  | 'transfer'
+  | 'loan'
+  | 'loan_payment'
+  | 'receivable_payment'
+  | 'payable_payment'
+  | 'credit_card_charge'
+  | 'credit_card_payment'
+  | 'scheduled_payment'
+  | 'GASTO'
+  | 'INGRESO'
+  | 'TRANSFERENCIA'
+  | 'PRESTAMO';
+
 export interface Transaction {
   id: string;
   monto: number;
-  tipo: 'expense' | 'income' | 'transfer' | 'loan' | 'loan_payment' | 'credit_card_payment';
+  tipo: TransactionType;
   descripcion: string;
-  fecha: Timestamp | Date;
-  cuenta: string; // accountId real afectado (wallets resuelven a linkedAccountId)
-  walletId?: string; // medio de pago digital, no saldo propio
-  creditCardId?: string; // tarjeta de crédito usada para aumentar deuda
-  destinationAccountId?: string; // cuenta destino en transferencias
-  categoria?: string; // categoryId (relación)
-  persona?: string; // personId (relación, solo si es préstamo)
+  fecha: FireDate;
+  cuenta?: string;
+  cuentaId?: string;
+  walletId?: string;
+  creditCardId?: string;
+  destinationAccountId?: string;
+  categoria?: string;
+  categoriaId?: string;
+  persona?: string;
+  personaId?: string;
+  personId?: string;
+  contactId?: string;
+  relatedDebtId?: string;
+  relatedObligationId?: string;
+  scheduledPaymentId?: string;
+  scheduledPeriod?: string;
   notas?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
-  isDeleted: boolean;
-  deletedAt?: Timestamp | Date;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+  isDeleted?: boolean;
+  deletedAt?: FireDate;
   deletedBy?: string;
 }
 
-// Category (Categoría de gasto)
 export interface Category {
   id: string;
   nombre: string;
-  icono: string;
-  color: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  icono?: string;
+  color?: string;
+  tipo?: 'expense' | 'income' | 'both' | 'gasto' | 'ingreso';
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
-// Person (Persona para préstamos/deudas)
+export type ContactKind = 'person' | 'company' | 'bank' | 'client' | 'provider' | 'entity';
+export type ContactRole = 'debtor' | 'creditor' | 'client' | 'provider' | 'bank' | 'other';
 export interface Person {
   id: string;
   nombre: string;
   deuda: number;
-  tipo: 'PRESTAMISTA' | 'DEUDOR';
-  fecha: Timestamp | Date;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  tipo?: 'PRESTAMISTA' | 'DEUDOR';
+  tipoDeuda?: 'PRESTAMISTA' | 'PRESTADO' | 'DEUDOR' | null;
+  fecha?: FireDate;
+  contactType?: ContactKind;
+  roles?: ContactRole[];
+  phone?: string;
+  email?: string;
+  notes?: string;
+  transacciones?: unknown[];
+  active?: boolean;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
-
-
 
 export interface Wallet {
   id: string;
   type: 'Yape' | 'Plin' | 'Otra';
   linkedAccountId: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
-// CreditCard (Tarjeta de crédito independiente: deuda, no saldo de cuenta)
 export interface CreditCard {
   id: string;
-  banco: string; // legacy alias for bank
-  nombre: string; // legacy alias for name
-  lineaCredito: number; // legacy alias for creditLimit
-  montoUtilizado: number; // legacy alias for usedAmount
-  fechaCorte: string; // legacy alias for cutDay
-  fechaMaximaPago: string; // legacy alias for paymentDay
-  pagoMinimo: number; // legacy alias for minimumPayment
-  tasaInteres?: number; // legacy alias for interestRate
+  banco: string;
+  nombre: string;
+  lineaCredito: number;
+  montoUtilizado: number;
+  fechaCorte: string;
+  fechaMaximaPago: string;
+  pagoMinimo: number;
+  tasaInteres?: number;
   bank?: string;
   name?: string;
   brand?: 'Visa' | 'Mastercard' | 'American Express' | 'Diners' | 'Otra';
@@ -117,15 +149,14 @@ export interface CreditCard {
   paymentDay?: number;
   minimumPayment?: number;
   interestRate?: number;
-  color: string;
-  icono: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  color?: string;
+  icono?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
-// Subscription (Pago recurrente)
 export interface Subscription {
   id: string;
   nombre: string;
@@ -134,23 +165,21 @@ export interface Subscription {
   fechaVencimiento: string;
   cuentaId?: string;
   activo: boolean;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
-// Settings (Configuración del usuario)
 export interface Settings {
   saldoInicial: number;
   moneda: string;
   tema: 'oscuro' | 'claro';
   notificaciones: boolean;
   onboardingCompleted: boolean;
-  updatedAt?: Timestamp | Date;
+  updatedAt?: FireDate;
 }
 
-// Auth Context
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -163,68 +192,75 @@ export interface AuthContextType {
 export type DebtStatus = 'pending' | 'partial' | 'paid' | 'overdue';
 export type PayableCreditorType = 'person' | 'bank' | 'company' | 'sunat' | 'other';
 export type ScheduledPaymentFrequency = 'monthly' | 'weekly' | 'yearly' | 'custom';
+export type ScheduledPaymentPeriodStatus = 'pending' | 'paid' | 'overdue' | 'skipped';
 export type IncomeCategory = 'salary' | 'fees' | 'freelance' | 'commission' | 'sale' | 'bonus' | 'other';
 
 export interface ReceivableDebt {
   id: string;
   personId: string;
+  contactId?: string;
   description: string;
-  date: Timestamp | Date;
-  dueDate?: Timestamp | Date;
+  date: FireDate;
+  dueDate?: FireDate;
   originalAmount: number;
   pendingBalance: number;
   status: DebtStatus;
   notes?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface ReceivablePayment {
   id: string;
   debtId: string;
   personId: string;
-  date: Timestamp | Date;
+  contactId?: string;
+  date: FireDate;
   amount: number;
   accountId: string;
   observations?: string;
   transactionId?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface PayableObligation {
   id: string;
   creditorName: string;
   creditorType: PayableCreditorType;
+  contactId?: string;
+  personId?: string;
   description: string;
-  date: Timestamp | Date;
-  dueDate: Timestamp | Date;
+  date: FireDate;
+  dueDate: FireDate;
   originalAmount: number;
   pendingBalance: number;
   status: DebtStatus;
   notes?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface PayablePayment {
   id: string;
   obligationId: string;
-  date: Timestamp | Date;
+  contactId?: string;
+  personId?: string;
+  date: FireDate;
   amount: number;
   accountId: string;
   observations?: string;
   transactionId?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface ScheduledPayment {
@@ -238,24 +274,42 @@ export interface ScheduledPayment {
   suggestedAccountId?: string;
   active: boolean;
   reminders: number[];
-  lastPaidAt?: Timestamp | Date;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  lastPaidAt?: FireDate;
+  nextDuePeriod?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface ScheduledPaymentPeriod {
+  id: string;
+  paymentId: string;
+  period: string;
+  status: ScheduledPaymentPeriodStatus;
+  amount: number;
+  dueDate: FireDate;
+  paidAt?: FireDate;
+  accountId?: string;
+  transactionId?: string;
+  notes?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface IncomeRecord {
   id: string;
   description: string;
   category: IncomeCategory;
-  date: Timestamp | Date;
+  date: FireDate;
   amount: number;
   destinationAccountId: string;
   notes?: string;
   transactionId?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  createdBy: string;
-  updatedBy: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
 }

@@ -48,10 +48,7 @@ export class TransactionRepository extends BaseRepository {
     const hasMore = snapshot.docs.length > pageSize;
     const docs = snapshot.docs.slice(0, pageSize);
 
-    const items = docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Transaction),
-    } as Transaction));
+    const items = docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
 
     return {
       items,
@@ -67,10 +64,7 @@ export class TransactionRepository extends BaseRepository {
     const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}/${id}`);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
-    return {
-      id: docSnap.id,
-      ...this.convertTimestampsToDate(docSnap.data() as Transaction),
-    };
+    return this.withDocId<Transaction>(docSnap.id, docSnap.data());
   }
 
   /**
@@ -90,10 +84,7 @@ export class TransactionRepository extends BaseRepository {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Transaction),
-    }));
+    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
   }
 
   /**
@@ -108,10 +99,7 @@ export class TransactionRepository extends BaseRepository {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Transaction),
-    }));
+    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
   }
 
   /**
@@ -126,10 +114,7 @@ export class TransactionRepository extends BaseRepository {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Transaction),
-    }));
+    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
   }
 
   /**
@@ -144,10 +129,7 @@ export class TransactionRepository extends BaseRepository {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...this.convertTimestampsToDate(doc.data() as Transaction),
-    }));
+    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
   }
 
   /**
@@ -205,7 +187,7 @@ export class TransactionRepository extends BaseRepository {
           const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
           const accountSnap = await t.get(accountRef);
           if (!accountSnap.exists()) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
-          const currentSaldo = accountSnap.data().saldo as number;
+          const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
           t.update(accountRef, { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
         }
       } else {
@@ -265,73 +247,69 @@ export class TransactionRepository extends BaseRepository {
       const updateData = this.updateAuditedData(data, uid);
       t.update(txRef, updateData);
 
-      return {
-        id: txSnap.id,
-        ...this.convertTimestampsToDate({
-          ...txSnap.data(),
-          ...updateData,
-        } as Transaction),
-      };
+      return this.withDocId<Transaction>(txSnap.id, { ...txSnap.data(), ...updateData });
     });
   }
 
   /**
    * OPERACIÓN ATÓMICA: Soft delete de transacción (revertir saldo)
-   * Si ocurre un error, TODO se revierte
    */
   async delete(uid: string, id: string): Promise<boolean> {
     return await runTransaction(db, async (t) => {
-      // 1. Obtener transacción
       const txRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}/${id}`);
       const txSnap = await t.get(txRef);
       if (!txSnap.exists()) return false;
-
       const tx = txSnap.data() as Transaction;
-      if (tx.isDeleted) return false; // Ya está eliminada
+      if (tx.isDeleted) return false;
 
-      // 2. Obtener cuenta y revertir saldo
-      const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
-      const accountSnap = await t.get(accountRef);
-      if (!accountSnap.exists()) throw new Error('Cuenta no encontrada');
-
-      const currentSaldo = accountSnap.data().saldo as number;
-      let revertedSaldo = currentSaldo;
-
-      // 3. Revertir saldo según tipo de transacción
-      switch (tx.tipo) {
-        case 'expense':
-          revertedSaldo = currentSaldo + tx.monto; // Agregar lo que se restó
-          break;
-        case 'income':
-          revertedSaldo = currentSaldo - tx.monto; // Restar lo que se sumó
-          break;
-        case 'transfer':
-          revertedSaldo = currentSaldo + tx.monto;
-          break;
-        case 'loan':
-          revertedSaldo = currentSaldo + tx.monto;
-          break;
-        case 'loan_payment':
-          revertedSaldo = currentSaldo - tx.monto;
-          break;
+      if (tx.tipo === 'transfer' && tx.destinationAccountId) {
+        const sourceRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
+        const destinationRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.destinationAccountId}`);
+        const [sourceSnap, destinationSnap] = await Promise.all([t.get(sourceRef), t.get(destinationRef)]);
+        if (!sourceSnap.exists() || !destinationSnap.exists()) throw new Error('Cuenta de transferencia no encontrada');
+        const sourceSaldo = (sourceSnap.data().saldo ?? sourceSnap.data().balance ?? 0) as number;
+        const destinationSaldo = (destinationSnap.data().saldo ?? destinationSnap.data().balance ?? 0) as number;
+        t.update(sourceRef, { saldo: sourceSaldo + tx.monto, balance: sourceSaldo + tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        t.update(destinationRef, { saldo: destinationSaldo - tx.monto, balance: destinationSaldo - tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+      } else if (tx.creditCardId) {
+        const cardRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}/${tx.creditCardId}`);
+        const cardSnap = await t.get(cardRef);
+        if (!cardSnap.exists()) throw new Error('Tarjeta no encontrada');
+        const data = cardSnap.data();
+        const currentUsed = (data.usedAmount ?? data.montoUtilizado ?? 0) as number;
+        const nextUsed = tx.tipo === 'credit_card_payment' ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0);
+        const limit = (data.creditLimit ?? data.lineaCredito ?? 0) as number;
+        t.update(cardRef, { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedAt: Timestamp.now(), updatedBy: uid });
+        if (tx.tipo === 'credit_card_payment') {
+          const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
+          const accountSnap = await t.get(accountRef);
+          if (!accountSnap.exists()) throw new Error('Cuenta no encontrada');
+          const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
+          t.update(accountRef, { saldo: currentSaldo + tx.monto, balance: currentSaldo + tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        }
+      } else {
+        const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
+        const accountSnap = await t.get(accountRef);
+        if (!accountSnap.exists()) throw new Error('Cuenta no encontrada');
+        const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
+        let revertedSaldo = currentSaldo;
+        switch (tx.tipo) {
+          case 'expense':
+          case 'loan':
+          case 'payable_payment':
+          case 'scheduled_payment':
+            revertedSaldo = currentSaldo + tx.monto;
+            break;
+          case 'income':
+          case 'loan_payment':
+          case 'receivable_payment':
+            revertedSaldo = currentSaldo - tx.monto;
+            break;
+        }
+        t.update(accountRef, { saldo: revertedSaldo, balance: revertedSaldo, updatedAt: Timestamp.now(), updatedBy: uid });
       }
 
-      // 4. Actualizar saldo en la cuenta
-      t.update(accountRef, {
-        saldo: revertedSaldo,
-        updatedAt: Timestamp.now(),
-        updatedBy: uid,
-      });
-
-      // 5. Marcar transacción como soft-deleted (NUNCA eliminar)
-      t.update(txRef, {
-        isDeleted: true,
-        deletedAt: Timestamp.now(),
-        deletedBy: uid,
-        updatedAt: Timestamp.now(),
-        updatedBy: uid,
-      });
-
+      t.update(txRef, { isDeleted: true, deletedAt: Timestamp.now(), deletedBy: uid, updatedAt: Timestamp.now(), updatedBy: uid });
       return true;
     });
   }

@@ -3,34 +3,24 @@
 import useSWR from 'swr';
 import { accountService } from '@/services/account.service';
 import { useAuth } from '@/providers/AuthProvider';
+import type { Account } from '@/types';
 
 export function useAccounts() {
   const { user } = useAuth();
-  const { data: cuentas = [], isLoading, error, mutate } = useSWR(
+  const { data, isLoading, error, mutate } = useSWR<Account[]>(
     user?.uid ? ['accounts', user.uid] : null,
-    () => user?.uid ? accountService.getAll(user.uid) : null,
+    () => accountService.getAll(user!.uid as string),
     { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
-
-  return {
-    cuentas,
-    isLoading,
-    error,
-    mutate,
-  };
+  return { cuentas: data ?? [], isLoading, error, mutate };
 }
 
 export function useAccountBalance() {
   const { user } = useAuth();
-  const { data: saldoTotal = 0, isLoading, error } = useSWR(
+  const { data, isLoading, error } = useSWR<number>(
     user?.uid ? ['account-balance', user.uid] : null,
-    () => user?.uid ? accountService.getTotalBalance(user.uid) : null,
+    () => accountService.getTotalBalance(user!.uid as string),
     { revalidateOnFocus: false, dedupingInterval: 60000 }
   );
-
-  return {
-    saldoTotal,
-    isLoading,
-    error,
-  };
+  return { saldoTotal: data ?? 0, isLoading, error };
 }

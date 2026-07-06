@@ -6,7 +6,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { usePeople } from '@/hooks/usePeople';
 import type { Transaction } from '@/types';
-import { transactionService } from '@/services/transaction.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface MovementFormProps {
@@ -23,6 +23,7 @@ export function MovementForm({ onClose }: MovementFormProps) {
   const [formData, setFormData] = useState({
     monto: '',
     cuentaId: cuentas[0]?.id || '',
+    destinationAccountId: '',
     categoriaId: categorias[0]?.id || '',
     descripcion: '',
     personaId: '',
@@ -45,16 +46,10 @@ export function MovementForm({ onClose }: MovementFormProps) {
     }
 
     try {
-      await transactionService.create(user.uid, {
-        tipo,
-        monto: parseFloat(formData.monto),
-        descripcion: formData.descripcion || 'Sin descripción',
-        cuenta: formData.cuentaId,
-        categoria: formData.categoriaId || undefined,
-        persona: formData.personaId || undefined,
-        notas: formData.notas || undefined,
-        fecha: new Date(),
-      });
+      const base = { monto: parseFloat(formData.monto), descripcion: formData.descripcion || 'Sin descripción', cuenta: formData.cuentaId, categoria: formData.categoriaId || undefined, persona: formData.personaId || undefined, contactId: formData.personaId || undefined, notas: formData.notas || undefined, fecha: new Date() };
+      if (tipo === 'income') await financialEngine.createIncome(user.uid, base);
+      else if (tipo === 'transfer') await financialEngine.createTransfer(user.uid, { ...base, destinationAccountId: formData.destinationAccountId || formData.cuentaId });
+      else await financialEngine.createExpense(user.uid, base);
 
       // Invalidar cache de cuentas (el saldo cambió)
       mutateCuentas();
@@ -70,7 +65,7 @@ export function MovementForm({ onClose }: MovementFormProps) {
   const movementTypes: { value: Transaction['tipo']; label: string }[] = [
     { value: 'expense', label: 'Gasto' },
     { value: 'income', label: 'Ingreso' },
-    { value: 'loan', label: 'Préstamo' },
+
     { value: 'transfer', label: 'Transferencia' },
   ];
 
@@ -119,13 +114,30 @@ export function MovementForm({ onClose }: MovementFormProps) {
           onChange={e => setFormData(prev => ({ ...prev, cuentaId: e.target.value }))}
           className="w-full mt-1 px-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
         >
-          {cuentas.map(cuenta => (
+          {cuentas.filter(cuenta => cuenta.tipo !== 'credit_card').map(cuenta => (
             <option key={cuenta.id} value={cuenta.id}>
               {cuenta.nombre}
             </option>
           ))}
         </select>
       </div>
+
+
+      {tipo === 'transfer' && (
+        <div>
+          <label className="text-sm font-medium">Cuenta destino *</label>
+          <select
+            value={formData.destinationAccountId}
+            onChange={e => setFormData(prev => ({ ...prev, destinationAccountId: e.target.value }))}
+            className="w-full mt-1 px-4 py-2 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">Selecciona destino</option>
+            {cuentas.filter(cuenta => cuenta.tipo !== 'credit_card' && cuenta.id !== formData.cuentaId).map(cuenta => (
+              <option key={cuenta.id} value={cuenta.id}>{cuenta.nombre}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Categoría */}
       <div>

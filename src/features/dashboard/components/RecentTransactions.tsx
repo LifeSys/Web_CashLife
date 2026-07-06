@@ -28,7 +28,7 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
             <MovementCard
               key={tx.id}
               transaction={tx}
-              categoryName={getCategoryName(tx.categoriaId)}
+              categoryName={getCategoryName(tx.categoria ?? tx.categoriaId ?? '')}
             />
           ))
         ) : (

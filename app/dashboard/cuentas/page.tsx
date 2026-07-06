@@ -1,53 +1,21 @@
 'use client';
 
+import { useState } from 'react';
+import { CreditCard, PlusCircle, Wallet } from 'lucide-react';
+import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
-import { Wallet } from 'lucide-react';
+import { useCreditCards } from '@/hooks/useCreditCards';
+import { accountService } from '@/services/account.service';
+import { creditCardService } from '@/services/credit-card.service';
+import { financialEngine } from '@/services/financial-engine.service';
+
+const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n || 0);
 
 export default function CuentasPage() {
-  const { cuentas } = useAccounts();
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-PE', {
-      style: 'currency',
-      currency: 'PEN',
-    }).format(value);
-  };
-
-  return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold">Mis Cuentas</h1>
-        <p className="text-muted-foreground">Gestiona tus cuentas y saldos</p>
-      </div>
-
-      <div className="grid gap-4">
-        {cuentas.map(cuenta => (
-          <div
-            key={cuenta.id}
-            className="bg-card border border-border rounded-lg p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: cuenta.color + '20', color: cuenta.color }}
-              >
-                <Wallet className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold">{cuenta.nombre}</h3>
-                <p className="text-sm text-muted-foreground">Saldo disponible</p>
-              </div>
-            </div>
-            <p className="text-lg font-bold">{formatCurrency(cuenta.saldo)}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="text-center pt-4">
-        <p className="text-sm text-muted-foreground">
-          Saldo total: {formatCurrency(cuentas.reduce((sum, c) => sum + c.saldo, 0))}
-        </p>
-      </div>
-    </div>
-  );
+  const { user } = useAuth(); const { cuentas, mutate } = useAccounts(); const { creditCards, mutate: mutateCards } = useCreditCards();
+  const [name,setName]=useState(''); const [balance,setBalance]=useState(''); const [cardName,setCardName]=useState(''); const [limit,setLimit]=useState(''); const [payAccount,setPayAccount]=useState('');
+  const createAccount=async()=>{if(!user?.uid||!name)return; await accountService.create(user.uid,{nombre:name,name,saldo:Number(balance||0),balance:Number(balance||0),tipo:'bank',color:'#22c55e',icono:'Landmark',active:true}); setName('');setBalance(''); mutate();};
+  const createCard=async()=>{if(!user?.uid||!cardName)return; await creditCardService.create(user.uid,{nombre:cardName,name:cardName,banco:cardName,bank:cardName,lineaCredito:Number(limit||0),creditLimit:Number(limit||0),montoUtilizado:0,usedAmount:0,availableAmount:Number(limit||0),fechaCorte:'15',fechaMaximaPago:'25',cutDay:15,paymentDay:25,pagoMinimo:0,minimumPayment:0,color:'#8b5cf6',icono:'CreditCard'}); setCardName('');setLimit(''); mutateCards();};
+  const payCard=async(cardId:string,used:number)=>{if(!user?.uid||!payAccount)return; const amount=Number(prompt('Monto a pagar',String(used))??'0'); if(amount>0) { await financialEngine.payCreditCard(user.uid,{creditCardId:cardId,cuenta:payAccount,monto:amount,descripcion:'Pago de tarjeta',fecha:new Date()}); mutate(); mutateCards(); }};
+  return <div className="space-y-6 p-4 md:p-6"><div><h1 className="text-2xl md:text-3xl font-bold">Cuentas</h1><p className="text-muted-foreground">Dinero real y tarjetas como obligaciones financieras.</p></div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_140px_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Cuenta bancaria, efectivo, caja fuerte" value={name} onChange={e=>setName(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" placeholder="Saldo" value={balance} onChange={e=>setBalance(e.target.value)}/><button onClick={createAccount} className="rounded bg-primary px-4 py-2 text-primary-foreground"><PlusCircle className="inline h-4 w-4"/> Crear cuenta</button></section><div className="grid gap-4">{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><article key={c.id} className="rounded-xl border bg-card p-4 flex justify-between"><div className="flex gap-3"><Wallet/><div><h2 className="font-bold">{c.nombre}</h2><p className="text-sm text-muted-foreground">{c.tipo}</p></div></div><b>{money(c.saldo??c.balance??0)}</b></article>)}</div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_140px_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Tarjeta / banco" value={cardName} onChange={e=>setCardName(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" placeholder="Línea" value={limit} onChange={e=>setLimit(e.target.value)}/><button onClick={createCard} className="rounded bg-purple-600 px-4 py-2 text-white"><PlusCircle className="inline h-4 w-4"/> Crear tarjeta</button></section><select className="rounded border bg-muted px-3 py-2" value={payAccount} onChange={e=>setPayAccount(e.target.value)}><option value="">Cuenta para pagar tarjeta</option>{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select><div className="grid gap-4 md:grid-cols-2">{creditCards.map(card=>{const used=card.usedAmount??card.montoUtilizado??0; const lim=card.creditLimit??card.lineaCredito??0; return <article key={card.id} className="rounded-xl border bg-card p-4"><div className="flex justify-between"><div className="flex gap-3"><CreditCard className="text-purple-500"/><div><h2 className="font-bold">{card.nombre}</h2><p className="text-sm text-muted-foreground">Banco: {card.banco}</p></div></div><button onClick={()=>payCard(card.id,used)} className="text-purple-500 font-bold">Pagar</button></div><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><span>Línea: <b>{money(lim)}</b></span><span>Disponible: <b>{money(lim-used)}</b></span><span>Utilizado: <b>{money(used)}</b></span><span>Pago mínimo: <b>{money(card.minimumPayment??card.pagoMinimo??0)}</b></span><span>Corte: {card.cutDay??card.fechaCorte}</span><span>Pago: {card.paymentDay??card.fechaMaximaPago}</span></div><p className="mt-3 text-xs text-muted-foreground">Historial disponible desde movimientos filtrados por tarjeta.</p></article>})}</div></div>;
 }
