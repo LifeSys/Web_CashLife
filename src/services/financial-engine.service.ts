@@ -17,16 +17,68 @@ class FinancialEngineService {
     return transactionService.create(uid, { ...input, tipo: 'transfer' });
   }
 
-  collectReceivable(uid: string, input: { debtId: string; personId: string; contactId?: string; amount: number; accountId: string; date: Date; observations?: string }) {
-    return receivableService.registerPayment(uid, {
-      debtId: input.debtId,
+  async grantLoan(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; accountId: string; date: Date; dueDate?: Date; notes?: string }) {
+    const debt = await receivableService.createDebt(uid, {
       personId: input.personId,
-      contactId: input.contactId,
-      amount: input.amount,
-      accountId: input.accountId,
+      contactId: input.contactId ?? input.personId,
+      description: input.description,
       date: input.date,
-      observations: input.observations,
+      dueDate: input.dueDate,
+      originalAmount: input.amount,
+      notes: input.notes,
     });
+    await transactionService.create(uid, {
+      monto: input.amount,
+      tipo: 'loan',
+      descripcion: `Préstamo otorgado: ${input.description}`,
+      fecha: input.date,
+      cuenta: input.accountId,
+      persona: input.personId,
+      personId: input.personId,
+      contactId: input.contactId ?? input.personId,
+      relatedDebtId: debt.id,
+      notas: input.notes,
+    });
+    return debt;
+  }
+
+  async receiveLoan(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; accountId: string; date: Date; dueDate?: Date; notes?: string }) {
+    const obligation = await payableService.createObligation(uid, {
+      creditorName: input.creditorName,
+      creditorType: input.creditorType ?? 'person',
+      contactId: input.contactId,
+      personId: input.personId,
+      description: input.description,
+      date: input.date,
+      dueDate: input.dueDate ?? input.date,
+      originalAmount: input.amount,
+      notes: input.notes,
+    });
+    await transactionService.create(uid, {
+      monto: input.amount,
+      tipo: 'income',
+      descripcion: `Préstamo recibido: ${input.description}`,
+      fecha: input.date,
+      cuenta: input.accountId,
+      persona: input.personId,
+      personId: input.personId,
+      contactId: input.contactId ?? input.personId,
+      relatedObligationId: obligation.id,
+      notas: input.notes,
+    });
+    return obligation;
+  }
+
+  createReceivable(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
+  }
+
+  createPayable(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+  }
+
+  collectReceivable(uid: string, input: { debtId: string; personId: string; contactId?: string; amount: number; accountId: string; date: Date; observations?: string }) {
+    return receivableService.registerPayment(uid, input);
   }
 
   payObligation(uid: string, input: { obligationId: string; contactId?: string; personId?: string; amount: number; accountId: string; date: Date; observations?: string }) {
