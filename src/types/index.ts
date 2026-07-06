@@ -16,9 +16,13 @@ export interface Account {
   id: string;
   nombre: string; // legacy alias for name
   saldo: number; // legacy alias for balance
-  tipo: 'cash' | 'bank' | 'safe_box';
+  tipo: 'cash' | 'bank' | 'safe_box' | 'credit_card';
   banco?: string; // legacy alias for bank
   subtipo?: 'savings' | 'checking';
+  creditLimit?: number;
+  cutDay?: number;
+  paymentDay?: number;
+  active?: boolean;
   bank?: string;
   name?: string;
   balance?: number;
@@ -36,12 +40,13 @@ export interface Account {
 export interface Transaction {
   id: string;
   monto: number;
-  tipo: 'expense' | 'income' | 'transfer' | 'loan' | 'loan_payment';
+  tipo: 'expense' | 'income' | 'transfer' | 'loan' | 'loan_payment' | 'credit_card_payment';
   descripcion: string;
   fecha: Timestamp | Date;
   cuenta: string; // accountId real afectado (wallets resuelven a linkedAccountId)
   walletId?: string; // medio de pago digital, no saldo propio
   creditCardId?: string; // tarjeta de crédito usada para aumentar deuda
+  destinationAccountId?: string; // cuenta destino en transferencias
   categoria?: string; // categoryId (relación)
   persona?: string; // personId (relación, solo si es préstamo)
   notas?: string;
@@ -153,4 +158,104 @@ export interface AuthContextType {
   signIn(email: string, password: string): Promise<void>;
   signOut(): Promise<void>;
   error?: Error;
+}
+
+export type DebtStatus = 'pending' | 'partial' | 'paid' | 'overdue';
+export type PayableCreditorType = 'person' | 'bank' | 'company' | 'sunat' | 'other';
+export type ScheduledPaymentFrequency = 'monthly' | 'weekly' | 'yearly' | 'custom';
+export type IncomeCategory = 'salary' | 'fees' | 'freelance' | 'commission' | 'sale' | 'bonus' | 'other';
+
+export interface ReceivableDebt {
+  id: string;
+  personId: string;
+  description: string;
+  date: Timestamp | Date;
+  dueDate?: Timestamp | Date;
+  originalAmount: number;
+  pendingBalance: number;
+  status: DebtStatus;
+  notes?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface ReceivablePayment {
+  id: string;
+  debtId: string;
+  personId: string;
+  date: Timestamp | Date;
+  amount: number;
+  accountId: string;
+  observations?: string;
+  transactionId?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface PayableObligation {
+  id: string;
+  creditorName: string;
+  creditorType: PayableCreditorType;
+  description: string;
+  date: Timestamp | Date;
+  dueDate: Timestamp | Date;
+  originalAmount: number;
+  pendingBalance: number;
+  status: DebtStatus;
+  notes?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface PayablePayment {
+  id: string;
+  obligationId: string;
+  date: Timestamp | Date;
+  amount: number;
+  accountId: string;
+  observations?: string;
+  transactionId?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface ScheduledPayment {
+  id: string;
+  name: string;
+  category: string;
+  amount: number;
+  dueDay: number;
+  frequency: ScheduledPaymentFrequency;
+  customFrequencyDays?: number;
+  suggestedAccountId?: string;
+  active: boolean;
+  reminders: number[];
+  lastPaidAt?: Timestamp | Date;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
+}
+
+export interface IncomeRecord {
+  id: string;
+  description: string;
+  category: IncomeCategory;
+  date: Timestamp | Date;
+  amount: number;
+  destinationAccountId: string;
+  notes?: string;
+  transactionId?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  createdBy: string;
+  updatedBy: string;
 }

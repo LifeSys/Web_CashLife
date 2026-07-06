@@ -13,6 +13,12 @@ export const FIRESTORE_COLLECTIONS = {
   CREDIT_CARDS: 'creditCards',
   WALLETS: 'wallets',
   SUBSCRIPTIONS: 'subscriptions',
+  RECEIVABLE_DEBTS: 'receivableDebts',
+  RECEIVABLE_PAYMENTS: 'receivablePayments',
+  PAYABLE_OBLIGATIONS: 'payableObligations',
+  PAYABLE_PAYMENTS: 'payablePayments',
+  SCHEDULED_PAYMENTS: 'scheduledPayments',
+  INCOMES: 'incomes',
 } as const;
 
 /**

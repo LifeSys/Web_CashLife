@@ -3,13 +3,17 @@
 import { useIsMobile } from '@/hooks/useIsMobile';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Wallet, Users, BarChart3, Settings } from 'lucide-react';
+import { Home, Wallet, Users, BarChart3, ReceiptText, CalendarClock, TrendingUp } from 'lucide-react';
 
 const navItems = [
   { href: '/dashboard', label: 'Inicio', icon: Home },
   { href: '/dashboard/movimientos', label: 'Movimientos', icon: Wallet },
   { href: '/dashboard/cuentas', label: 'Cuentas', icon: Wallet },
   { href: '/dashboard/personas', label: 'Personas', icon: Users },
+  { href: '/dashboard/cuentas-por-cobrar', label: 'Por Cobrar', icon: ReceiptText },
+  { href: '/dashboard/cuentas-por-pagar', label: 'Por Pagar', icon: ReceiptText },
+  { href: '/dashboard/pagos-programados', label: 'Programados', icon: CalendarClock },
+  { href: '/dashboard/ingresos', label: 'Ingresos', icon: TrendingUp },
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
 ];
 
