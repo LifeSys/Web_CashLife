@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { MovementForm } from '@/components/common/MovementForm';
+import { OperationModal } from '@/components/common/OperationModal';
 
 export function FloatingActionButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -34,27 +34,20 @@ export function FloatingActionButton() {
         <Plus className="w-7 h-7" />
       </button>
 
-      {/* Modal de Movimiento */}
+      {/* Modal de Nueva Operación */}
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center animate-fade-in">
-          <div className="bg-card rounded-t-2xl md:rounded-2xl w-full md:w-full md:max-w-md max-h-[90vh] overflow-y-auto shadow-2xl animate-slide-up md:animate-scale-in">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card rounded-t-2xl">
-              <h2 className="text-lg font-bold text-foreground">
-                Registrar Movimiento
-              </h2>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-muted rounded-lg transition-all duration-200 active:scale-95"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+          <div className="bg-card rounded-t-2xl md:rounded-2xl w-full md:w-full md:max-w-2xl max-h-[90vh] shadow-2xl animate-slide-up md:animate-scale-in flex flex-col">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsOpen(false)}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 hover:bg-muted rounded-lg transition-all duration-200 active:scale-95 z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-            {/* Form Content */}
-            <div className="p-6">
-              <MovementForm onClose={() => setIsOpen(false)} />
-            </div>
+            {/* Modal Content */}
+            <OperationModal onClose={() => setIsOpen(false)} />
           </div>
         </div>
       )}
