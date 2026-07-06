@@ -1,6 +1,7 @@
 import { Transaction } from '@/types';
 import { transactionService } from './transaction.service';
 import { receivableService, payableService, scheduledPaymentService } from './financial.service';
+import { EventoFinanciero, EventoFinancieroTipo } from '@/types/EventTypes';
 
 export type TransactionInput = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>;
 
@@ -95,6 +96,151 @@ class FinancialEngineService {
 
   payScheduledPayment(uid: string, input: { paymentId: string; period: string; accountId: string; paidAt?: Date }) {
     return scheduledPaymentService.markPeriodAsPaid(uid, input.paymentId, input.period, input.accountId, input.paidAt ?? new Date());
+  }
+
+  /**
+   * MÉTODO PRINCIPAL: Procesa cualquier evento financiero
+   * Orquesta la creación de transacciones y obligaciones según el tipo de evento
+   */
+  async procesarEvento(uid: string, evento: EventoFinanciero) {
+    try {
+      switch (evento.tipo) {
+        // MOVIMIENTO DE DINERO
+        case EventoFinancieroTipo.GASTO:
+          return await this.createExpense(uid, {
+            monto: evento.monto,
+            descripcion: evento.descripcion,
+            fecha: evento.fecha,
+            cuenta: evento.cuentaId,
+            cuentaId: evento.cuentaId,
+            categoriaId: evento.categoriaId,
+            notas: evento.notas,
+          });
+
+        case EventoFinancieroTipo.INGRESO:
+          return await this.createIncome(uid, {
+            monto: evento.monto,
+            descripcion: evento.descripcion,
+            fecha: evento.fecha,
+            cuenta: evento.cuentaId,
+            cuentaId: evento.cuentaId,
+            categoriaId: evento.categoriaId,
+            notas: evento.notas,
+          });
+
+        case EventoFinancieroTipo.TRANSFERENCIA:
+          return await this.createTransfer(uid, {
+            monto: evento.monto,
+            descripcion: evento.descripcion,
+            fecha: evento.fecha,
+            cuenta: evento.cuentaOrigenId,
+            cuentaId: evento.cuentaOrigenId,
+            destinationAccountId: evento.cuentaDestinoId,
+            notas: evento.notas,
+          });
+
+        // LÍNEAS DE CRÉDITO
+        case EventoFinancieroTipo.CARGO_TARJETA:
+          return await this.chargeCreditCard(uid, {
+            monto: evento.monto,
+            descripcion: evento.descripcion,
+            fecha: evento.fecha,
+            creditCardId: evento.tarjetaId,
+            categoriaId: evento.categoriaId,
+            notas: evento.notas,
+          });
+
+        case EventoFinancieroTipo.PAGO_TARJETA:
+          return await this.payCreditCard(uid, {
+            monto: evento.monto,
+            descripcion: evento.descripcion,
+            fecha: evento.fecha,
+            cuenta: evento.cuentaId,
+            cuentaId: evento.cuentaId,
+            creditCardId: evento.tarjetaId,
+            notas: evento.notas,
+          });
+
+        // PERSONAS Y OBLIGACIONES
+        case EventoFinancieroTipo.PRESTAMO:
+          return await this.grantLoan(uid, {
+            personId: evento.personaId,
+            description: evento.descripcion,
+            amount: evento.monto,
+            accountId: evento.cuentaId,
+            date: evento.fecha,
+            dueDate: evento.fechaVencimiento,
+            notes: evento.notas,
+          });
+
+        case EventoFinancieroTipo.DEUDA_RECIBIDA:
+          return await this.receiveLoan(uid, {
+            creditorName: evento.descripcion,
+            personId: evento.personaId,
+            description: evento.descripcion,
+            amount: evento.monto,
+            accountId: evento.cuentaId,
+            date: evento.fecha,
+            dueDate: evento.fechaVencimiento,
+            notes: evento.notas,
+          });
+
+        case EventoFinancieroTipo.COBRANZA:
+          return await this.collectReceivable(uid, {
+            debtId: evento.deudaId,
+            personId: evento.personaId,
+            amount: evento.monto,
+            accountId: evento.cuentaId,
+            date: evento.fecha,
+            observations: evento.notas,
+          });
+
+        case EventoFinancieroTipo.PAGO:
+          return await this.payObligation(uid, {
+            obligationId: evento.obligacionId,
+            amount: evento.monto,
+            accountId: evento.cuentaId,
+            date: evento.fecha,
+            observations: evento.notas,
+          });
+
+        case EventoFinancieroTipo.OBLIGACION:
+          return await this.createPayable(uid, {
+            creditorName: evento.acreedor,
+            creditorType: evento.tipoAcreedor,
+            description: evento.descripcion,
+            amount: evento.monto,
+            date: evento.fecha,
+            dueDate: evento.fechaVencimiento,
+            notes: evento.notas,
+          });
+
+        case EventoFinancieroTipo.CUENTA_COBRAR:
+          return await this.createReceivable(uid, {
+            personId: evento.personaId,
+            description: evento.descripcion,
+            amount: evento.monto,
+            date: evento.fecha,
+            dueDate: evento.fechaVencimiento,
+            notes: evento.notas,
+          });
+
+        // SUSCRIPCIONES Y PAGOS PROGRAMADOS
+        case EventoFinancieroTipo.PAGO_PROGRAMADO:
+          return await this.payScheduledPayment(uid, {
+            paymentId: evento.suscripcionId,
+            period: evento.periodoId,
+            accountId: evento.cuentaId,
+            paidAt: evento.fecha,
+          });
+
+        default:
+          throw new Error(`Tipo de evento desconocido: ${evento.tipo}`);
+      }
+    } catch (error) {
+      console.error('[FinancialEngine] Error procesando evento:', error);
+      throw error;
+    }
   }
 }
 
