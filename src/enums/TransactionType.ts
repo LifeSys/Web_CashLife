@@ -8,6 +8,7 @@ export enum TransactionType {
   TRANSFER = 'transfer',    // Transferencia entre cuentas
   LOAN = 'loan',            // Préstamo otorgado
   LOAN_PAYMENT = 'loan_payment', // Pago de deuda
+  CREDIT_CARD_PAYMENT = 'credit_card_payment', // Pago de tarjeta
 }
 
 /**
@@ -19,6 +20,7 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   [TransactionType.TRANSFER]: 'Transferencia',
   [TransactionType.LOAN]: 'Préstamo',
   [TransactionType.LOAN_PAYMENT]: 'Pago de deuda',
+  [TransactionType.CREDIT_CARD_PAYMENT]: 'Pago de tarjeta',
 };
 
 /**
@@ -30,6 +32,7 @@ export const TRANSACTION_TYPE_ICONS: Record<TransactionType, string> = {
   [TransactionType.TRANSFER]: 'ArrowRightLeft',
   [TransactionType.LOAN]: 'Hand',
   [TransactionType.LOAN_PAYMENT]: 'CheckCircle2',
+  [TransactionType.CREDIT_CARD_PAYMENT]: 'CreditCard',
 };
 
 /**
@@ -41,4 +44,5 @@ export const TRANSACTION_TYPE_COLORS: Record<TransactionType, string> = {
   [TransactionType.TRANSFER]: '#3B82F6',  // Azul
   [TransactionType.LOAN]: '#F59E0B',      // Ámbar
   [TransactionType.LOAN_PAYMENT]: '#10B981', // Verde oscuro
+  [TransactionType.CREDIT_CARD_PAYMENT]: '#6366F1',
 };

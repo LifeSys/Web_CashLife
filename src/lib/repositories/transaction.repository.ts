@@ -180,15 +180,34 @@ export class TransactionRepository extends BaseRepository {
     calculateNewBalance: (currentBalance: number) => number
   ): Promise<Transaction> {
     return await runTransaction(db, async (t) => {
-      if (transaction.creditCardId) {
+      if (transaction.tipo === 'transfer' && transaction.destinationAccountId) {
+        const sourceRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
+        const destinationRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.destinationAccountId}`);
+        const [sourceSnap, destinationSnap] = await Promise.all([t.get(sourceRef), t.get(destinationRef)]);
+        if (!sourceSnap.exists()) throw new Error(`Cuenta origen ${transaction.cuenta} no encontrada`);
+        if (!destinationSnap.exists()) throw new Error(`Cuenta destino ${transaction.destinationAccountId} no encontrada`);
+        const sourceSaldo = (sourceSnap.data().saldo ?? sourceSnap.data().balance ?? 0) as number;
+        const destinationSaldo = (destinationSnap.data().saldo ?? destinationSnap.data().balance ?? 0) as number;
+        t.update(sourceRef, { saldo: sourceSaldo - transaction.monto, balance: sourceSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        t.update(destinationRef, { saldo: destinationSaldo + transaction.monto, balance: destinationSaldo + transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+      } else if (transaction.creditCardId) {
         const cardRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}/${transaction.creditCardId}`);
         const cardSnap = await t.get(cardRef);
         if (!cardSnap.exists()) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
         const data = cardSnap.data();
         const currentUsed = (data.usedAmount ?? data.montoUtilizado ?? 0) as number;
-        const nextUsed = currentUsed + transaction.monto;
+        const nextUsed = transaction.tipo === 'credit_card_payment'
+          ? Math.max(currentUsed - transaction.monto, 0)
+          : currentUsed + transaction.monto;
         const limit = (data.creditLimit ?? data.lineaCredito ?? 0) as number;
         t.update(cardRef, { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedAt: Timestamp.now(), updatedBy: uid });
+        if (transaction.tipo === 'credit_card_payment') {
+          const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
+          const accountSnap = await t.get(accountRef);
+          if (!accountSnap.exists()) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
+          const currentSaldo = accountSnap.data().saldo as number;
+          t.update(accountRef, { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        }
       } else {
         // 1. Obtener documento de cuenta real. Si el movimiento vino por billetera,
         // transaction.cuenta debe ser la cuenta bancaria vinculada, no la billetera.
