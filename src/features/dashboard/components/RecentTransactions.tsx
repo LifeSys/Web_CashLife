@@ -19,10 +19,10 @@ export function RecentTransactions({ transactions }: RecentTransactionsProps) {
     return categorias.find(c => c.id === categoryId)?.nombre || 'Categoría';
   };
 
-  // Sort transactions from newest to oldest
+  // Sort transactions from newest to oldest by createdAt (creation date)
   const sortedTransactions = [...transactions].sort((a, b) => {
-    const dateA = toDate(a.fecha);
-    const dateB = toDate(b.fecha);
+    const dateA = toDate(a.createdAt);
+    const dateB = toDate(b.createdAt);
     return dateB.getTime() - dateA.getTime();
   });
 
