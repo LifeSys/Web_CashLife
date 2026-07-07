@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface PayablePaymentModalProps {
@@ -28,6 +29,7 @@ export function PayablePaymentModal({
 }: PayablePaymentModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
+  const { invalidateAfterPayable } = useSWRInvalidation();
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -59,6 +61,7 @@ export function PayablePaymentModal({
         observations: notes,
       });
       toast.success('Pago registrado correctamente');
+      invalidateAfterPayable(user.uid);
       setAmount('');
       setAccountId('');
       setDate(new Date().toISOString().split('T')[0]);
