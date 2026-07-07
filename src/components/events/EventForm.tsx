@@ -303,7 +303,15 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
       const result = await financialEngine.procesarEvento(user.uid, evento);
       console.log('[EventForm] Evento procesado:', result);
       
-      refresh();
+      // Revalidar todos los datos después del evento
+      await Promise.all([
+        mutateTransactions(),
+        mutateCuentas(),
+        mutateCards(),
+        mutateDebts(),
+        mutateObligations(),
+      ]);
+      
       toast.success('Evento registrado correctamente');
       onClose();
     } catch (error) {
