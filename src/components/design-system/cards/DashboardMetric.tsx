@@ -42,9 +42,12 @@ export function DashboardMetric({
             {label}
           </p>
           <p
-            className={`text-3xl md:text-4xl font-bold tracking-tight transition-all duration-500 ${
+            className={`text-2xl sm:text-3xl md:text-3xl lg:text-4xl font-bold tracking-tight transition-all duration-500 break-words line-clamp-2 ${
               animated ? 'animate-scale-in' : ''
             }`}
+            style={{
+              fontSize: value.length > 20 ? 'clamp(1rem, 2vw, 1.875rem)' : 'clamp(1.5rem, 3vw, 2.25rem)',
+            }}
           >
             {value}
           </p>
