@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Landmark,
   Users,
@@ -35,6 +35,8 @@ import {
   ContainerCard,
 } from '@/components/design-system';
 import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
+import { EventFormModal } from '@/components/events/EventFormModal';
+import { X } from 'lucide-react';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-PE', {
@@ -51,6 +53,7 @@ const toDate = (value: unknown) =>
       : new Date(String(value));
 
 export default function DashboardPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const { transacciones } = useTransactions();
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
@@ -81,6 +84,27 @@ export default function DashboardPage() {
   const greeting = today.getHours() < 12 ? 'Buenos días' : today.getHours() < 18 ? 'Buenas tardes' : 'Buenas noches';
 
   return (
+    <>
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-background/80 backdrop-blur-sm p-0 md:p-4 animate-fade-in">
+          <div className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-card shadow-2xl animate-slide-up md:animate-scale-in">
+            <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 rounded-t-lg flex items-center justify-between z-10">
+              <div>
+                <h2 className="text-xl md:text-2xl font-bold text-foreground">Registrar Movimiento</h2>
+                <p className="text-sm text-muted-foreground mt-1">Selecciona qué tipo de movimiento registrar</p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-muted rounded-lg transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 md:p-6">
+              <EventFormModal onClose={() => setIsModalOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
+      
     <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
       {/* BLOQUE 1: Encabezado Premium con saludo */}
       <div className="flex flex-col gap-4">
@@ -98,6 +122,14 @@ export default function DashboardPage() {
           </p>
         </div>
       </div>
+
+      {/* BLOQUE 1b: Botón Principal */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="w-full bg-gradient-to-r from-primary to-blue-600 text-primary-foreground font-semibold py-4 rounded-2xl hover:shadow-lg transition-all duration-200 active:scale-95"
+      >
+        + Registrar Movimiento
+      </button>
 
       {/* BLOQUE 2: Resumen Financiero Principal (4 Métricas Mejoradas) */}
       <div className="space-y-6">
@@ -274,5 +306,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

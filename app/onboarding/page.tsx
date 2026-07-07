@@ -36,6 +36,15 @@ export default function OnboardingPage() {
 
   const next = () => setStep((current) => Math.min(totalSteps, current + 1));
   const back = () => setStep((current) => Math.max(1, current - 1));
+  const skip = async () => {
+    setBusy(true);
+    try {
+      await onboarding.complete();
+      router.replace('/dashboard');
+    } finally {
+      setBusy(false);
+    }
+  };
   const submit = async (action: () => Promise<unknown>, advance = true) => {
     setBusy(true);
     try {
@@ -64,7 +73,7 @@ export default function OnboardingPage() {
         </div>
 
         <section className="flex flex-1 animate-in fade-in slide-in-from-right-4 duration-300 flex-col justify-center rounded-3xl border border-border bg-card p-6 shadow-2xl md:p-10">
-          {step === 1 && <Welcome busy={busy} next={next} />}
+          {step === 1 && <Welcome busy={busy} next={next} skip={skip} />}
           {step === 2 && <Currency {...props} submit={submit} />}
           {step === 3 && <Cash {...props} submit={submit} />}
           {step === 4 && <BankAccounts {...props} submit={submit} />}
@@ -83,7 +92,7 @@ export default function OnboardingPage() {
 function Nav({ busy, next, back, skip }: StepProps & { skip?: boolean }) {
   return <div className="mt-8 flex gap-3"><button className={`${button} bg-muted`} onClick={back} disabled={busy}><ArrowLeft className="inline h-4 w-4" /> Anterior</button>{skip && <button className={`${button} bg-transparent text-muted-foreground`} onClick={next} disabled={busy}>Omitir</button>}</div>;
 }
-function Welcome({ busy, next }: { busy: boolean; next: () => void }) { return <div className="text-center"><Sparkles className="mx-auto mb-6 h-14 w-14 text-primary" /><h1 className="text-4xl font-bold">Bienvenido a CashLife</h1><p className="mt-4 text-lg text-muted-foreground">Vamos a configurar tus finanzas en menos de 2 minutos.</p><button className={`${button} mt-10 w-full bg-primary text-primary-foreground`} disabled={busy} onClick={next}>Comenzar <ArrowRight className="inline h-4 w-4" /></button></div>; }
+function Welcome({ busy, next, skip }: { busy: boolean; next: () => void; skip: () => void }) { return <div className="text-center"><Sparkles className="mx-auto mb-6 h-14 w-14 text-primary" /><h1 className="text-4xl font-bold">Bienvenido a CashLife</h1><p className="mt-4 text-lg text-muted-foreground">Vamos a configurar tus finanzas en menos de 2 minutos.</p><div className="mt-10 flex flex-col gap-3"><button className={`${button} w-full bg-primary text-primary-foreground`} disabled={busy} onClick={next}>Configurar Ahora <ArrowRight className="inline h-4 w-4" /></button><button className={`${button} w-full bg-muted text-foreground`} disabled={busy} onClick={skip}>Omitir por Ahora</button></div></div>; }
 
 function Currency({ busy, back, submit }: StepProps & { submit: (a:()=>Promise<unknown>)=>void }) { const o=useOnboarding(); return <div><h2 className="text-3xl font-bold">Elige tu moneda principal</h2><div className="mt-6 grid gap-3">{[['PEN','Soles (PEN)'],['USD','Dólares (USD)'],['EUR','Euros (EUR)']].map(([v,l])=><button key={v} className={`${button} border border-border bg-muted text-left`} disabled={busy} onClick={()=>submit(()=>o.saveCurrency(v))}>{l}</button>)}</div><Nav busy={busy} back={back} next={()=>{}} /></div>; }
 
