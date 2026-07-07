@@ -256,7 +256,7 @@ class FinancialEngineService {
           });
 
         default:
-          throw new Error(`Tipo de evento desconocido: ${evento.tipo}`);
+          throw new Error(`Tipo de evento desconocido: ${(evento as any).tipo}`);
       }
 
       // Log exitoso

@@ -79,7 +79,7 @@ export function useExpensesByCategory(transacciones: Transaction[]) {
     const byCategory: Record<string, { amount: number; count: number }> = {};
 
     transaccionesDelMes.forEach(t => {
-      const catId = t.categoria || 'sin-categoria';
+      const catId = t.categoriaId || 'sin-categoria';
       if (!byCategory[catId]) {
         byCategory[catId] = { amount: 0, count: 0 };
       }

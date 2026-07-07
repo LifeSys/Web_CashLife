@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 
-type CardVariant = 'elevated' | 'outlined' | 'filled' | 'glass';
+export type CardVariant = 'elevated' | 'outlined' | 'filled' | 'glass';
 
 interface PremiumCardProps {
   children: ReactNode;

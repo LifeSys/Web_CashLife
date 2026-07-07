@@ -252,7 +252,7 @@ export default function DashboardPage() {
           <StatisticsCard
             title="Gastos"
             icon={<ArrowUpRight className="w-5 h-5" />}
-            variant="danger"
+            variant="warning"
             data={[
               {
                 value: formatCurrency(data.monthExpenses),
