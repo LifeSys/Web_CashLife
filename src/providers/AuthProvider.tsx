@@ -5,6 +5,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { signUp as firebaseSignUp, signIn as firebaseSignIn, signOutUser, onAuthStateChanged } from '@/lib/firebase/auth';
 import { UserRepository } from '@/lib/repositories/user.repository';
 import { User, AuthContextType } from '@/types';
+import { cleanupUserData } from '@/lib/scripts/cleanup-corrupted-data';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const userRepository = new UserRepository();
@@ -22,6 +23,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userProfile = await userRepository.getProfile(firebaseUser.uid);
           if (userProfile) {
             setUser(userProfile);
+            // Run cleanup on first load to fix any corrupted data
+            try {
+              await cleanupUserData(firebaseUser.uid);
+            } catch (cleanupErr) {
+              console.warn('[CashLife] Non-critical cleanup error:', cleanupErr);
+            }
           }
         } else {
           setUser(null);

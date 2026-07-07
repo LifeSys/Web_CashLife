@@ -42,22 +42,18 @@ export interface Account {
 }
 
 export type TransactionType =
-  | 'expense'
-  | 'income'
-  | 'transfer'
-  | 'loan'
-  | 'loan_payment'
-  | 'receivable_debt'
-  | 'receivable_payment'
-  | 'payable_obligation'
-  | 'payable_payment'
-  | 'credit_card_charge'
-  | 'credit_card_payment'
-  | 'scheduled_payment'
-  | 'GASTO'
-  | 'INGRESO'
-  | 'TRANSFERENCIA'
-  | 'PRESTAMO';
+  | 'expense'           // Gasto desde cualquier cuenta
+  | 'income'            // Ingreso a cualquier cuenta
+  | 'transfer'          // Transferencia entre cuentas
+  | 'card_purchase'     // Compra con tarjeta de crédito
+  | 'card_payment'      // Pago de tarjeta de crédito
+  | 'loan'              // Préstamo otorgado
+  | 'loan_payment'      // Pago de préstamo recibido
+  | 'receivable_created' // Deuda creada (por cobrar)
+  | 'receivable_paid'   // Deuda pagada (por cobrar)
+  | 'payable_created'   // Obligación creada (por pagar)
+  | 'payable_paid'      // Obligación pagada (por pagar)
+  | 'scheduled_execution' // Ejecución de pago programado;
 
 export interface Transaction {
   id: string;
@@ -95,7 +91,7 @@ export interface Category {
   nombre: string;
   icono?: string;
   color?: string;
-  tipo?: 'expense' | 'income' | 'both' | 'gasto' | 'ingreso';
+  tipo: 'expense' | 'income';  // REQUIRED, no ambiguity
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;

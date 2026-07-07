@@ -74,7 +74,7 @@ export function IncomeModal({ isOpen, onClose, onSuccess }: IncomeModalProps) {
   if (!isOpen) return null;
 
   const accountOptions = cuentas.filter((c) => c.tipo !== 'credit_card');
-  const incomeCategories = categorias.filter((c) => c.tipo === 'income' || c.tipo === 'ingreso' || c.tipo === 'both');
+  const incomeCategories = categorias.filter((c) => c.tipo === 'income');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
