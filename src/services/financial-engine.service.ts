@@ -7,15 +7,15 @@ import { eventLogger } from './event-logger.service';
 export type TransactionInput = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>;
 
 class FinancialEngineService {
-  createIncome(uid: string, input: Omit<TransactionInput, 'tipo'>) {
+  async createIncome(uid: string, input: Omit<TransactionInput, 'tipo'>) {
     return transactionService.create(uid, { ...input, tipo: 'income' });
   }
 
-  createExpense(uid: string, input: Omit<TransactionInput, 'tipo'>) {
+  async createExpense(uid: string, input: Omit<TransactionInput, 'tipo'>) {
     return transactionService.create(uid, { ...input, tipo: 'expense' });
   }
 
-  createTransfer(uid: string, input: Omit<TransactionInput, 'tipo'> & { destinationAccountId: string }) {
+  async createTransfer(uid: string, input: Omit<TransactionInput, 'tipo'> & { destinationAccountId: string }) {
     return transactionService.create(uid, { ...input, tipo: 'transfer' });
   }
 
@@ -106,11 +106,11 @@ class FinancialEngineService {
     return payableService.registerPayment(uid, input);
   }
 
-  chargeCreditCard(uid: string, input: Omit<TransactionInput, 'tipo' | 'cuenta'> & { creditCardId: string; cuenta?: string }) {
+  async chargeCreditCard(uid: string, input: Omit<TransactionInput, 'tipo' | 'cuenta'> & { creditCardId: string; cuenta?: string }) {
     return transactionService.create(uid, { ...input, cuenta: input.cuenta ?? 'credit-card', tipo: 'credit_card_charge' });
   }
 
-  payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string }) {
+  async payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string }) {
     return transactionService.create(uid, { ...input, tipo: 'credit_card_payment' });
   }
 

@@ -4,14 +4,29 @@ import useSWR from 'swr';
 import { transactionService } from '@/services/transaction.service';
 import { useAuth } from '@/providers/AuthProvider';
 import type { Transaction } from '@/types';
+import { useEffect } from 'react';
 
 export function useTransactions() {
   const { user } = useAuth();
   const { data, isLoading, error, mutate } = useSWR(
     user?.uid ? ['transactions', user.uid] : null,
     () => transactionService.getAll(user!.uid as string),
-    { revalidateOnFocus: false, dedupingInterval: 60000 }
+    { 
+      revalidateOnFocus: true, 
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000 
+    }
   );
+
+  // Refetch every 10 seconds to stay in sync with Firestore
+  useEffect(() => {
+    if (!user?.uid) return;
+    const interval = setInterval(() => {
+      mutate();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [user?.uid, mutate]);
+
   return { transacciones: data?.items ?? [], hasMore: data?.hasMore ?? false, isLoading, error, mutate };
 }
 
