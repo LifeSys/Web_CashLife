@@ -206,7 +206,7 @@ export function OperationModal({ onClose }: OperationModalProps) {
     () =>
       (Object.entries(operationConfigs) as [OperationType, OperationConfig][])
         .filter(([_, config]) => config.category === selectedCategory)
-        .map(([type, config]) => ({ type, ...config })),
+        .map(([operationType, config]) => ({ ...config, type: operationType })),
     [selectedCategory]
   );
 
