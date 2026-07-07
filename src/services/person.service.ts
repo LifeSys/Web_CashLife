@@ -30,6 +30,11 @@ class PersonService {
     uid: string,
     person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
   ): Promise<Person> {
+    // Prevent duplicate person names
+    const existingPeople = await this.repository.getAll(uid);
+    if (existingPeople.some(p => p.nombre.toLowerCase() === person.nombre.toLowerCase())) {
+      throw new Error(`Ya existe una persona llamada "${person.nombre}"`);
+    }
     return this.repository.create(uid, person);
   }
 

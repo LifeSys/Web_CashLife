@@ -29,6 +29,11 @@ class CategoryService {
     uid: string,
     category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
   ): Promise<Category> {
+    // Prevent duplicate category names
+    const existingCategories = await this.repository.getAll(uid);
+    if (existingCategories.some(c => c.nombre.toLowerCase() === category.nombre.toLowerCase())) {
+      throw new Error(`Ya existe una categoría llamada "${category.nombre}"`);
+    }
     return this.repository.create(uid, category);
   }
 

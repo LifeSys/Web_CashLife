@@ -29,7 +29,10 @@ export interface Account {
   name?: string;
   balance?: number;
   currency?: Currency;
+  moneda?: Currency;
   hasDebitCard?: boolean;
+  hasYape?: boolean;
+  hasPlin?: boolean;
   color?: string;
   icono?: string;
   createdAt?: FireDate;
@@ -153,6 +156,8 @@ export interface CreditCard {
   interestRate?: number;
   color?: string;
   icono?: string;
+  lastDigits?: string;
+  linkedAccountId?: string;
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;
