@@ -46,7 +46,8 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
         descripcion: description,
         fecha: new Date(date),
         cuenta: accountId,
-        categoria: categoryId || undefined,
+        cuentaId: accountId,
+        categoriaId: categoryId || undefined,
         notas: notes,
       });
       toast.success('Gasto registrado correctamente');

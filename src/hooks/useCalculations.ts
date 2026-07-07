@@ -33,12 +33,14 @@ export function useCalculations(transacciones: Transaction[], saldoTotal?: numbe
       return tDate >= startOfMonth && tDate <= endOfMonth && !t.isDeleted;
     });
 
+    // Income: direct income, collected receivables, loan origination
     const ingresosDelMes = transaccionesDelMes
-      .filter(t => t.tipo === 'income')
+      .filter(t => ['income', 'receivable_payment', 'loan'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
+    // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments
     const gastosDelMes = transaccionesDelMes
-      .filter(t => t.tipo === 'expense')
+      .filter(t => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
     const balance = ingresosDelMes - gastosDelMes;
@@ -71,7 +73,7 @@ export function useExpensesByCategory(transacciones: Transaction[]) {
 
     const transaccionesDelMes = transacciones.filter(t => {
       const tDate = convertToDate(t.fecha);
-      return tDate >= startOfMonth && tDate <= endOfMonth && t.tipo === 'expense' && !t.isDeleted;
+      return tDate >= startOfMonth && tDate <= endOfMonth && ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo) && !t.isDeleted;
     });
 
     const byCategory: Record<string, { amount: number; count: number }> = {};
@@ -103,9 +105,12 @@ export function useMonthlyTrend(transacciones: Transaction[]) {
         months[monthKey] = { ingresos: 0, gastos: 0 };
       }
 
-      if (t.tipo === 'income') {
+      // Income: direct income, collected receivables, loan origination
+      if (['income', 'receivable_payment', 'loan'].includes(t.tipo)) {
         months[monthKey].ingresos += t.monto;
-      } else if (t.tipo === 'expense') {
+      } 
+      // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments
+      else if (['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo)) {
         months[monthKey].gastos += t.monto;
       }
     });

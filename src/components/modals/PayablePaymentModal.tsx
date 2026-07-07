@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
-import { payableService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface PayablePaymentModalProps {
@@ -49,7 +49,7 @@ export function PayablePaymentModal({
 
     setIsSubmitting(true);
     try {
-      await payableService.registerPayment(user.uid, {
+      await financialEngine.payObligation(user.uid, {
         obligationId,
         personId,
         contactId,

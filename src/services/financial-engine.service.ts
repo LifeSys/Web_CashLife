@@ -7,15 +7,15 @@ import { eventLogger } from './event-logger.service';
 export type TransactionInput = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>;
 
 class FinancialEngineService {
-  createIncome(uid: string, input: Omit<TransactionInput, 'tipo'>) {
+  async createIncome(uid: string, input: Omit<TransactionInput, 'tipo'>) {
     return transactionService.create(uid, { ...input, tipo: 'income' });
   }
 
-  createExpense(uid: string, input: Omit<TransactionInput, 'tipo'>) {
+  async createExpense(uid: string, input: Omit<TransactionInput, 'tipo'>) {
     return transactionService.create(uid, { ...input, tipo: 'expense' });
   }
 
-  createTransfer(uid: string, input: Omit<TransactionInput, 'tipo'> & { destinationAccountId: string }) {
+  async createTransfer(uid: string, input: Omit<TransactionInput, 'tipo'> & { destinationAccountId: string }) {
     return transactionService.create(uid, { ...input, tipo: 'transfer' });
   }
 
@@ -71,12 +71,31 @@ class FinancialEngineService {
     return obligation;
   }
 
-  createReceivable(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+  /**
+   * Unified method for creating receivable debts
+   * No transaction created - only the debt record is created
+   */
+  createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
     return receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
   }
 
-  createPayable(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+  /**
+   * Unified method for creating payable obligations
+   * No transaction created - only the obligation record is created
+   */
+  createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
     return payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+  }
+
+  /**
+   * Legacy aliases for backward compatibility
+   */
+  createReceivable(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return this.createReceivableDebt(uid, input);
+  }
+
+  createPayable(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return this.createPayableObligation(uid, input);
   }
 
   collectReceivable(uid: string, input: { debtId: string; personId: string; contactId?: string; amount: number; accountId: string; date: Date; observations?: string }) {
@@ -87,11 +106,11 @@ class FinancialEngineService {
     return payableService.registerPayment(uid, input);
   }
 
-  chargeCreditCard(uid: string, input: Omit<TransactionInput, 'tipo' | 'cuenta'> & { creditCardId: string; cuenta?: string }) {
+  async chargeCreditCard(uid: string, input: Omit<TransactionInput, 'tipo' | 'cuenta'> & { creditCardId: string; cuenta?: string }) {
     return transactionService.create(uid, { ...input, cuenta: input.cuenta ?? 'credit-card', tipo: 'credit_card_charge' });
   }
 
-  payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string }) {
+  async payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string }) {
     return transactionService.create(uid, { ...input, tipo: 'credit_card_payment' });
   }
 

@@ -69,8 +69,10 @@ export default function DashboardPage() {
     const creditUsed = creditCards.reduce((sum, c) => sum + (c.usedAmount ?? c.montoUtilizado ?? 0), 0);
     const totalDebt = personDebt + bankDebt + otherDebt + creditUsed;
     const monthTransactions = transacciones.filter((tx) => toDate(tx.fecha) >= startMonth);
-    const monthIncome = monthTransactions.filter((tx) => ['income', 'receivable_payment', 'loan_payment'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
-    const monthExpenses = monthTransactions.filter((tx) => ['expense', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
+    // Income: direct income, collected receivables, loan payments received, loan origination (marked as income but is receivable)
+    const monthIncome = monthTransactions.filter((tx) => ['income', 'receivable_payment', 'loan'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
+    // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments
+    const monthExpenses = monthTransactions.filter((tx) => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
     const upcoming = scheduledPayments.filter((p) => p.active).slice(0, 5);
     return { availableMoney, receivableTotal, personDebt, bankDebt, otherDebt, creditUsed, totalDebt, monthIncome, monthExpenses, netWorth: availableMoney + receivableTotal - totalDebt, upcoming };
   }, [cuentas, debts, obligations, creditCards, scheduledPayments, transacciones]);

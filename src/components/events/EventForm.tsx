@@ -8,6 +8,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { useCreditCards } from '@/hooks/useCreditCards';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
 import { usePeople } from '@/hooks/usePeople';
+import { useTransactions } from '@/hooks/useTransactions';
 import { financialEngine } from '@/services/financial-engine.service';
 import { EventBuilder } from '@/utils/EventBuilder';
 import { EventoFinancieroTipo, EVENTO_LABELS, EVENTO_DESCRIPCIONES, EVENTO_A_CATEGORIA, CategoriaEvento, EVENTO_ICONOS } from '@/types/EventTypes';
@@ -25,6 +26,7 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
   const { creditCards, mutate: mutateCards } = useCreditCards();
   const { debts, mutate: mutateDebts } = useReceivableDebts();
   const { obligations, mutate: mutateObligations } = usePayableObligations();
+  const { mutate: mutateTransactions } = useTransactions();
 
   const [tipoEvento, setTipoEvento] = useState<EventoFinancieroTipo>(EventoFinancieroTipo.GASTO);
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaEvento>(
@@ -97,6 +99,7 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
     mutateCards();
     mutateDebts();
     mutateObligations();
+    mutateTransactions();
   };
 
   const selectedDebt = debts.find((d) => d.id === formData.deudaId);
