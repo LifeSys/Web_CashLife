@@ -16,6 +16,9 @@ import {
   LogOut,
   ArrowUpRight,
   ArrowDownLeft,
+  Minus,
+  Plus,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -35,7 +38,9 @@ import {
   ContainerCard,
 } from '@/components/design-system';
 import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
-import { EventFormModal } from '@/components/events/EventFormModal';
+import { ExpenseModal } from '@/components/modals/ExpenseModal';
+import { IncomeModal } from '@/components/modals/IncomeModal';
+import { TransferModal } from '@/components/modals/TransferModal';
 import { X } from 'lucide-react';
 
 const formatCurrency = (value: number) =>
@@ -53,7 +58,9 @@ const toDate = (value: unknown) =>
       : new Date(String(value));
 
 export default function DashboardPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const { transacciones } = useTransactions();
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
@@ -85,25 +92,10 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-background/80 backdrop-blur-sm p-0 md:p-4 animate-fade-in">
-          <div className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-card shadow-2xl animate-slide-up md:animate-scale-in">
-            <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 rounded-t-lg flex items-center justify-between z-10">
-              <div>
-                <h2 className="text-xl md:text-2xl font-bold text-foreground">Registrar Movimiento</h2>
-                <p className="text-sm text-muted-foreground mt-1">Selecciona qué tipo de movimiento registrar</p>
-              </div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-muted rounded-lg transition-all">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 md:p-6">
-              <EventFormModal onClose={() => setIsModalOpen(false)} />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modals */}
+      <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} />
+      <IncomeModal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} />
+      <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} />
       
     <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
       {/* BLOQUE 1: Encabezado Premium con saludo */}
@@ -123,13 +115,27 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* BLOQUE 1b: Botón Principal */}
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="w-full bg-gradient-to-r from-primary to-blue-600 text-primary-foreground font-semibold py-4 rounded-2xl hover:shadow-lg transition-all duration-200 active:scale-95"
-      >
-        + Registrar Movimiento
-      </button>
+      {/* BLOQUE 1b: 3 Botones de Acción Primaria */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button
+          onClick={() => setIsExpenseModalOpen(true)}
+          className="bg-red-500/10 hover:bg-red-500/20 text-red-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+        >
+          <Minus className="w-5 h-5" /> Registrar Gasto
+        </button>
+        <button
+          onClick={() => setIsIncomeModalOpen(true)}
+          className="bg-green-500/10 hover:bg-green-500/20 text-green-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+        >
+          <Plus className="w-5 h-5" /> Registrar Ingreso
+        </button>
+        <button
+          onClick={() => setIsTransferModalOpen(true)}
+          className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+        >
+          <ArrowRightLeft className="w-5 h-5" /> Transferencia
+        </button>
+      </div>
 
       {/* BLOQUE 2: Resumen Financiero Principal (4 Métricas Mejoradas) */}
       <div className="space-y-6">
