@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface ExpenseModalProps {
@@ -18,6 +19,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
   const { user } = useAuth();
   const { cuentas } = useAccounts();
   const { categorias } = useCategories();
+  const { invalidateAfterMovement } = useSWRInvalidation();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -51,6 +53,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
         notas: notes,
       });
       toast.success('Gasto registrado correctamente');
+      invalidateAfterMovement(user.uid);
       setDescription('');
       setAmount('');
       setAccountId('');

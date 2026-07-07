@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface PayableObligationModalProps {
@@ -16,6 +17,7 @@ interface PayableObligationModalProps {
 export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableObligationModalProps) {
   const { user } = useAuth();
   const { contacts } = usePeople();
+  const { invalidateAfterPayable } = useSWRInvalidation();
   const [creditorName, setCreditorName] = useState('');
   const [creditorType, setCreditorType] = useState<'person' | 'bank' | 'company' | 'sunat' | 'other'>('person');
   const [contactId, setContactId] = useState('');
@@ -53,6 +55,7 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableOb
         notes,
       });
       toast.success('Obligación registrada');
+      invalidateAfterPayable(user.uid);
       setCreditorName('');
       setCreditorType('person');
       setContactId('');
