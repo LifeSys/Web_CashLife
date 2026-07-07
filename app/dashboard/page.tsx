@@ -41,7 +41,8 @@ import { RecentTransactions } from '@/features/dashboard/components/RecentTransa
 import { ExpenseModal } from '@/components/modals/ExpenseModal';
 import { IncomeModal } from '@/components/modals/IncomeModal';
 import { TransferModal } from '@/components/modals/TransferModal';
-import { X } from 'lucide-react';
+import { MoreOperationsModal } from '@/components/modals/MoreOperationsModal';
+import { X, MoreHorizontal } from 'lucide-react';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-PE', {
@@ -61,6 +62,7 @@ export default function DashboardPage() {
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [isMoreOperationsOpen, setIsMoreOperationsOpen] = useState(false);
   const { transacciones } = useTransactions();
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
@@ -96,6 +98,7 @@ export default function DashboardPage() {
       <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} />
       <IncomeModal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} />
       <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} />
+      <MoreOperationsModal isOpen={isMoreOperationsOpen} onClose={() => setIsMoreOperationsOpen(false)} />
       
     <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
       {/* BLOQUE 1: Encabezado Premium con saludo */}
@@ -116,24 +119,32 @@ export default function DashboardPage() {
       </div>
 
       {/* BLOQUE 1b: 3 Botones de Acción Primaria */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <button
+            onClick={() => setIsExpenseModalOpen(true)}
+            className="bg-red-500/10 hover:bg-red-500/20 text-red-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Minus className="w-5 h-5" /> Registrar Gasto
+          </button>
+          <button
+            onClick={() => setIsIncomeModalOpen(true)}
+            className="bg-green-500/10 hover:bg-green-500/20 text-green-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <Plus className="w-5 h-5" /> Registrar Ingreso
+          </button>
+          <button
+            onClick={() => setIsTransferModalOpen(true)}
+            className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <ArrowRightLeft className="w-5 h-5" /> Transferencia
+          </button>
+        </div>
         <button
-          onClick={() => setIsExpenseModalOpen(true)}
-          className="bg-red-500/10 hover:bg-red-500/20 text-red-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
+          onClick={() => setIsMoreOperationsOpen(true)}
+          className="w-full bg-muted hover:bg-muted/80 text-foreground font-semibold py-3 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
         >
-          <Minus className="w-5 h-5" /> Registrar Gasto
-        </button>
-        <button
-          onClick={() => setIsIncomeModalOpen(true)}
-          className="bg-green-500/10 hover:bg-green-500/20 text-green-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
-        >
-          <Plus className="w-5 h-5" /> Registrar Ingreso
-        </button>
-        <button
-          onClick={() => setIsTransferModalOpen(true)}
-          className="bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 font-semibold py-4 rounded-xl transition-all duration-200 active:scale-95 flex items-center justify-center gap-2"
-        >
-          <ArrowRightLeft className="w-5 h-5" /> Transferencia
+          <MoreHorizontal className="w-5 h-5" /> Más operaciones
         </button>
       </div>
 

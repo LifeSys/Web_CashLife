@@ -16,6 +16,7 @@ import { db } from '@/lib/firebase/firebase';
 import { Transaction } from '@/types';
 import { BaseRepository, PaginatedResult, PaginationOptions } from './base.repository';
 import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
+import { cleanFirestoreData } from './firestore-utils';
 
 export class TransactionRepository extends BaseRepository {
   /**
@@ -216,12 +217,14 @@ export class TransactionRepository extends BaseRepository {
 
       // 3. Crear documento de transacción
       const txRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`));
-      const txData = this.createAuditedData(
-        {
-          ...transaction,
-          isDeleted: false,
-        },
-        uid
+      const txData = cleanFirestoreData(
+        this.createAuditedData(
+          {
+            ...transaction,
+            isDeleted: false,
+          },
+          uid
+        )
       );
 
       t.set(txRef, txData);

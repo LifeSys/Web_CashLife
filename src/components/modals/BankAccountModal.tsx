@@ -30,8 +30,26 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
     e.preventDefault();
     if (!user?.uid) return;
 
-    if (!nombre.trim() || !banco.trim() || !saldoInicial.trim()) {
-      toast.error('Completa todos los campos');
+    const missingFields = [];
+    if (!nombre.trim()) missingFields.push('Nombre');
+    if (!banco.trim()) missingFields.push('Banco');
+    if (!saldoInicial.trim()) missingFields.push('Saldo inicial');
+
+    if (missingFields.length > 0) {
+      toast.error(`Completa estos campos: ${missingFields.join(', ')}`);
+      return;
+    }
+
+    const saldo = parseFloat(saldoInicial);
+    if (isNaN(saldo) || saldo < 0) {
+      toast.error('El saldo inicial debe ser un número válido');
+      return;
+    }
+
+    // Prevenir nombres duplicados
+    const nombreExistente = mutate && Array.isArray(mutate) && mutate.some((a: any) => a.nombre.toLowerCase() === nombre.trim().toLowerCase());
+    if (nombreExistente) {
+      toast.error('Ya existe una cuenta con este nombre');
       return;
     }
 
@@ -41,11 +59,11 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
         nombre: nombre.trim(),
         tipo: 'bank',
         banco: banco.trim(),
-        saldo: parseFloat(saldoInicial),
-        saldoInicial: parseFloat(saldoInicial),
+        saldo: saldo,
         moneda,
-        tarjetaDebito: tieneDebito,
-        vinculacionDebito: tieneDebito ? vinculacion : undefined,
+        hasDebitCard: tieneDebito,
+        hasYape: vinculacion.includes('yape'),
+        hasPlin: vinculacion.includes('plin'),
       });
       toast.success('Cuenta bancaria creada');
       mutate();
@@ -59,6 +77,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
       onSuccess?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al crear cuenta');
+      console.error('[v0] Error:', error);
     } finally {
       setIsSubmitting(false);
     }
