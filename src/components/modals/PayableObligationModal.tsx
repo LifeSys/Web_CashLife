@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
-import { payableService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface PayableObligationModalProps {
@@ -41,7 +41,7 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableOb
 
     setIsSubmitting(true);
     try {
-      await payableService.createObligation(user.uid, {
+      await financialEngine.createPayableObligation(user.uid, {
         creditorName,
         creditorType,
         contactId,
@@ -49,7 +49,7 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableOb
         description,
         date: new Date(date),
         dueDate: dueDate ? new Date(dueDate) : new Date(date),
-        originalAmount: parsedAmount,
+        amount: parsedAmount,
         notes,
       });
       toast.success('Obligación registrada');

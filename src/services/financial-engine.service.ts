@@ -71,12 +71,31 @@ class FinancialEngineService {
     return obligation;
   }
 
-  createReceivable(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+  /**
+   * Unified method for creating receivable debts
+   * No transaction created - only the debt record is created
+   */
+  createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
     return receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
   }
 
-  createPayable(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+  /**
+   * Unified method for creating payable obligations
+   * No transaction created - only the obligation record is created
+   */
+  createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
     return payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+  }
+
+  /**
+   * Legacy aliases for backward compatibility
+   */
+  createReceivable(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return this.createReceivableDebt(uid, input);
+  }
+
+  createPayable(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    return this.createPayableObligation(uid, input);
   }
 
   collectReceivable(uid: string, input: { debtId: string; personId: string; contactId?: string; amount: number; accountId: string; date: Date; observations?: string }) {

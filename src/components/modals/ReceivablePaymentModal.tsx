@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
-import { receivableService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface ReceivablePaymentModalProps {
@@ -47,7 +47,7 @@ export function ReceivablePaymentModal({
 
     setIsSubmitting(true);
     try {
-      await receivableService.registerPayment(user.uid, {
+      await financialEngine.collectReceivable(user.uid, {
         debtId,
         personId,
         contactId: personId,

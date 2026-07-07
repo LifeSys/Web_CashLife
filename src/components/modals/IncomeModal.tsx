@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
-import { incomeService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface IncomeModalProps {
@@ -41,13 +41,14 @@ export function IncomeModal({ isOpen, onClose, onSuccess }: IncomeModalProps) {
 
     setIsSubmitting(true);
     try {
-      await incomeService.create(user.uid, {
-        description,
-        amount: parsedAmount,
-        destinationAccountId: accountId,
-        category: categoryId || undefined,
-        date: new Date(date),
-        notes,
+      await financialEngine.createIncome(user.uid, {
+        monto: parsedAmount,
+        descripcion: description,
+        fecha: new Date(date),
+        cuenta: accountId,
+        cuentaId: accountId,
+        categoriaId: categoryId || undefined,
+        notas: notes,
       });
       toast.success('Ingreso registrado correctamente');
       setDescription('');

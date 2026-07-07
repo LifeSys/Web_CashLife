@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
-import { receivableService } from '@/services/financial.service';
+import { financialEngine } from '@/services/financial-engine.service';
 import { toast } from 'sonner';
 
 interface ReceivableDebtModalProps {
@@ -39,13 +39,13 @@ export function ReceivableDebtModal({ isOpen, onClose, onSuccess }: ReceivableDe
 
     setIsSubmitting(true);
     try {
-      await receivableService.createDebt(user.uid, {
+      await financialEngine.createReceivableDebt(user.uid, {
         personId,
         contactId: personId,
         description,
         date: new Date(date),
         dueDate: dueDate ? new Date(dueDate) : undefined,
-        originalAmount: parsedAmount,
+        amount: parsedAmount,
         notes,
       });
       toast.success('Deuda por cobrar registrada');
