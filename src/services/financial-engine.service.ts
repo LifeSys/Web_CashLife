@@ -67,6 +67,7 @@ class FinancialEngineService {
       contactId: input.contactId ?? input.personId,
       relatedObligationId: obligation.id,
       notas: input.notes,
+      isLoanTransaction: true,
     });
     return obligation;
   }

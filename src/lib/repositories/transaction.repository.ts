@@ -190,9 +190,10 @@ export class TransactionRepository extends BaseRepository {
           const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
           t.update(accountRef, { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
         }
-      } else {
+      } else if (transaction.cuenta && !['accounts-receivable', 'accounts-payable'].includes(transaction.cuenta)) {
         // 1. Obtener documento de cuenta real. Si el movimiento vino por billetera,
         // transaction.cuenta debe ser la cuenta bancaria vinculada, no la billetera.
+        // No actualizar saldo para cuentas especiales (receivable_debt, payable_obligation)
         const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
         const accountSnap = await t.get(accountRef);
         if (!accountSnap.exists()) {
