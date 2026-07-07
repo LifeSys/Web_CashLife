@@ -1,11 +1,24 @@
 import { Category } from '@/types';
 import { CategoryRepository } from '@/lib/repositories/category.repository';
+import { DEFAULT_CATEGORIES } from '@/firebase/constants';
 
 class CategoryService {
   private repository = new CategoryRepository();
 
   async getAll(uid: string): Promise<Category[]> {
-    return this.repository.getAll(uid);
+    const categories = await this.repository.getAll(uid);
+    // Auto-create default categories if none exist
+    if (categories.length === 0) {
+      await this.ensureDefaultCategories(uid);
+      return this.repository.getAll(uid);
+    }
+    return categories;
+  }
+
+  async ensureDefaultCategories(uid: string): Promise<void> {
+    for (const category of DEFAULT_CATEGORIES) {
+      await this.repository.create(uid, category);
+    }
   }
 
   async getById(uid: string, id: string): Promise<Category | null> {
