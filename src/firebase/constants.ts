@@ -53,16 +53,29 @@ export const DEFAULT_ACCOUNTS: readonly DefaultAccount[] = [
  * Categorías por defecto para nuevo usuario
  */
 export const DEFAULT_CATEGORIES = [
-  { nombre: 'Comida', icono: 'UtensilsCrossed', color: '#EF4444' },
-  { nombre: 'Transporte', icono: 'Car', color: '#F59E0B' },
-  { nombre: 'Compras', icono: 'ShoppingBag', color: '#EC4899' },
-  { nombre: 'Hogar', icono: 'Home', color: '#6366F1' },
-  { nombre: 'Salud', icono: 'Heart', color: '#10B981' },
-  { nombre: 'Educación', icono: 'BookOpen', color: '#8B5CF6' },
-  { nombre: 'Entretenimiento', icono: 'Gamepad2', color: '#06B6D4' },
-  { nombre: 'Trabajo', icono: 'Briefcase', color: '#3B82F6' },
-  { nombre: 'Otros', icono: 'MoreHorizontal', color: '#6B7280' },
-  { nombre: 'Salario', icono: 'DollarSign', color: '#22C55E' },
+  // GASTOS
+  { nombre: 'Comida', icono: 'UtensilsCrossed', color: '#EF4444', tipo: 'expense' },
+  { nombre: 'Transporte', icono: 'Car', color: '#F59E0B', tipo: 'expense' },
+  { nombre: 'Salud', icono: 'Heart', color: '#10B981', tipo: 'expense' },
+  { nombre: 'Educación', icono: 'BookOpen', color: '#8B5CF6', tipo: 'expense' },
+  { nombre: 'Hogar', icono: 'Home', color: '#6366F1', tipo: 'expense' },
+  { nombre: 'Servicios', icono: 'Zap', color: '#F59E0B', tipo: 'expense' },
+  { nombre: 'Entretenimiento', icono: 'Gamepad2', color: '#06B6D4', tipo: 'expense' },
+  { nombre: 'Compras', icono: 'ShoppingBag', color: '#EC4899', tipo: 'expense' },
+  { nombre: 'Viajes', icono: 'MapPin', color: '#8B5CF6', tipo: 'expense' },
+  { nombre: 'Mascotas', icono: 'Paw', color: '#F59E0B', tipo: 'expense' },
+  { nombre: 'Impuestos', icono: 'Receipt', color: '#64748B', tipo: 'expense' },
+  { nombre: 'Otros', icono: 'MoreHorizontal', color: '#6B7280', tipo: 'expense' },
+  
+  // INGRESOS
+  { nombre: 'Salario', icono: 'DollarSign', color: '#22C55E', tipo: 'income' },
+  { nombre: 'Ventas', icono: 'ShoppingCart', color: '#16A34A', tipo: 'income' },
+  { nombre: 'Freelance', icono: 'Briefcase', color: '#15803D', tipo: 'income' },
+  { nombre: 'Negocio', icono: 'TrendingUp', color: '#22C55E', tipo: 'income' },
+  { nombre: 'Inversiones', icono: 'PieChart', color: '#16A34A', tipo: 'income' },
+  { nombre: 'Regalos', icono: 'Gift', color: '#15803D', tipo: 'income' },
+  { nombre: 'Reembolso', icono: 'RefreshCw', color: '#22C55E', tipo: 'income' },
+  { nombre: 'Otros', icono: 'MoreHorizontal', color: '#6B7280', tipo: 'income' },
 ] as const;
 
 /**

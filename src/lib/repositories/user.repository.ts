@@ -123,6 +123,7 @@ export class UserRepository extends BaseRepository {
           nombre: category.nombre,
           icono: category.icono,
           color: category.color,
+          tipo: category.tipo,  // REQUIRED: expense or income
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now(),
           createdBy: uid,

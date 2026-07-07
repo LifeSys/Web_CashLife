@@ -5,17 +5,8 @@ import {
   Landmark,
   Users,
   HandCoins,
-  Building2,
-  CreditCard,
-  TrendingUp,
-  TrendingDown,
   Wallet,
   CalendarClock,
-  Send,
-  Download,
-  LogOut,
-  ArrowUpRight,
-  ArrowDownLeft,
   Minus,
   Plus,
   ArrowRightLeft,
@@ -31,17 +22,13 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import {
   DashboardMetric,
   SectionHeader,
-  TimelineItem,
   EmptyState,
-  ActionGrid,
-  StatisticsCard,
   ContainerCard,
 } from '@/components/design-system';
 import { RecentTransactions } from '@/features/dashboard/components/RecentTransactions';
 import { ExpenseModal } from '@/components/modals/ExpenseModal';
 import { IncomeModal } from '@/components/modals/IncomeModal';
 import { TransferModal } from '@/components/modals/TransferModal';
-import { X } from 'lucide-react';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-PE', {
@@ -237,80 +224,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* BLOQUE 5: Accesos Rápidos */}
-      <div className="space-y-6">
-        <SectionHeader title="Accesos Rápidos" subtitle="Tus acciones más utilizadas" />
-        <ActionGrid
-          actions={[
-            {
-              id: 'transfer',
-              icon: <Send className="w-5 h-5" />,
-              label: 'Transferir',
-              onClick: () => {},
-            },
-            {
-              id: 'deposit',
-              icon: <Download className="w-5 h-5" />,
-              label: 'Depositar',
-              onClick: () => {},
-            },
-            {
-              id: 'withdraw',
-              icon: <LogOut className="w-5 h-5" />,
-              label: 'Retirar',
-              onClick: () => {},
-            },
-            {
-              id: 'billing',
-              icon: <CreditCard className="w-5 h-5" />,
-              label: 'Facturación',
-              onClick: () => {},
-            },
-          ]}
-          columns={4}
-          gap="md"
-        />
-      </div>
 
-      {/* BLOQUE 6: Métricas Secundarias (Ingresos, Gastos, Tarjetas) */}
-      <div className="space-y-6">
-        <SectionHeader title="Estadísticas del Mes" subtitle="Resumen de ingresos y gastos" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <StatisticsCard
-            title="Ingresos"
-            icon={<ArrowDownLeft className="w-5 h-5" />}
-            variant="success"
-            data={[
-              {
-                value: formatCurrency(data.monthIncome),
-                label: 'Total',
-              },
-            ]}
-          />
-          <StatisticsCard
-            title="Gastos"
-            icon={<ArrowUpRight className="w-5 h-5" />}
-            variant="warning"
-            data={[
-              {
-                value: formatCurrency(data.monthExpenses),
-                label: 'Total',
-              },
-            ]}
-          />
-          <StatisticsCard
-            title="Tarjetas"
-            icon={<CreditCard className="w-5 h-5" />}
-            variant="info"
-            data={[
-              {
-                value: formatCurrency(data.creditUsed),
-                label: 'Utilizado',
-              },
-            ]}
-          />
-        </div>
-      </div>
     </div>
     </>
   );

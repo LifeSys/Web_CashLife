@@ -29,6 +29,23 @@ class CategoryService {
     uid: string,
     category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
   ): Promise<Category> {
+    // Validate required fields
+    if (!category.nombre || !category.nombre.trim()) {
+      throw new Error('El nombre de la categoría es requerido');
+    }
+    if (!category.tipo || !['expense', 'income'].includes(category.tipo)) {
+      throw new Error('El tipo de categoría debe ser "expense" o "income"');
+    }
+
+    // Prevent duplicate category names within same type
+    const existingCategories = await this.repository.getAll(uid);
+    if (existingCategories.some(c => 
+      c.nombre.toLowerCase() === category.nombre.toLowerCase() && 
+      c.tipo === category.tipo
+    )) {
+      throw new Error(`Ya existe una categoría de ${category.tipo === 'expense' ? 'gasto' : 'ingreso'} llamada "${category.nombre}"`);
+    }
+    
     return this.repository.create(uid, category);
   }
 

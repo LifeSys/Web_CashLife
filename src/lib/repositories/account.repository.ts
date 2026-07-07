@@ -77,9 +77,19 @@ export class AccountRepository extends BaseRepository {
   }
 
   /**
-   * Elimina una cuenta
+   * Elimina una cuenta (excepto Efectivo)
    */
   async delete(uid: string, id: string): Promise<void> {
+    const account = await this.getById(uid, id);
+    if (!account) {
+      throw new Error(`Cuenta ${id} no encontrada`);
+    }
+    
+    // Prevenir eliminación de Efectivo
+    if (account.nombre === 'Efectivo' && account.tipo === 'cash') {
+      throw new Error('No se puede eliminar la cuenta Efectivo');
+    }
+
     const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${id}`);
     await deleteDoc(docRef);
   }

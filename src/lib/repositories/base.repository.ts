@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore';
+import { cleanFirestoreData } from './firestore-utils';
 
 export interface PaginationOptions {
   limit?: number;
@@ -26,21 +27,23 @@ export class BaseRepository {
   }
 
   protected createAuditedData<T extends object>(data: T, uid: string) {
-    return {
+    const cleaned = cleanFirestoreData({
       ...data,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       createdBy: uid,
       updatedBy: uid,
-    };
+    });
+    return cleaned;
   }
 
   protected updateAuditedData<T extends object>(data: T, uid: string) {
-    return {
+    const cleaned = cleanFirestoreData({
       ...data,
       updatedAt: Timestamp.now(),
       updatedBy: uid,
-    };
+    });
+    return cleaned;
   }
 
   protected withDocId<T>(id: string, data: object): T {

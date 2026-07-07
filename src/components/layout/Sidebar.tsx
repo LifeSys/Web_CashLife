@@ -31,8 +31,7 @@ const navItems = [
     label: 'Por Pagar',
     icon: ReceiptText,
   },
-  { href: '/dashboard/pagos-programados', label: 'Pagos', icon: CalendarClock },
-  { href: '/dashboard/ingresos', label: 'Ingresos', icon: TrendingUp },
+  { href: '/dashboard/pagos-programados', label: 'Pagos Programados', icon: CalendarClock },
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
   { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings },
 ];

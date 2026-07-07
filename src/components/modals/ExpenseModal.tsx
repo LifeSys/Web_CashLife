@@ -73,7 +73,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
   if (!isOpen) return null;
 
   const accountOptions = cuentas.filter((c) => c.tipo !== 'credit_card');
-  const expenseCategories = categorias.filter((c) => c.tipo === 'expense' || c.tipo === 'gasto' || c.tipo === 'both');
+  const expenseCategories = categorias.filter((c) => c.tipo === 'expense');
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">

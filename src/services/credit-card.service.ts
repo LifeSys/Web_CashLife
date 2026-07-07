@@ -9,8 +9,16 @@ class CreditCardService {
   }
 
   async create(uid: string, card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<CreditCard> {
+    // Prevent duplicate card names
+    const existingCards = await this.getAll(uid);
+    const cardName = card.nombre || card.name || '';
+    if (cardName && existingCards.some(c => (c.nombre || c.name) === cardName)) {
+      throw new Error(`Ya existe una tarjeta llamada "${cardName}"`);
+    }
+
     const creditLimit = card.creditLimit ?? card.lineaCredito ?? 0;
     const usedAmount = card.usedAmount ?? card.montoUtilizado ?? 0;
+    
     return this.repository.create(uid, {
       ...card,
       lineaCredito: creditLimit,

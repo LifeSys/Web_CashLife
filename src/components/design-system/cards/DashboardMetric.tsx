@@ -34,35 +34,52 @@ export function DashboardMetric({
   subtext,
   animated = true,
 }: DashboardMetricProps) {
+  // Calculate dynamic font size based on value length
+  const getResponsiveFontSize = (): string => {
+    const charLength = value.length;
+    if (charLength <= 10) return 'text-3xl sm:text-4xl';
+    if (charLength <= 15) return 'text-2xl sm:text-3xl';
+    if (charLength <= 20) return 'text-xl sm:text-2xl';
+    return 'text-lg sm:text-xl';
+  };
+
   return (
     <PremiumCard onClick={onClick} interactive={!!onClick} variant="elevated">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
+      <div className="flex items-center justify-between gap-3 h-full">
+        {/* Content Section */}
+        <div className="flex-1 min-w-0 flex flex-col justify-center">
+          <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide truncate">
             {label}
           </p>
           <p
-            className={`text-3xl md:text-4xl font-bold tracking-tight transition-all duration-500 ${
-              animated ? 'animate-scale-in' : ''
-            }`}
+            className={`font-bold tracking-tight transition-all duration-500 overflow-hidden overflow-ellipsis ${
+              getResponsiveFontSize()
+            } ${animated ? 'animate-scale-in' : ''}`}
+            style={{
+              display: '-webkit-box',
+              WebkitLineClamp: '2',
+              WebkitBoxOrient: 'vertical',
+              wordBreak: 'break-word',
+            }}
           >
             {value}
           </p>
           {change !== undefined && (
-            <div className="flex items-center gap-2 mt-3">
+            <div className="flex items-center gap-2 mt-2">
               <p
-                className={`text-xs font-semibold ${
+                className={`text-xs font-semibold whitespace-nowrap ${
                   change >= 0 ? changeColors.positive : changeColors.negative
                 }`}
               >
-                {change >= 0 ? '↑' : '↓'} {Math.abs(change)}% este mes
+                {change >= 0 ? '↑' : '↓'} {Math.abs(change)}%
               </p>
             </div>
           )}
-          {subtext && <p className="text-xs text-muted-foreground mt-2">{subtext}</p>}
+          {subtext && <p className="text-xs text-muted-foreground mt-1 truncate">{subtext}</p>}
         </div>
+        {/* Icon Section - Fixed position, never overlaps */}
         <div
-          className={`rounded-lg p-4 flex-shrink-0 transform transition-transform duration-200 hover:scale-110 ${variantColors[variant]}`}
+          className={`rounded-lg p-3 flex-shrink-0 transform transition-transform duration-200 hover:scale-110 ${variantColors[variant]}`}
         >
           {icon}
         </div>
