@@ -62,6 +62,9 @@ export default function DashboardPage() {
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const { transacciones } = useTransactions();
+  console.log('[v0] Dashboard - transacciones.length:', transacciones.length);
+  console.log('[v0] Dashboard - transacciones:', transacciones);
+  
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
   const { obligations } = usePayableObligations();

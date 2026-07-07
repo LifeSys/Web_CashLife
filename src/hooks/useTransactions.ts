@@ -8,8 +8,11 @@ import { useEffect } from 'react';
 
 export function useTransactions() {
   const { user } = useAuth();
+  const swrKey = user?.uid ? ['transactions', user.uid] : null;
+  console.log('[v0] useTransactions() - swrKey:', swrKey);
+  
   const { data, isLoading, error, mutate } = useSWR(
-    user?.uid ? ['transactions', user.uid] : null,
+    swrKey,
     () => transactionService.getAll(user!.uid as string),
     { 
       revalidateOnFocus: true, 
@@ -17,6 +20,11 @@ export function useTransactions() {
       dedupingInterval: 5000 
     }
   );
+
+  console.log('[v0] useTransactions() - data:', data);
+  console.log('[v0] useTransactions() - data?.items:', data?.items);
+  console.log('[v0] useTransactions() - isLoading:', isLoading);
+  console.log('[v0] useTransactions() - error:', error);
 
   // Refetch every 10 seconds to stay in sync with Firestore
   useEffect(() => {
@@ -27,7 +35,10 @@ export function useTransactions() {
     return () => clearInterval(interval);
   }, [user?.uid, mutate]);
 
-  return { transacciones: data?.items ?? [], hasMore: data?.hasMore ?? false, isLoading, error, mutate };
+  const transacciones = data?.items ?? [];
+  console.log('[v0] useTransactions() - transacciones.length:', transacciones.length);
+  
+  return { transacciones, hasMore: data?.hasMore ?? false, isLoading, error, mutate };
 }
 
 export function useTransactionsByDateRange(startDate: Date, endDate: Date) {

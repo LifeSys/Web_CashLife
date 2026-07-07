@@ -8,9 +8,15 @@ import { BarChart3, PieChart } from 'lucide-react';
 
 export default function ReportesPage() {
   const { transacciones } = useTransactions();
+  console.log('[v0] Reportes - transacciones.length:', transacciones.length);
+  
   const { saldoTotal } = useAccountBalance();
   const stats = useCalculations(transacciones, saldoTotal);
+  console.log('[v0] Reportes - stats.ingresosDelMes:', stats.ingresosDelMes);
+  console.log('[v0] Reportes - stats.gastosDelMes:', stats.gastosDelMes);
+  
   const expensesByCategory = useExpensesByCategory(transacciones);
+  console.log('[v0] Reportes - expensesByCategory:', expensesByCategory);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-PE', {

@@ -26,9 +26,12 @@ export class TransactionRepository extends BaseRepository {
     options?: PaginationOptions
   ): Promise<PaginatedResult<Transaction>> {
     const pageSize = options?.limit || 20;
+    const collectionPath = `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`;
+    console.log('[v0] TransactionRepository.getAll() - uid:', uid);
+    console.log('[v0] TransactionRepository.getAll() - collectionPath:', collectionPath);
 
     let q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
+      collection(db, collectionPath),
       where('isDeleted', '==', false),
       orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
       limit(pageSize + 1)
@@ -36,7 +39,7 @@ export class TransactionRepository extends BaseRepository {
 
     if (options?.startAfter) {
       q = query(
-        collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
+        collection(db, collectionPath),
         where('isDeleted', '==', false),
         orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
         startAfter(options.startAfter),
@@ -45,10 +48,14 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const snapshot = await getDocs(q);
+    console.log('[v0] TransactionRepository.getAll() - snapshot.docs.length:', snapshot.docs.length);
+    
     const hasMore = snapshot.docs.length > pageSize;
     const docs = snapshot.docs.slice(0, pageSize);
 
     const items = docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+    console.log('[v0] TransactionRepository.getAll() - items.length:', items.length);
+    console.log('[v0] TransactionRepository.getAll() - items:', items);
 
     return {
       items,
