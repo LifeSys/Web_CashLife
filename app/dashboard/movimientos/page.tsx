@@ -8,8 +8,6 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 
 export default function MovimientosPage() {
   const { transacciones } = useTransactions();
-  console.log('[v0] Movimientos - transacciones.length:', transacciones.length);
-  
   const { categorias } = useCategories();
   const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes' | 'año'>('todos');
 
@@ -37,7 +35,6 @@ export default function MovimientosPage() {
   };
 
   const filtered = getFilteredTransactions();
-  console.log('[v0] Movimientos - filtered.length:', filtered.length);
 
   const filterButtons = [
     { id: 'todos', label: 'Todos' },

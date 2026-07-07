@@ -7,6 +7,7 @@ import {
   orderBy,
   runTransaction,
   Timestamp,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { Account } from '@/types';
@@ -73,6 +74,14 @@ export class AccountRepository extends BaseRepository {
 
       return this.withDocId<Account>(docSnap.id, { ...docSnap.data(), ...updateData });
     });
+  }
+
+  /**
+   * Elimina una cuenta
+   */
+  async delete(uid: string, id: string): Promise<void> {
+    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${id}`);
+    await deleteDoc(docRef);
   }
 
   /**

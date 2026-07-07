@@ -40,12 +40,14 @@ export const FIRESTORE_DOCUMENTS = {
 } as const;
 
 /**
- * No se crean cuentas ni tarjetas por defecto.
- * Cada usuario las configura libremente durante el onboarding.
+ * Cuentas por defecto: solamente Efectivo se crea automáticamente
+ * Otras cuentas se crean durante onboarding
  */
 type DefaultAccount = { nombre: string; tipo: 'cash' | 'bank' | 'safe_box'; color: string; icono: string };
 
-export const DEFAULT_ACCOUNTS: readonly DefaultAccount[] = [];
+export const DEFAULT_ACCOUNTS: readonly DefaultAccount[] = [
+  { nombre: 'Efectivo', tipo: 'cash', color: '#10B981', icono: 'Wallet' },
+] as const;
 
 /**
  * Categorías por defecto para nuevo usuario
