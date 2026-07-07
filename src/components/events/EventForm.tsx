@@ -300,8 +300,9 @@ export function EventForm({ onClose, categoriaInicial }: EventFormProps) {
       }
 
       // Procesar evento a través del Financial Engine
-      await financialEngine.procesarEvento(user.uid, evento);
-
+      const result = await financialEngine.procesarEvento(user.uid, evento);
+      console.log('[EventForm] Evento procesado:', result);
+      
       refresh();
       toast.success('Evento registrado correctamente');
       onClose();
