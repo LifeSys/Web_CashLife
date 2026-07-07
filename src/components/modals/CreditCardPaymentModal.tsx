@@ -51,6 +51,7 @@ export function CreditCardPaymentModal({
         creditCardId,
         monto: parsedAmount,
         cuenta: accountId,
+        cuentaId: accountId,
         descripcion: `Pago de tarjeta: ${creditCardName}`,
         fecha: new Date(date),
         notas: notes,

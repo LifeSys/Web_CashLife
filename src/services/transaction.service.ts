@@ -61,18 +61,20 @@ class TransactionService {
         case 'expense':
         case 'payable_payment':
         case 'scheduled_payment':
-          return currentBalance - transaction.monto;
+          return currentBalance - normalizedTransaction.monto;
         case 'income':
-          return currentBalance + transaction.monto;
+          return currentBalance + normalizedTransaction.monto;
         case 'transfer':
-          return currentBalance - transaction.monto;
+          return currentBalance - normalizedTransaction.monto;
         case 'loan':
-          return currentBalance - transaction.monto;
+          return currentBalance - normalizedTransaction.monto;
         case 'loan_payment':
         case 'receivable_payment':
-          return currentBalance + transaction.monto;
+          return currentBalance + normalizedTransaction.monto;
         case 'credit_card_payment':
-          return currentBalance - transaction.monto;
+          return currentBalance - normalizedTransaction.monto;
+        case 'credit_card_charge':
+          return currentBalance;
         default:
           return currentBalance;
       }

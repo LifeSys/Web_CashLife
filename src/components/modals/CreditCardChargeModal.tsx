@@ -46,7 +46,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
         descripcion: description,
         fecha: new Date(date),
         creditCardId,
-        categoria: categoryId || undefined,
+        categoriaId: categoryId || undefined,
         notas: notes,
       });
       toast.success('Compra registrada correctamente');
