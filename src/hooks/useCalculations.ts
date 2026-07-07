@@ -33,14 +33,14 @@ export function useCalculations(transacciones: Transaction[], saldoTotal?: numbe
       return tDate >= startOfMonth && tDate <= endOfMonth && !t.isDeleted;
     });
 
-    // Income: direct income, collected receivables, loan origination
+    // Income: direct income, collected receivables, loan origination, received loans, payable debt registration
     const ingresosDelMes = transaccionesDelMes
-      .filter(t => ['income', 'receivable_payment', 'loan'].includes(t.tipo))
+      .filter(t => ['income', 'receivable_payment', 'loan', 'receivable_debt'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
-    // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments
+    // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments, payable obligation registration
     const gastosDelMes = transaccionesDelMes
-      .filter(t => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo))
+      .filter(t => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment', 'payable_obligation'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
     const balance = ingresosDelMes - gastosDelMes;
@@ -73,7 +73,7 @@ export function useExpensesByCategory(transacciones: Transaction[]) {
 
     const transaccionesDelMes = transacciones.filter(t => {
       const tDate = convertToDate(t.fecha);
-      return tDate >= startOfMonth && tDate <= endOfMonth && ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo) && !t.isDeleted;
+      return tDate >= startOfMonth && tDate <= endOfMonth && ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment', 'payable_obligation'].includes(t.tipo) && !t.isDeleted;
     });
 
     const byCategory: Record<string, { amount: number; count: number }> = {};

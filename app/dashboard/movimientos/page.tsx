@@ -9,7 +9,7 @@ import { SectionHeader } from '@/components/common/SectionHeader';
 export default function MovimientosPage() {
   const { transacciones } = useTransactions();
   const { categorias } = useCategories();
-  const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes'>('todos');
+  const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes' | 'año'>('todos');
 
   const getCategoryName = (categoryId: string) => {
     return categorias.find(c => c.id === categoryId)?.nombre || 'Categoría';
@@ -20,6 +20,7 @@ export default function MovimientosPage() {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
+    const yearAgo = new Date(now.getFullYear(), 0, 1);
 
     return transacciones.filter(t => {
       const tDate = t.fecha instanceof Date ? t.fecha : t.fecha.toDate();
@@ -28,6 +29,7 @@ export default function MovimientosPage() {
       if (filtro === 'hoy') return tDateOnly.getTime() === today.getTime();
       if (filtro === 'semana') return tDate >= weekAgo;
       if (filtro === 'mes') return tDate >= monthAgo;
+      if (filtro === 'año') return tDate >= yearAgo;
       return true;
     });
   };
@@ -39,6 +41,7 @@ export default function MovimientosPage() {
     { id: 'hoy', label: 'Hoy' },
     { id: 'semana', label: 'Semana' },
     { id: 'mes', label: 'Mes' },
+    { id: 'año', label: 'Año' },
   ];
 
   return (

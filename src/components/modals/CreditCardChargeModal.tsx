@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useCategories } from '@/hooks/useCategories';
 import { useCreditCards } from '@/hooks/useCreditCards';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface CreditCardChargeModalProps {
@@ -18,6 +19,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
   const { user } = useAuth();
   const { creditCards } = useCreditCards();
   const { categorias } = useCategories();
+  const { invalidateAfterCreditCard } = useSWRInvalidation();
   const [creditCardId, setCreditCardId] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -50,6 +52,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
         notas: notes,
       });
       toast.success('Compra registrada correctamente');
+      invalidateAfterCreditCard(user.uid);
       setCreditCardId('');
       setDescription('');
       setAmount('');

@@ -11,7 +11,7 @@ class TransactionService {
   private repository = new TransactionRepository();
 
   async getAll(uid: string, options?: PaginationOptions) {
-    return this.repository.getAll(uid, options);
+    return await this.repository.getAll(uid, options);
   }
 
   async getById(uid: string, id: string): Promise<Transaction | null> {

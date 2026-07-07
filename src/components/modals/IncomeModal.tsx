@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface IncomeModalProps {
@@ -18,6 +19,7 @@ export function IncomeModal({ isOpen, onClose, onSuccess }: IncomeModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
   const { categorias } = useCategories();
+  const { invalidateAfterMovement } = useSWRInvalidation();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -51,6 +53,8 @@ export function IncomeModal({ isOpen, onClose, onSuccess }: IncomeModalProps) {
         notas: notes,
       });
       toast.success('Ingreso registrado correctamente');
+      // Invalidate all affected SWR caches
+      invalidateAfterMovement(user.uid);
       setDescription('');
       setAmount('');
       setAccountId('');

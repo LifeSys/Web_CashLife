@@ -2,7 +2,6 @@
 
 import { Sidebar } from '@/components/layout/Sidebar';
 import { BottomNav } from '@/components/layout/BottomNav';
-import { FloatingActionButton } from '@/components/layout/FloatingActionButton';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { SessionProvider } from '@/providers/SessionProvider';
@@ -33,7 +32,6 @@ export default function DashboardLayout({
           {children}
         </main>
         <BottomNav />
-        <FloatingActionButton />
       </div>
     </SessionProvider>
   );

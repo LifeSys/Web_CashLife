@@ -26,9 +26,10 @@ export class TransactionRepository extends BaseRepository {
     options?: PaginationOptions
   ): Promise<PaginatedResult<Transaction>> {
     const pageSize = options?.limit || 20;
+    const collectionPath = `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`;
 
     let q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
+      collection(db, collectionPath),
       where('isDeleted', '==', false),
       orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
       limit(pageSize + 1)
@@ -36,7 +37,7 @@ export class TransactionRepository extends BaseRepository {
 
     if (options?.startAfter) {
       q = query(
-        collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
+        collection(db, collectionPath),
         where('isDeleted', '==', false),
         orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
         startAfter(options.startAfter),
@@ -45,6 +46,7 @@ export class TransactionRepository extends BaseRepository {
     }
 
     const snapshot = await getDocs(q);
+    
     const hasMore = snapshot.docs.length > pageSize;
     const docs = snapshot.docs.slice(0, pageSize);
 
@@ -190,9 +192,10 @@ export class TransactionRepository extends BaseRepository {
           const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
           t.update(accountRef, { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
         }
-      } else {
+      } else if (transaction.cuenta && !['accounts-receivable', 'accounts-payable'].includes(transaction.cuenta)) {
         // 1. Obtener documento de cuenta real. Si el movimiento vino por billetera,
         // transaction.cuenta debe ser la cuenta bancaria vinculada, no la billetera.
+        // No actualizar saldo para cuentas especiales (receivable_debt, payable_obligation)
         const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
         const accountSnap = await t.get(accountRef);
         if (!accountSnap.exists()) {

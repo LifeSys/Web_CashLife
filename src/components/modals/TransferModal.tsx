@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface TransferModalProps {
@@ -16,6 +17,7 @@ interface TransferModalProps {
 export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
+  const { invalidateAfterMovement } = useSWRInvalidation();
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
@@ -51,6 +53,7 @@ export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps
         destinationAccountId: toAccountId,
       });
       toast.success('Transferencia realizada correctamente');
+      invalidateAfterMovement(user.uid);
       setFromAccountId('');
       setToAccountId('');
       setAmount('');

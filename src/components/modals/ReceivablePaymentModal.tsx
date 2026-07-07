@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface ReceivablePaymentModalProps {
@@ -26,6 +27,7 @@ export function ReceivablePaymentModal({
 }: ReceivablePaymentModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
+  const { invalidateAfterReceivable } = useSWRInvalidation();
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -57,6 +59,7 @@ export function ReceivablePaymentModal({
         observations: notes,
       });
       toast.success('Pago registrado correctamente');
+      invalidateAfterReceivable(user.uid);
       setAmount('');
       setAccountId('');
       setDate(new Date().toISOString().split('T')[0]);

@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
 import { financialEngine } from '@/services/financial-engine.service';
+import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
 interface ReceivableDebtModalProps {
@@ -16,6 +17,7 @@ interface ReceivableDebtModalProps {
 export function ReceivableDebtModal({ isOpen, onClose, onSuccess }: ReceivableDebtModalProps) {
   const { user } = useAuth();
   const { contacts } = usePeople();
+  const { invalidateAfterReceivable } = useSWRInvalidation();
   const [personId, setPersonId] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -49,6 +51,7 @@ export function ReceivableDebtModal({ isOpen, onClose, onSuccess }: ReceivableDe
         notes,
       });
       toast.success('Deuda por cobrar registrada');
+      invalidateAfterReceivable(user.uid);
       setPersonId('');
       setDescription('');
       setAmount('');

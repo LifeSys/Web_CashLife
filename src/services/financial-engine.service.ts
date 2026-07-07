@@ -67,24 +67,51 @@ class FinancialEngineService {
       contactId: input.contactId ?? input.personId,
       relatedObligationId: obligation.id,
       notas: input.notes,
+      isLoanTransaction: true,
     });
     return obligation;
   }
 
   /**
-   * Unified method for creating receivable debts
-   * No transaction created - only the debt record is created
+   * Create receivable debt AND generate transaction
    */
-  createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
-    return receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
+  async createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    const debt = await receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
+    // Create transaction for receivable debt registration
+    await transactionService.create(uid, {
+      monto: input.amount,
+      tipo: 'receivable_debt',
+      descripcion: `Cuenta por cobrar: ${input.description}`,
+      fecha: input.date,
+      cuenta: 'accounts-receivable', // Special account type for receivables
+      persona: input.personId,
+      personId: input.personId,
+      contactId: input.contactId ?? input.personId,
+      relatedDebtId: debt.id,
+      notas: input.notes,
+    });
+    return debt;
   }
 
   /**
-   * Unified method for creating payable obligations
-   * No transaction created - only the obligation record is created
+   * Create payable obligation AND generate transaction
    */
-  createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
-    return payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+  async createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
+    const obligation = await payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+    // Create transaction for payable obligation registration
+    await transactionService.create(uid, {
+      monto: input.amount,
+      tipo: 'payable_obligation',
+      descripcion: `Cuenta por pagar: ${input.description}`,
+      fecha: input.date,
+      cuenta: 'accounts-payable', // Special account type for payables
+      persona: input.personId,
+      personId: input.personId,
+      contactId: input.contactId,
+      relatedObligationId: obligation.id,
+      notas: input.notes,
+    });
+    return obligation;
   }
 
   /**
