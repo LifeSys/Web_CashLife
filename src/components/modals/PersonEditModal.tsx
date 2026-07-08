@@ -25,10 +25,9 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
   const { user } = useAuth();
   const [nombre, setNombre] = useState('');
   const [contactType, setContactType] = useState<ContactKind>('person');
-  const [telefono, setTelefono] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [empresa, setEmpresa] = useState('');
-  const [notas, setNotas] = useState('');
+  const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Initialize form when contact changes
@@ -36,10 +35,9 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
     if (contact && isOpen) {
       setNombre(contact.nombre || '');
       setContactType((contact.contactType as ContactKind) || 'person');
-      setTelefono(contact.phone || '');
+      setPhone(contact.phone || '');
       setEmail(contact.email || '');
-      setEmpresa(contact.empresa || '');
-      setNotas(contact.notes || '');
+      setNotes(contact.notes || '');
     }
   }, [contact, isOpen]);
 
@@ -57,10 +55,9 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
       await personService.update(user.uid, contact.id, {
         nombre: nombre.trim(),
         contactType,
-        phone: telefono.trim() || undefined,
+        phone: phone.trim() || undefined,
         email: email.trim() || undefined,
-        empresa: empresa.trim() || undefined,
-        notes: notas.trim() || undefined,
+        notes: notes.trim() || undefined,
       });
       
       toast.success('Contacto actualizado exitosamente');
@@ -127,8 +124,8 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
             <label className="block text-sm font-medium mb-2">Teléfono</label>
             <input
               type="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
               placeholder="+51 999 999 999"
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -146,24 +143,12 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
             />
           </div>
 
-          {/* Empresa */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Empresa</label>
-            <input
-              type="text"
-              value={empresa}
-              onChange={(e) => setEmpresa(e.target.value)}
-              placeholder="Nombre de la empresa"
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-
           {/* Notas */}
           <div>
             <label className="block text-sm font-medium mb-2">Notas</label>
             <textarea
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder="Notas adicionales sobre el contacto..."
               rows={4}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
