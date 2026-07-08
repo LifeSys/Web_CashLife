@@ -30,26 +30,23 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
     e.preventDefault();
     if (!user?.uid) return;
 
-    const missingFields = [];
-    if (!nombre.trim()) missingFields.push('Nombre');
-    if (!banco.trim()) missingFields.push('Banco');
-    if (!saldoInicial.trim()) missingFields.push('Saldo inicial');
-
-    if (missingFields.length > 0) {
-      toast.error(`Completa estos campos: ${missingFields.join(', ')}`);
+    // Validate required fields
+    if (!nombre.trim()) {
+      toast.error('El nombre de la cuenta es requerido');
+      return;
+    }
+    if (!banco.trim()) {
+      toast.error('El banco es requerido');
+      return;
+    }
+    if (!saldoInicial.trim()) {
+      toast.error('El saldo inicial es requerido');
       return;
     }
 
     const saldo = parseFloat(saldoInicial);
     if (isNaN(saldo) || saldo < 0) {
-      toast.error('El saldo inicial debe ser un número válido');
-      return;
-    }
-
-    // Prevenir nombres duplicados
-    const nombreExistente = mutate && Array.isArray(mutate) && mutate.some((a: any) => a.nombre.toLowerCase() === nombre.trim().toLowerCase());
-    if (nombreExistente) {
-      toast.error('Ya existe una cuenta con este nombre');
+      toast.error('El saldo inicial debe ser un número válido mayor o igual a 0');
       return;
     }
 
@@ -65,7 +62,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
         hasYape: vinculacion.includes('yape'),
         hasPlin: vinculacion.includes('plin'),
       });
-      toast.success('Cuenta bancaria creada');
+      toast.success('Cuenta bancaria creada exitosamente');
       mutate();
       setNombre('');
       setBanco('');
@@ -76,8 +73,9 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
       onClose();
       onSuccess?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al crear cuenta');
-      console.error('[v0] Error:', error);
+      const message = error instanceof Error ? error.message : 'Error al crear cuenta';
+      toast.error(message);
+      console.error('[v0] BankAccountModal Error:', error);
     } finally {
       setIsSubmitting(false);
     }
