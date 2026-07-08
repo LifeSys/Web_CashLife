@@ -63,12 +63,32 @@ export default function ContactosPage() {
                   </div>
                   <div>
                     <h2 className="font-bold">{c.nombre}</h2>
-                    <p className="text-sm text-muted-foreground">{c.contactType ?? 'person'} · roles: {(c.roles ?? []).join(', ') || 'sin roles'}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {c.telefono && (
+                        <p className="text-xs text-muted-foreground">{c.telefono}</p>
+                      )}
+                      {c.contactType && (
+                        <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">
+                          {c.contactType === 'person' && '👤'}
+                          {c.contactType === 'company' && '🏢'}
+                          {c.contactType === 'bank' && '🏦'}
+                          {c.contactType === 'provider' && '📦'}
+                          {' ' + (c.contactType === 'person' ? 'Persona' : c.contactType === 'company' ? 'Empresa' : c.contactType === 'bank' ? 'Banco' : 'Proveedor')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className={balance >= 0 ? 'font-bold text-green-600' : 'font-bold text-red-600'}>{formatCurrency(balance)}</p>
-                  <p className="text-xs text-muted-foreground">{receivable > 0 ? `+${formatCurrency(receivable)}` : ''} {payable > 0 ? `-${formatCurrency(payable)}` : ''}</p>
+                <div className="text-right space-y-1">
+                  {receivable > 0 && (
+                    <p className="text-sm font-medium text-green-400">Me debe: {formatCurrency(receivable)}</p>
+                  )}
+                  {payable > 0 && (
+                    <p className="text-sm font-medium text-red-400">Le debo: {formatCurrency(payable)}</p>
+                  )}
+                  {receivable === 0 && payable === 0 && (
+                    <p className="text-xs text-muted-foreground">Sin operaciones</p>
+                  )}
                 </div>
               </div>
             </Link>
