@@ -38,13 +38,13 @@ const STATUS_LABELS = {
 } as const;
 
 const TYPE_ICONS = {
-  receivable: '💰',
-  payable: '💳',
+  receivable: '🟢',
+  payable: '🔴',
 } as const;
 
 const TYPE_LABELS = {
-  receivable: 'Cobro',
-  payable: 'Pago',
+  receivable: 'Me debe',
+  payable: 'Le debo',
 } as const;
 
 export function ContactHistoryTimeline({
@@ -135,8 +135,17 @@ export function ContactHistoryTimeline({
                 <div className="flex items-start gap-3 mb-2">
                   <span className="text-xl flex-shrink-0">{TYPE_ICONS[event.type]}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-base line-clamp-2">{event.description}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-base line-clamp-2">{event.description}</p>
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold ${
+                        event.type === 'receivable' 
+                          ? 'bg-green-500/15 text-green-400 border border-green-500/30' 
+                          : 'bg-red-500/15 text-red-400 border border-red-500/30'
+                      }`}>
+                        {TYPE_LABELS[event.type]}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
                       {formatDate(eventDate)}
                     </p>
                   </div>
