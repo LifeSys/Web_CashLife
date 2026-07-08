@@ -90,7 +90,7 @@ export function PayableObligationContextModal({
         {/* Header */}
         <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold">Registrar Cobro</h2>
+            <h2 className="text-xl md:text-2xl font-bold">Registrar Deuda</h2>
             <p className="text-sm text-muted-foreground mt-1">Al {contactName}</p>
           </div>
           <button
@@ -183,7 +183,7 @@ export function PayableObligationContextModal({
               disabled={isSubmitting}
               className="flex-1 bg-primary text-primary-foreground font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Guardando...' : 'Registrar Cobro'}
+              {isSubmitting ? 'Guardando...' : 'Registrar Deuda'}
             </button>
           </div>
         </form>
