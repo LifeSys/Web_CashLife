@@ -24,7 +24,7 @@ export function ContactActionButtons({
           className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/30 transition-all disabled:opacity-50 font-medium"
         >
           <Plus className="w-4 h-4" />
-          Registrar Cobro
+          Registrar Pago
         </button>
       )}
 
