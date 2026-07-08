@@ -1,115 +1,196 @@
-import { ReactNode } from 'react';
 import { PremiumCard } from './PremiumCard';
 import { ProgressBar } from '../feedback/ProgressBar';
-import { StatusBadge } from '../feedback/StatusBadge';
-import { Edit, Trash2, CheckCircle2, ClipboardList, History } from 'lucide-react';
+import { Edit, Trash2, ClipboardList, Eye, MessageCircle } from 'lucide-react';
 
 interface DebtCardProps {
   personName: string;
   personAvatar?: string;
   description: string;
+  createdDate: Date;
+  dueDate?: Date;
   originalAmount: number;
   paidAmount: number;
   status: 'pending' | 'partial' | 'paid' | 'overdue';
   onRegisterPayment?: () => void;
-  onMarkPaid?: () => void;
+  onViewDetail?: () => void;
   onEdit?: () => void;
-  onHistory?: () => void;
+  onWhatsApp?: () => void;
   onDelete?: () => void;
 }
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value);
 
+const formatDate = (date?: Date) =>
+  date ? new Intl.DateTimeFormat('es-PE', { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(date)) : '-';
+
+const getDaysOverdue = (dueDate?: Date) => {
+  if (!dueDate) return 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diff = today.getTime() - due.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return { bg: 'bg-amber-500/10', text: 'text-amber-600', icon: '🟡' };
+    case 'partial':
+      return { bg: 'bg-blue-500/10', text: 'text-blue-600', icon: '🔵' };
+    case 'paid':
+      return { bg: 'bg-green-500/10', text: 'text-green-600', icon: '🟢' };
+    case 'overdue':
+      return { bg: 'bg-red-500/10', text: 'text-red-600', icon: '🔴' };
+    default:
+      return { bg: 'bg-gray-500/10', text: 'text-gray-600', icon: '⭕' };
+  }
+};
+
+const getStatusLabel = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return 'Pendiente';
+    case 'partial':
+      return 'Parcialmente Cobrado';
+    case 'paid':
+      return 'Cobrado';
+    case 'overdue':
+      return 'Vencido';
+    default:
+      return 'Desconocido';
+  }
+};
+
 export function DebtCard({
   personName,
   personAvatar,
   description,
+  createdDate,
+  dueDate,
   originalAmount,
   paidAmount,
   status,
   onRegisterPayment,
-  onMarkPaid,
+  onViewDetail,
   onEdit,
-  onHistory,
+  onWhatsApp,
   onDelete,
 }: DebtCardProps) {
   const pendingAmount = originalAmount - paidAmount;
   const progressPercentage = (paidAmount / originalAmount) * 100;
+  const statusColor = getStatusColor(status);
+  const daysOverdue = getDaysOverdue(dueDate);
+  const isOverdue = daysOverdue > 0;
 
   return (
     <PremiumCard>
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
-        {personAvatar && <img src={personAvatar} alt={personName} className="w-10 h-10 rounded-full" />}
-        <div className="flex-1">
-          <h3 className="font-bold text-base">{personName}</h3>
-          <p className="text-xs text-muted-foreground">{description}</p>
+      {/* Row 1: Contact + Status Badge */}
+      <div className="flex items-start justify-between gap-3 mb-3 pb-3 border-b border-border">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          {personAvatar && <img src={personAvatar} alt={personName} className="w-12 h-12 rounded-full flex-shrink-0" />}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-base truncate">{personName}</h3>
+            <p className="text-xs text-muted-foreground truncate">{description}</p>
+          </div>
         </div>
-        <StatusBadge status={status} />
-      </div>
-
-      {/* Amounts */}
-      <div className="grid grid-cols-3 gap-3 mb-4">
-        <div>
-          <p className="text-xs text-muted-foreground">Original</p>
-          <p className="text-sm font-bold">{formatCurrency(originalAmount)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Pagado</p>
-          <p className="text-sm font-bold text-green-500">{formatCurrency(paidAmount)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">Pendiente</p>
-          <p className="text-sm font-bold text-amber-500">{formatCurrency(pendingAmount)}</p>
+        <div className={`${statusColor.bg} ${statusColor.text} px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 flex items-center gap-1`}>
+          <span>{statusColor.icon}</span>
+          <span>{getStatusLabel(status)}</span>
         </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* Row 2: Dates + Overdue Info */}
+      <div className="flex justify-between items-start gap-3 mb-3 pb-3 border-b border-border text-xs">
+        <div>
+          <p className="text-muted-foreground">Creada</p>
+          <p className="font-medium">{formatDate(createdDate)}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Vencimiento</p>
+          <p className="font-medium">{formatDate(dueDate)}</p>
+        </div>
+        {isOverdue && (
+          <div className="text-right">
+            <p className="text-muted-foreground">Vencido</p>
+            <p className="font-medium text-red-600">Desde {daysOverdue} d</p>
+          </div>
+        )}
+      </div>
+
+      {/* Row 3: Amounts Grid (Original | Cobrado | Pendiente) */}
+      <div className="grid grid-cols-3 gap-2 mb-3 pb-3 border-b border-border">
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">Original</p>
+          <p className="text-sm font-bold truncate">{formatCurrency(originalAmount)}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">Cobrado</p>
+          <p className="text-sm font-bold text-green-600 truncate">{formatCurrency(paidAmount)}</p>
+        </div>
+        <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-1">Pendiente</p>
+          <p className="text-sm font-bold text-amber-600 truncate">{formatCurrency(pendingAmount)}</p>
+        </div>
+      </div>
+
+      {/* Row 4: Progress Bar */}
       <div className="mb-4">
-        <ProgressBar percentage={progressPercentage} showPercentage={false} />
+        <ProgressBar percentage={progressPercentage} showPercentage={true} />
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2">
+      {/* Row 5: Actions */}
+      <div className="flex flex-wrap gap-2 justify-between">
         {onRegisterPayment && (
           <button
             onClick={onRegisterPayment}
-            className="flex items-center gap-2 text-xs font-semibold bg-green-500/20 text-green-600 px-3 py-2 rounded-lg hover:bg-green-500/30 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold bg-green-500/20 text-green-600 px-3 py-2 rounded-lg hover:bg-green-500/30 transition-colors"
+            title="Registrar cobro"
           >
-            <ClipboardList className="w-3 h-3" /> Registrar
+            <ClipboardList className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cobro</span>
           </button>
         )}
-        {onMarkPaid && (
+        {onViewDetail && (
           <button
-            onClick={onMarkPaid}
-            className="flex items-center gap-2 text-xs font-semibold bg-primary/20 text-primary px-3 py-2 rounded-lg hover:bg-primary/30 transition-colors"
+            onClick={onViewDetail}
+            className="flex items-center gap-1 text-xs font-semibold bg-blue-500/20 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-500/30 transition-colors"
+            title="Ver detalle"
           >
-            <CheckCircle2 className="w-3 h-3" /> Marcar
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Detalle</span>
           </button>
         )}
         {onEdit && (
           <button
             onClick={onEdit}
-            className="flex items-center gap-2 text-xs font-semibold bg-muted text-muted-foreground px-3 py-2 rounded-lg hover:bg-muted/80 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold bg-muted text-muted-foreground px-3 py-2 rounded-lg hover:bg-muted/80 transition-colors"
+            title="Editar"
           >
-            <Edit className="w-3 h-3" /> Editar
+            <Edit className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Editar</span>
           </button>
         )}
-        {onHistory && (
+        {onWhatsApp && (
           <button
-            onClick={onHistory}
-            className="flex items-center gap-2 text-xs font-semibold bg-muted text-muted-foreground px-3 py-2 rounded-lg hover:bg-muted/80 transition-colors"
+            onClick={onWhatsApp}
+            className="flex items-center gap-1 text-xs font-semibold bg-green-500/20 text-green-600 px-3 py-2 rounded-lg hover:bg-green-500/30 transition-colors"
+            title="WhatsApp"
           >
-            <History className="w-3 h-3" /> Historial
+            <MessageCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">WhatsApp</span>
           </button>
         )}
         {onDelete && (
           <button
             onClick={onDelete}
-            className="flex items-center gap-2 text-xs font-semibold bg-red-500/20 text-red-600 px-3 py-2 rounded-lg hover:bg-red-500/30 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold bg-red-500/20 text-red-600 px-3 py-2 rounded-lg hover:bg-red-500/30 transition-colors"
+            title="Eliminar"
           >
-            <Trash2 className="w-3 h-3" /> Eliminar
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Eliminar</span>
           </button>
         )}
       </div>
