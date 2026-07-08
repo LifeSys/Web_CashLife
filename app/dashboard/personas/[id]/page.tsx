@@ -11,6 +11,9 @@ import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalI
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
 import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
 import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
+import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
+import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
+import { PersonEditModal } from '@/components/modals/PersonEditModal';
 import { toast } from 'sonner';
 
 export default function ContactDetailPage() {
@@ -24,6 +27,9 @@ export default function ContactDetailPage() {
   const [financialSummary, setFinancialSummary] = useState<PersonFinancialSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
   const contact = contacts.find((c) => c.id === id);
 
@@ -96,29 +102,31 @@ export default function ContactDetailPage() {
   };
 
   const handleEdit = () => {
-    router.push(`/dashboard/personas/${id}/edit`);
+    setIsEditModalOpen(true);
   };
 
   const handleDelete = async () => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este contacto?')) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este contacto? Esta acción no se puede deshacer.')) return;
     try {
-      if (!user?.uid) return;
-      // TODO: Add delete method to personService
-      toast.success('Contacto eliminado');
+      if (!user?.uid || !id) return;
+      setIsLoadingActions(true);
+      await personService.delete(user.uid, id);
+      toast.success('Contacto eliminado exitosamente');
       router.push('/dashboard/personas');
     } catch (error) {
-      toast.error('Error al eliminar contacto');
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar contacto');
+      console.error('[v0] Delete error:', error);
+    } finally {
+      setIsLoadingActions(false);
     }
   };
 
   const handleAddCollection = () => {
-    // TODO: Open modal or redirect to add collection flow
-    toast.info('Funcionalidad de cobro en desarrollo');
+    setIsCollectionModalOpen(true);
   };
 
   const handleAddPayment = () => {
-    // TODO: Open modal or redirect to add payment flow
-    toast.info('Funcionalidad de pago en desarrollo');
+    setIsPaymentModalOpen(true);
   };
 
   return (
@@ -195,6 +203,37 @@ export default function ContactDetailPage() {
           <p>• Contratos y acuerdos</p>
         </div>
       </div>
+
+      {/* Modals */}
+      {contact && (
+        <>
+          <PersonEditModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            contact={contact}
+            onSuccess={() => {
+              setIsEditModalOpen(false);
+              toast.success('Contacto actualizado');
+            }}
+          />
+          <ReceivableDebtModal
+            isOpen={isCollectionModalOpen}
+            onClose={() => setIsCollectionModalOpen(false)}
+            onSuccess={() => {
+              setIsCollectionModalOpen(false);
+            }}
+            prefilledContactId={id}
+          />
+          <PayableObligationModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            onSuccess={() => {
+              setIsPaymentModalOpen(false);
+            }}
+            prefilledContactId={id}
+          />
+        </>
+      )}
     </div>
   );
 }

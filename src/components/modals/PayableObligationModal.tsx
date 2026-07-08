@@ -12,15 +12,16 @@ interface PayableObligationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  prefilledContactId?: string;
 }
 
-export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableObligationModalProps) {
+export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledContactId }: PayableObligationModalProps) {
   const { user } = useAuth();
   const { contacts } = usePeople();
   const { invalidateAfterPayable } = useSWRInvalidation();
   const [creditorName, setCreditorName] = useState('');
   const [creditorType, setCreditorType] = useState<'person' | 'bank' | 'company' | 'sunat' | 'other'>('person');
-  const [contactId, setContactId] = useState('');
+  const [contactId, setContactId] = useState(prefilledContactId || '');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -121,7 +122,8 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess }: PayableOb
             <select
               value={contactId}
               onChange={(e) => setContactId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
+              disabled={!!prefilledContactId}
+              className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2 disabled:opacity-60"
             >
               <option value="">Ninguno (opcional)</option>
               {contacts.map((c) => (

@@ -98,7 +98,7 @@ class PersonService {
     return this.repository.update(uid, id, data);
   }
 
-  async delete(uid: string, id: string): Promise<boolean> {
+  async delete(uid: string, id: string): Promise<void> {
     return this.repository.delete(uid, id);
   }
 }
