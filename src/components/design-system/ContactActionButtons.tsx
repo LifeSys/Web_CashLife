@@ -35,7 +35,7 @@ export function ContactActionButtons({
           className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-all disabled:opacity-50 font-medium"
         >
           <Plus className="w-4 h-4" />
-          Registrar Pago
+          Registrar Deuda
         </button>
       )}
 
