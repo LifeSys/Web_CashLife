@@ -73,7 +73,7 @@ export function ContactPersonalInfo({
               <span className="text-sm font-medium hidden sm:inline">Chat</span>
             </button>
           )}
-          {onCall && contact.telefono && (
+          {onCall && contact.phone && (
             <button
               onClick={onCall}
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors border border-blue-500/30"
@@ -109,12 +109,12 @@ export function ContactPersonalInfo({
       {/* Contact Details Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Teléfono */}
-        {contact.telefono && (
+        {contact.phone && (
           <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
             <Phone className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Teléfono</p>
-              <p className="text-base font-medium truncate">{contact.telefono}</p>
+              <p className="text-base font-medium truncate">{contact.phone}</p>
             </div>
           </div>
         )}
@@ -130,24 +130,13 @@ export function ContactPersonalInfo({
           </div>
         )}
 
-        {/* Empresa */}
-        {contact.empresa && (
-          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
-            <Building2 className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Empresa</p>
-              <p className="text-base font-medium truncate">{contact.empresa}</p>
-            </div>
-          </div>
-        )}
-
         {/* Notas */}
-        {contact.notas && (
+        {contact.notes && (
           <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border md:col-span-2">
             <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Notas</p>
-              <p className="text-sm line-clamp-3">{contact.notas}</p>
+              <p className="text-sm line-clamp-3">{contact.notes}</p>
             </div>
           </div>
         )}

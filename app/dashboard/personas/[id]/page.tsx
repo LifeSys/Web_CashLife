@@ -11,8 +11,8 @@ import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalI
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
 import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
 import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
-import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
-import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
+import { ReceivableDebtContextModal } from '@/components/modals/ReceivableDebtContextModal';
+import { PayableObligationContextModal } from '@/components/modals/PayableObligationContextModal';
 import { PersonEditModal } from '@/components/modals/PersonEditModal';
 import { toast } from 'sonner';
 
@@ -20,9 +20,9 @@ export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { contacts } = usePeople();
-  const { debts } = useReceivableDebts();
-  const { obligations } = usePayableObligations();
+  const { contacts, mutate: mutatePeople } = usePeople();
+  const { debts, mutate: mutateDebts } = useReceivableDebts();
+  const { obligations, mutate: mutateObligations } = usePayableObligations();
   
   const [financialSummary, setFinancialSummary] = useState<PersonFinancialSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,12 +74,12 @@ export default function ContactDetailPage() {
   const contactObligations = obligations.filter((o) => (o.contactId ?? o.personId) === id);
 
   const handleWhatsApp = () => {
-    if (!contact.telefono) {
+    if (!contact.phone) {
       toast.error('No hay número de teléfono registrado');
       return;
     }
 
-    const phone = contact.telefono.replace(/\D/g, '');
+    const phoneNumber = contact.phone.replace(/\D/g, '');
     const pendingDebt = financialSummary?.meDebe || 0;
     
     let message = `Hola ${contact.nombre},`;
@@ -89,16 +89,16 @@ export default function ContactDetailPage() {
       message += ` quería confirmar los detalles de nuestras operaciones pendientes.`;
     }
 
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
 
   const handleCall = () => {
-    if (!contact.telefono) {
+    if (!contact.phone) {
       toast.error('No hay número de teléfono registrado');
       return;
     }
-    window.location.href = `tel:${contact.telefono}`;
+    window.location.href = `tel:${contact.phone}`;
   };
 
   const handleEdit = () => {
@@ -127,6 +127,26 @@ export default function ContactDetailPage() {
 
   const handleAddPayment = () => {
     setIsPaymentModalOpen(true);
+  };
+
+  // Auto-refresh function to update all related data
+  const handleRefreshAfterOperation = async () => {
+    try {
+      // Refresh all SWR caches
+      await Promise.all([
+        mutatePeople(),
+        mutateDebts(),
+        mutateObligations(),
+      ]);
+      
+      // Refresh financial summary
+      if (user?.uid && id) {
+        const summary = await personService.getFinancialSummary(user.uid, id);
+        setFinancialSummary(summary);
+      }
+    } catch (error) {
+      console.error('[v0] Error refreshing data:', error);
+    }
   };
 
   return (
@@ -214,23 +234,22 @@ export default function ContactDetailPage() {
             onSuccess={() => {
               setIsEditModalOpen(false);
               toast.success('Contacto actualizado');
+              mutatePeople();
             }}
           />
-          <ReceivableDebtModal
+          <ReceivableDebtContextModal
             isOpen={isCollectionModalOpen}
             onClose={() => setIsCollectionModalOpen(false)}
-            onSuccess={() => {
-              setIsCollectionModalOpen(false);
-            }}
-            prefilledContactId={id}
+            contactId={id}
+            contactName={contact.nombre}
+            onSuccess={handleRefreshAfterOperation}
           />
-          <PayableObligationModal
+          <PayableObligationContextModal
             isOpen={isPaymentModalOpen}
             onClose={() => setIsPaymentModalOpen(false)}
-            onSuccess={() => {
-              setIsPaymentModalOpen(false);
-            }}
-            prefilledContactId={id}
+            contactId={id}
+            contactName={contact.nombre}
+            onSuccess={handleRefreshAfterOperation}
           />
         </>
       )}

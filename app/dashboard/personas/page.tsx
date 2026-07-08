@@ -64,8 +64,8 @@ export default function ContactosPage() {
                   <div>
                     <h2 className="font-bold">{c.nombre}</h2>
                     <div className="flex items-center gap-2 mt-1">
-                      {c.telefono && (
-                        <p className="text-xs text-muted-foreground">{c.telefono}</p>
+                      {c.phone && (
+                        <p className="text-xs text-muted-foreground">{c.phone}</p>
                       )}
                       {c.contactType && (
                         <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">

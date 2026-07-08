@@ -22,9 +22,10 @@ export function ContactActionButtons({
           onClick={onAddCollection}
           disabled={isLoading}
           className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/30 transition-all disabled:opacity-50 font-medium"
+          title="Registrar dinero que el contacto me debe"
         >
           <Plus className="w-4 h-4" />
-          Registrar Cobro
+          🟢 Me Debe
         </button>
       )}
 
@@ -33,9 +34,10 @@ export function ContactActionButtons({
           onClick={onAddPayment}
           disabled={isLoading}
           className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-all disabled:opacity-50 font-medium"
+          title="Registrar dinero que yo le debo al contacto"
         >
           <Plus className="w-4 h-4" />
-          Registrar Pago
+          🔴 Le Debo
         </button>
       )}
 
