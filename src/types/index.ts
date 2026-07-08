@@ -132,28 +132,45 @@ export interface Wallet {
 
 export interface CreditCard {
   id: string;
-  banco: string;
+  userId?: string;
+  
+  // Primary fields (required)
   nombre: string;
+  banco: string;
   lineaCredito: number;
   montoUtilizado: number;
-  fechaCorte: string;
-  fechaMaximaPago: string;
-  pagoMinimo: number;
+  
+  // New required fields for professional cards
+  marca: 'Visa' | 'Mastercard' | 'American Express' | 'Diners' | 'Discover' | 'Other';
+  currency: Currency;
+  lastDigits: string; // Last 4 digits
+  cardColor: string; // Hex color for visual identification
+  cutOffDay: number; // 1-31: day when cycle resets
+  duePaymentDay: number; // 1-31: day payment is due
+  minimumPayment: number;
+  linkedAccountId: string; // Default payment account
+  
+  // Optional fields
   tasaInteres?: number;
+  interestRate?: number;
+  notes?: string;
+  
+  // Legacy/backward compatibility fields
+  brand?: 'Visa' | 'Mastercard' | 'American Express' | 'Diners' | 'Otra';
   bank?: string;
   name?: string;
-  brand?: 'Visa' | 'Mastercard' | 'American Express' | 'Diners' | 'Otra';
   creditLimit?: number;
   usedAmount?: number;
   availableAmount?: number;
   cutDay?: number;
   paymentDay?: number;
-  minimumPayment?: number;
-  interestRate?: number;
+  fechaCorte?: string;
+  fechaMaximaPago?: string;
+  pagoMinimo?: number;
   color?: string;
   icono?: string;
-  lastDigits?: string;
-  linkedAccountId?: string;
+  
+  // System fields
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;

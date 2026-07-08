@@ -49,16 +49,19 @@ class AccountService {
   }
 
   async update(uid: string, id: string, data: Partial<Account>): Promise<Account | null> {
+    const account = await this.getById(uid, id);
+    if (!account) throw new Error('Cuenta no encontrada');
+
+    // Protect Efectivo account from ANY modifications
+    if (account.nombre === 'Efectivo') {
+      throw new Error('La cuenta "Efectivo" no puede ser modificada');
+    }
+
     // Prevent renaming to duplicate name
     if (data.nombre) {
       const existingAccounts = await this.getAll(uid);
       if (existingAccounts.some(a => a.id !== id && a.nombre === data.nombre)) {
         throw new Error(`Ya existe una cuenta llamada "${data.nombre}"`);
-      }
-      // Prevent changing Efectivo name
-      const account = await this.getById(uid, id);
-      if (account?.nombre === 'Efectivo' && data.nombre !== 'Efectivo') {
-        throw new Error('No se puede cambiar el nombre de la cuenta "Efectivo"');
       }
     }
     return this.repository.update(uid, id, data);
@@ -71,6 +74,30 @@ class AccountService {
       throw new Error('No se puede eliminar la cuenta "Efectivo"');
     }
     return this.repository.delete(uid, id);
+  }
+
+  /**
+   * Get only money accounts (Efectivo, bank, safe box)
+   * Excludes credit cards
+   */
+  async getMoneyAccounts(uid: string): Promise<Account[]> {
+    const accounts = await this.getAll(uid);
+    const moneyAccounts = accounts.filter(a => a.tipo !== 'credit_card');
+    
+    // Sort: Efectivo first, then by createdAt
+    return moneyAccounts.sort((a, b) => {
+      if (a.nombre === 'Efectivo') return -1;
+      if (b.nombre === 'Efectivo') return 1;
+      return (a.createdAt as any) - (b.createdAt as any);
+    });
+  }
+
+  /**
+   * Calculate total available money across all accounts
+   */
+  async getTotalAvailableMoney(uid: string): Promise<number> {
+    const accounts = await this.getMoneyAccounts(uid);
+    return accounts.reduce((sum, a) => sum + (a.saldo || 0), 0);
   }
 }
 

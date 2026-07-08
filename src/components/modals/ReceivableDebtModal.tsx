@@ -12,13 +12,14 @@ interface ReceivableDebtModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  prefilledContactId?: string;
 }
 
-export function ReceivableDebtModal({ isOpen, onClose, onSuccess }: ReceivableDebtModalProps) {
+export function ReceivableDebtModal({ isOpen, onClose, onSuccess, prefilledContactId }: ReceivableDebtModalProps) {
   const { user } = useAuth();
   const { contacts } = usePeople();
   const { invalidateAfterReceivable } = useSWRInvalidation();
-  const [personId, setPersonId] = useState('');
+  const [personId, setPersonId] = useState(prefilledContactId || '');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -89,7 +90,8 @@ export function ReceivableDebtModal({ isOpen, onClose, onSuccess }: ReceivableDe
             <select
               value={personId}
               onChange={(e) => setPersonId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
+              disabled={!!prefilledContactId}
+              className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2 disabled:opacity-60"
             >
               <option value="">Selecciona un contacto</option>
               {contacts.map((c) => (

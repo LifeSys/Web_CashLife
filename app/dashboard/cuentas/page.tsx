@@ -1,21 +1,228 @@
 'use client';
 
-import { useState } from 'react';
-import { CreditCard, PlusCircle, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreditCards } from '@/hooks/useCreditCards';
 import { accountService } from '@/services/account.service';
 import { creditCardService } from '@/services/credit-card.service';
 import { financialEngine } from '@/services/financial-engine.service';
-
-const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n || 0);
+import { DashboardSummary } from '@/components/design-system/DashboardSummary';
+import { AccountsSection } from '@/components/sections/AccountsSection';
+import { CreditCardsSection } from '@/components/sections/CreditCardsSection';
+import { BankAccountModal } from '@/components/modals/BankAccountModal';
+import { CreditCardCreateModal } from '@/components/modals/CreditCardCreateModal';
+import { PayCreditCardModal } from '@/components/modals/PayCreditCardModal';
+import { Account, CreditCard } from '@/types';
+import { AlertCircle } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function CuentasPage() {
-  const { user } = useAuth(); const { cuentas, mutate } = useAccounts(); const { creditCards, mutate: mutateCards } = useCreditCards();
-  const [name,setName]=useState(''); const [balance,setBalance]=useState(''); const [cardName,setCardName]=useState(''); const [limit,setLimit]=useState(''); const [payAccount,setPayAccount]=useState('');
-  const createAccount=async()=>{if(!user?.uid||!name)return; await accountService.create(user.uid,{nombre:name,name,saldo:Number(balance||0),balance:Number(balance||0),tipo:'bank',color:'#22c55e',icono:'Landmark',active:true}); setName('');setBalance(''); mutate();};
-  const createCard=async()=>{if(!user?.uid||!cardName)return; await creditCardService.create(user.uid,{nombre:cardName,name:cardName,banco:cardName,bank:cardName,lineaCredito:Number(limit||0),creditLimit:Number(limit||0),montoUtilizado:0,usedAmount:0,availableAmount:Number(limit||0),fechaCorte:'15',fechaMaximaPago:'25',cutDay:15,paymentDay:25,pagoMinimo:0,minimumPayment:0,color:'#8b5cf6',icono:'CreditCard'}); setCardName('');setLimit(''); mutateCards();};
-  const payCard=async(cardId:string,used:number)=>{if(!user?.uid||!payAccount)return; const amount=Number(prompt('Monto a pagar',String(used))??'0'); if(amount>0) { await financialEngine.payCreditCard(user.uid,{creditCardId:cardId,cuenta:payAccount,monto:amount,descripcion:'Pago de tarjeta',fecha:new Date()}); mutate(); mutateCards(); }};
-  return <div className="space-y-6 p-4 md:p-6"><div><h1 className="text-2xl md:text-3xl font-bold">Cuentas</h1><p className="text-muted-foreground">Dinero real y tarjetas como obligaciones financieras.</p></div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_140px_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Cuenta bancaria, efectivo, caja fuerte" value={name} onChange={e=>setName(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" placeholder="Saldo" value={balance} onChange={e=>setBalance(e.target.value)}/><button onClick={createAccount} className="rounded bg-primary px-4 py-2 text-primary-foreground"><PlusCircle className="inline h-4 w-4"/> Crear cuenta</button></section><div className="grid gap-4">{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><article key={c.id} className="rounded-xl border bg-card p-4 flex justify-between"><div className="flex gap-3"><Wallet/><div><h2 className="font-bold">{c.nombre}</h2><p className="text-sm text-muted-foreground">{c.tipo}</p></div></div><b>{money(c.saldo??c.balance??0)}</b></article>)}</div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_140px_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Tarjeta / banco" value={cardName} onChange={e=>setCardName(e.target.value)}/><input className="rounded border bg-muted px-3 py-2" type="number" placeholder="Línea" value={limit} onChange={e=>setLimit(e.target.value)}/><button onClick={createCard} className="rounded bg-purple-600 px-4 py-2 text-white"><PlusCircle className="inline h-4 w-4"/> Crear tarjeta</button></section><select className="rounded border bg-muted px-3 py-2" value={payAccount} onChange={e=>setPayAccount(e.target.value)}><option value="">Cuenta para pagar tarjeta</option>{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select><div className="grid gap-4 md:grid-cols-2">{creditCards.map(card=>{const used=card.usedAmount??card.montoUtilizado??0; const lim=card.creditLimit??card.lineaCredito??0; return <article key={card.id} className="rounded-xl border bg-card p-4"><div className="flex justify-between"><div className="flex gap-3"><CreditCard className="text-purple-500"/><div><h2 className="font-bold">{card.nombre}</h2><p className="text-sm text-muted-foreground">Banco: {card.banco}</p></div></div><button onClick={()=>payCard(card.id,used)} className="text-purple-500 font-bold">Pagar</button></div><div className="mt-4 grid grid-cols-2 gap-2 text-sm"><span>Línea: <b>{money(lim)}</b></span><span>Disponible: <b>{money(lim-used)}</b></span><span>Utilizado: <b>{money(used)}</b></span><span>Pago mínimo: <b>{money(card.minimumPayment??card.pagoMinimo??0)}</b></span><span>Corte: {card.cutDay??card.fechaCorte}</span><span>Pago: {card.paymentDay??card.fechaMaximaPago}</span></div><p className="mt-3 text-xs text-muted-foreground">Historial disponible desde movimientos filtrados por tarjeta.</p></article>})}</div></div>;
+  const { user } = useAuth();
+  const { cuentas: accounts, mutate: mutateAccounts, isLoading: loadingAccounts } = useAccounts();
+  const { creditCards: cards, mutate: mutateCreditCards, isLoading: loadingCards } = useCreditCards();
+
+  // Modal states
+  const [showBankAccountModal, setShowBankAccountModal] = useState(false);
+  const [showCreditCardModal, setShowCreditCardModal] = useState(false);
+  const [showPayCardModal, setShowPayCardModal] = useState(false);
+  const [selectedCardForPayment, setSelectedCardForPayment] = useState<CreditCard | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Ensure Efectivo exists on mount
+  useEffect(() => {
+    if (user?.uid) {
+      accountService.ensureEfectivoExists(user.uid).catch(err => {
+        console.error('[v0] Error ensuring Efectivo exists:', err);
+      });
+    }
+  }, [user?.uid]);
+
+  // Filter money accounts (exclude credit cards)
+  const moneyAccounts = accounts.filter(a => a.tipo !== 'credit_card');
+
+  // Calculate summary metrics
+  const totalAvailableMoney = moneyAccounts.reduce((sum, a) => sum + (a.saldo || 0), 0);
+  const totalCreditDebt = cards.reduce((sum, c) => sum + (c.montoUtilizado || 0), 0);
+  const totalCreditLimit = cards.reduce((sum, c) => sum + c.lineaCredito, 0);
+
+  // Handlers
+  const handleDeleteAccount = async (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    if (account.nombre === 'Efectivo') {
+      toast.error('No se puede eliminar la cuenta "Efectivo"');
+      return;
+    }
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar la cuenta "${account.nombre}"?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      if (user?.uid) {
+        await accountService.delete(user.uid, accountId);
+        await mutateAccounts();
+        toast.success('Cuenta eliminada');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al eliminar cuenta';
+      toast.error(message);
+      console.error('[v0] Error deleting account:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCard = async (cardId: string) => {
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+
+    if (!confirm(`¿Estás seguro de que deseas eliminar la tarjeta "${card.nombre}"?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      if (user?.uid) {
+        await creditCardService.delete(user.uid, cardId);
+        await mutateCreditCards();
+        toast.success('Tarjeta eliminada');
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al eliminar tarjeta';
+      toast.error(message);
+      console.error('[v0] Error deleting card:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handlePayCard = (card: CreditCard) => {
+    setSelectedCardForPayment(card);
+    setShowPayCardModal(true);
+  };
+
+  const handlePaymentSuccess = () => {
+    mutateCreditCards();
+    mutateAccounts();
+    setShowPayCardModal(false);
+    setSelectedCardForPayment(null);
+  };
+
+  const handleViewAccountTransactions = (accountId: string) => {
+    // TODO: Navigate to transactions view for account
+    console.log('[v0] View transactions for account:', accountId);
+    toast.info('Vista de movimientos próximamente');
+  };
+
+  const handleViewCardTransactions = (cardId: string) => {
+    // TODO: Navigate to transactions view for card
+    console.log('[v0] View transactions for card:', cardId);
+    toast.info('Vista de movimientos próximamente');
+  };
+
+  const handleRecordCharge = (card: CreditCard) => {
+    // TODO: Open modal to record a new charge
+    console.log('[v0] Record charge for card:', card.id);
+    toast.info('Registro de compras próximamente');
+  };
+
+  const handleEditAccount = (account: Account) => {
+    // TODO: Open edit modal for account
+    console.log('[v0] Edit account:', account.id);
+    toast.info('Edición de cuentas próximamente');
+  };
+
+  const handleEditCard = (card: CreditCard) => {
+    // TODO: Open edit modal for card
+    console.log('[v0] Edit card:', card.id);
+    toast.info('Edición de tarjetas próximamente');
+  };
+
+  const isLoading = loadingAccounts || loadingCards || isDeleting;
+
+  return (
+    <div className="space-y-8 p-4 md:p-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl md:text-4xl font-bold">Cuentas y Tarjetas</h1>
+        <p className="text-muted-foreground mt-2">Administra tu dinero real y líneas de crédito</p>
+      </div>
+
+      {/* Warning if no Efectivo */}
+      {accounts.length === 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-sm">Primeros pasos</p>
+            <p className="text-sm text-muted-foreground mt-1">Crea tu primera cuenta bancaria para comenzar a organizar tu dinero</p>
+          </div>
+        </div>
+      )}
+
+      {/* Dashboard Summary */}
+      <DashboardSummary
+        totalAvailableMoney={totalAvailableMoney}
+        accountCount={moneyAccounts.length}
+        creditCardCount={cards.length}
+        totalCreditDebt={totalCreditDebt}
+      />
+
+      {/* Money Accounts Section */}
+      <AccountsSection
+        accounts={moneyAccounts}
+        loading={loadingAccounts}
+        onAddAccount={() => setShowBankAccountModal(true)}
+        onEditAccount={handleEditAccount}
+        onDeleteAccount={handleDeleteAccount}
+        onViewTransactions={handleViewAccountTransactions}
+      />
+
+      {/* Credit Cards Section */}
+      <CreditCardsSection
+        cards={cards}
+        accounts={moneyAccounts}
+        totalLimit={totalCreditLimit}
+        totalUsed={totalCreditDebt}
+        loading={loadingCards}
+        onAddCard={() => setShowCreditCardModal(true)}
+        onPayCard={handlePayCard}
+        onRecordCharge={handleRecordCharge}
+        onViewTransactions={handleViewCardTransactions}
+        onEditCard={handleEditCard}
+        onDeleteCard={handleDeleteCard}
+      />
+
+      {/* Bank Account Modal */}
+      <BankAccountModal
+        isOpen={showBankAccountModal}
+        onClose={() => setShowBankAccountModal(false)}
+        onSuccess={() => mutateAccounts()}
+      />
+
+      {/* Credit Card Creation Modal */}
+      <CreditCardCreateModal
+        isOpen={showCreditCardModal}
+        onClose={() => setShowCreditCardModal(false)}
+        onSuccess={() => mutateCreditCards()}
+      />
+
+      {/* Payment Modal */}
+      {selectedCardForPayment && (
+        <PayCreditCardModal
+          card={selectedCardForPayment}
+          userAccounts={moneyAccounts}
+          isOpen={showPayCardModal}
+          onClose={() => {
+            setShowPayCardModal(false);
+            setSelectedCardForPayment(null);
+          }}
+          onSuccess={handlePaymentSuccess}
+        />
+      )}
+    </div>
+  );
 }

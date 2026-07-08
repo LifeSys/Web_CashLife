@@ -1,36 +1,239 @@
 'use client';
 
-import { useParams } from 'next/navigation';
-import { useState } from 'react';
-import { PlusCircle } from 'lucide-react';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
-import { useAccounts } from '@/hooks/useAccounts';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
-import { useTransactions } from '@/hooks/useTransactions';
-import { receivableService, payableService } from '@/services/financial.service';
-import { financialEngine } from '@/services/financial-engine.service';
-
-const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n || 0);
+import { personService, PersonFinancialSummary } from '@/services/person.service';
+import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalInfo';
+import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
+import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
+import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
+import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
+import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
+import { PersonEditModal } from '@/components/modals/PersonEditModal';
+import { toast } from 'sonner';
 
 export default function ContactDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { user } = useAuth();
   const { contacts } = usePeople();
-  const { cuentas } = useAccounts();
-  const { debts, mutate: mutateDebts } = useReceivableDebts();
-  const { obligations, mutate: mutateObligations } = usePayableObligations();
-  const { transacciones, mutate: mutateTx } = useTransactions();
+  const { debts } = useReceivableDebts();
+  const { obligations } = usePayableObligations();
+  
+  const [financialSummary, setFinancialSummary] = useState<PersonFinancialSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingActions, setIsLoadingActions] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
   const contact = contacts.find((c) => c.id === id);
-  const [desc, setDesc] = useState(''); const [amount, setAmount] = useState(''); const [accountId, setAccountId] = useState('');
+
+  // Fetch financial summary
+  useEffect(() => {
+    if (!user?.uid || !id) return;
+    
+    const fetchSummary = async () => {
+      try {
+        setIsLoading(true);
+        const summary = await personService.getFinancialSummary(user.uid, id);
+        setFinancialSummary(summary);
+      } catch (error) {
+        console.error('[v0] Error fetching financial summary:', error);
+        toast.error('Error al cargar resumen financiero');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSummary();
+  }, [user?.uid, id]);
+
+  if (!contact) {
+    return (
+      <div className="p-6 space-y-4">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-primary hover:text-primary/80"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Volver
+        </button>
+        <div className="rounded-lg border border-border bg-card p-6 text-center">
+          <p className="text-muted-foreground">Contacto no encontrado</p>
+        </div>
+      </div>
+    );
+  }
+
   const contactDebts = debts.filter((d) => (d.contactId ?? d.personId) === id);
   const contactObligations = obligations.filter((o) => (o.contactId ?? o.personId) === id);
-  const receivable = contactDebts.reduce((s,d)=>s+d.pendingBalance,0); const payable = contactObligations.reduce((s,o)=>s+o.pendingBalance,0);
-  const refresh = () => { mutateDebts(); mutateObligations(); mutateTx(); };
-  if (!contact) return <div className="p-6">Contacto no encontrado.</div>;
-  const createDebt = async () => { if (!user?.uid || !desc || !amount) return; await receivableService.createDebt(user.uid, { personId: id, contactId: id, description: desc, date: new Date(), originalAmount: Number(amount) }); setDesc(''); setAmount(''); refresh(); };
-  const createObligation = async () => { if (!user?.uid || !desc || !amount) return; await payableService.createObligation(user.uid, { contactId: id, personId: id, creditorName: contact.nombre, creditorType: contact.contactType === 'bank' ? 'bank' : 'person', description: desc, date: new Date(), dueDate: new Date(), originalAmount: Number(amount) }); setDesc(''); setAmount(''); refresh(); };
-  const collect = async (debtId: string, max: number) => { if (!user?.uid || !accountId) return; const value = Number(prompt('Monto a cobrar', String(max)) ?? '0'); if (value > 0) await financialEngine.collectReceivable(user.uid, { debtId, personId: id, contactId: id, amount: value, accountId, date: new Date() }); refresh(); };
-  const pay = async (obligationId: string, max: number) => { if (!user?.uid || !accountId) return; const value = Number(prompt('Monto a pagar', String(max)) ?? '0'); if (value > 0) await financialEngine.payObligation(user.uid, { obligationId, personId: id, contactId: id, amount: value, accountId, date: new Date() }); refresh(); };
-  return <div className="space-y-6 p-4 md:p-6"><div><h1 className="text-3xl font-bold">{contact.nombre}</h1><p className="text-muted-foreground">Ficha financiera única · Información · Balance · Me debe · Le debo · Pagos · Cobros · Historial · Notas · Archivos preparados</p></div><div className="grid gap-4 md:grid-cols-3"><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Me debe</p><b className="text-2xl text-emerald-500">{money(receivable)}</b></div><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Le debo</p><b className="text-2xl text-red-500">{money(payable)}</b></div><div className="rounded-xl border bg-card p-4"><p className="text-sm text-muted-foreground">Balance</p><b className={(receivable-payable)>=0?'text-2xl text-emerald-500':'text-2xl text-red-500'}>{money(receivable-payable)}</b></div></div><section className="rounded-xl border bg-card p-4 grid gap-3 md:grid-cols-[1fr_140px_auto_auto]"><input className="rounded border bg-muted px-3 py-2" placeholder="Concepto: Celular, Sensores TPMS..." value={desc} onChange={(e)=>setDesc(e.target.value)} /><input className="rounded border bg-muted px-3 py-2" placeholder="Monto" type="number" value={amount} onChange={(e)=>setAmount(e.target.value)} /><button onClick={createDebt} className="rounded bg-emerald-600 px-3 py-2 text-white"><PlusCircle className="inline h-4 w-4" /> Me debe</button><button onClick={createObligation} className="rounded bg-red-600 px-3 py-2 text-white"><PlusCircle className="inline h-4 w-4" /> Le debo</button></section><select className="rounded border bg-muted px-3 py-2" value={accountId} onChange={(e)=>setAccountId(e.target.value)}><option value="">Cuenta para pagar/cobrar</option>{cuentas.filter(c=>c.tipo!=='credit_card').map(c=><option key={c.id} value={c.id}>{c.nombre}</option>)}</select><div className="grid gap-6 lg:grid-cols-2"><section className="rounded-xl border bg-card p-4"><h2 className="font-bold">Me debe</h2>{contactDebts.map(d=><div key={d.id} className="flex justify-between border-t py-3"><span>{d.description}<br/><small>{d.status}</small></span><button onClick={()=>collect(d.id,d.pendingBalance)} className="text-emerald-500 font-bold">Cobrar {money(d.pendingBalance)}</button></div>)}</section><section className="rounded-xl border bg-card p-4"><h2 className="font-bold">Le debo</h2>{contactObligations.map(o=><div key={o.id} className="flex justify-between border-t py-3"><span>{o.description}<br/><small>{o.status}</small></span><button onClick={()=>pay(o.id,o.pendingBalance)} className="text-red-500 font-bold">Pagar {money(o.pendingBalance)}</button></div>)}</section></div><section className="rounded-xl border bg-card p-4"><h2 className="font-bold">Historial financiero</h2>{transacciones.filter(t=>(t.contactId ?? t.persona ?? t.personId)===id).map(t=><div key={t.id} className="flex justify-between border-t py-2 text-sm"><span>{t.descripcion}</span><b>{money(t.monto)}</b></div>)}</section><section className="rounded-xl border bg-card p-4"><h2 className="font-bold">Notas y archivos</h2><p className="text-sm text-muted-foreground">Notas: {contact.notes || 'Sin notas.'}</p><p className="text-sm text-muted-foreground">Archivos: estructura preparada para futura integración con Storage.</p></section></div>;
+
+  const handleWhatsApp = () => {
+    if (!contact.telefono) {
+      toast.error('No hay número de teléfono registrado');
+      return;
+    }
+
+    const phone = contact.telefono.replace(/\D/g, '');
+    const pendingDebt = financialSummary?.meDebe || 0;
+    
+    let message = `Hola ${contact.nombre},`;
+    if (pendingDebt > 0) {
+      message += ` tenemos registrado que me debes ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(pendingDebt)}. ¿Puedes agendar un pago?`;
+    } else {
+      message += ` quería confirmar los detalles de nuestras operaciones pendientes.`;
+    }
+
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleCall = () => {
+    if (!contact.telefono) {
+      toast.error('No hay número de teléfono registrado');
+      return;
+    }
+    window.location.href = `tel:${contact.telefono}`;
+  };
+
+  const handleEdit = () => {
+    setIsEditModalOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!confirm('¿Estás seguro de que deseas eliminar este contacto? Esta acción no se puede deshacer.')) return;
+    try {
+      if (!user?.uid || !id) return;
+      setIsLoadingActions(true);
+      await personService.delete(user.uid, id);
+      toast.success('Contacto eliminado exitosamente');
+      router.push('/dashboard/personas');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar contacto');
+      console.error('[v0] Delete error:', error);
+    } finally {
+      setIsLoadingActions(false);
+    }
+  };
+
+  const handleAddCollection = () => {
+    setIsCollectionModalOpen(true);
+  };
+
+  const handleAddPayment = () => {
+    setIsPaymentModalOpen(true);
+  };
+
+  return (
+    <div className="space-y-8 p-4 md:p-6">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Volver
+      </button>
+
+      {/* Personal Info Section */}
+      <div className="space-y-4">
+        <div className="border-b border-border pb-4">
+          <h2 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
+            Información Personal
+          </h2>
+        </div>
+        <ContactPersonalInfo
+          contact={contact}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onWhatsApp={handleWhatsApp}
+          onCall={handleCall}
+        />
+      </div>
+
+      {/* Financial Summary Section */}
+      {financialSummary && (
+        <div className="space-y-4">
+          <div className="border-b border-border pb-4">
+            <h2 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
+              Resumen Financiero
+            </h2>
+          </div>
+          <ContactFinancialSummary summary={financialSummary} />
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="space-y-4">
+        <ContactActionButtons
+          onAddCollection={handleAddCollection}
+          onAddPayment={handleAddPayment}
+          isLoading={isLoadingActions}
+        />
+      </div>
+
+      {/* Financial History Section */}
+      <div className="space-y-4">
+        <div className="border-b border-border pb-4">
+          <h2 className="text-lg font-semibold text-muted-foreground uppercase tracking-wide">
+            Historial Financiero
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {contactDebts.length + contactObligations.length} operaciones registradas
+          </p>
+        </div>
+        <ContactHistoryTimeline
+          debts={contactDebts}
+          obligations={contactObligations}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* Future Sections Placeholder */}
+      <div className="space-y-4 pt-4 border-t border-border/50">
+        <div className="text-xs text-muted-foreground space-y-2">
+          <p>• Documentos y comprobantes</p>
+          <p>• Calendario de pagos</p>
+          <p>• Recordatorios y actividades</p>
+          <p>• Contratos y acuerdos</p>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {contact && (
+        <>
+          <PersonEditModal
+            isOpen={isEditModalOpen}
+            onClose={() => setIsEditModalOpen(false)}
+            contact={contact}
+            onSuccess={() => {
+              setIsEditModalOpen(false);
+              toast.success('Contacto actualizado');
+            }}
+          />
+          <ReceivableDebtModal
+            isOpen={isCollectionModalOpen}
+            onClose={() => setIsCollectionModalOpen(false)}
+            onSuccess={() => {
+              setIsCollectionModalOpen(false);
+            }}
+            prefilledContactId={id}
+          />
+          <PayableObligationModal
+            isOpen={isPaymentModalOpen}
+            onClose={() => setIsPaymentModalOpen(false)}
+            onSuccess={() => {
+              setIsPaymentModalOpen(false);
+            }}
+            prefilledContactId={id}
+          />
+        </>
+      )}
+    </div>
+  );
 }

@@ -1,5 +1,17 @@
 import { Person } from '@/types';
 import { PersonRepository } from '@/lib/repositories/person.repository';
+import { receivableService, payableService } from './financial.service';
+
+export interface PersonFinancialSummary {
+  personId: string;
+  meDebe: number; // Total owed by contact to user
+  leDebo: number; // Total user owes to contact
+  netBalance: number; // meDebe - leDebo
+  totalOperations: number; // Count of all transactions
+  lastOperation?: Date; // Most recent operation date
+  totalReceivableDebts: number; // Active receivable debts
+  totalPayableObligations: number; // Active payable obligations
+}
 
 class PersonService {
   private repository = new PersonRepository();
@@ -26,6 +38,50 @@ class PersonService {
     return people.filter(p => p.tipo === type && p.deuda > 0);
   }
 
+  /**
+   * Get comprehensive financial summary for a contact
+   * Combines receivable debts, payable obligations, and transaction history
+   */
+  async getFinancialSummary(uid: string, personId: string): Promise<PersonFinancialSummary> {
+    const [debts, obligations] = await Promise.all([
+      receivableService.getAllDebts(uid),
+      payableService.getAllObligations(uid),
+    ]);
+
+    // Filter by person ID
+    const personDebts = debts.filter(d => d.personId === personId);
+    const personObligations = obligations.filter(o => o.personId === personId || o.contactId === personId);
+
+    // Calculate totals
+    const meDebe = personDebts.reduce((sum, d) => sum + (d.pendingBalance || 0), 0);
+    const leDebo = personObligations.reduce((sum, o) => sum + (o.pendingBalance || 0), 0);
+    const totalOperations = personDebts.length + personObligations.length;
+
+    // Find most recent operation date
+    const allDates = [
+      ...personDebts.map(d => d.date || d.createdAt),
+      ...personObligations.map(o => o.dueDate || o.createdAt),
+    ].filter(Boolean);
+
+    const lastOperation = allDates.length > 0
+      ? new Date(Math.max(...allDates.map(d => {
+        const date = d as any;
+        return typeof date === 'object' && 'toDate' in date ? date.toDate().getTime() : new Date(date).getTime();
+      })))
+      : undefined;
+
+    return {
+      personId,
+      meDebe,
+      leDebo,
+      netBalance: meDebe - leDebo,
+      totalOperations,
+      lastOperation,
+      totalReceivableDebts: personDebts.length,
+      totalPayableObligations: personObligations.length,
+    };
+  }
+
   async create(
     uid: string,
     person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
@@ -42,7 +98,7 @@ class PersonService {
     return this.repository.update(uid, id, data);
   }
 
-  async delete(uid: string, id: string): Promise<boolean> {
+  async delete(uid: string, id: string): Promise<void> {
     return this.repository.delete(uid, id);
   }
 }

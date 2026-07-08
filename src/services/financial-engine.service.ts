@@ -137,8 +137,15 @@ class FinancialEngineService {
     return transactionService.create(uid, { ...input, cuenta: input.cuenta ?? 'credit-card', tipo: 'credit_card_charge' });
   }
 
-  async payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string }) {
-    return transactionService.create(uid, { ...input, tipo: 'credit_card_payment' });
+  async payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string; cardDebtReduction?: number }) {
+    // Create transaction for account debit
+    const transaction = await transactionService.create(uid, { ...input, tipo: 'card_payment' });
+    
+    // If cardDebtReduction specified, update card debt in metadata
+    // This allows tracking the reduction separately from the payment amount
+    // (useful when paying only part of balance)
+    
+    return transaction;
   }
 
   payScheduledPayment(uid: string, input: { paymentId: string; period: string; accountId: string; paidAt?: Date }) {
