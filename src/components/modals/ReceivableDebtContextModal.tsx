@@ -7,7 +7,7 @@ import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 
-interface PayableObligationContextModalProps {
+interface ReceivableDebtContextModalProps {
   isOpen: boolean;
   onClose: () => void;
   contactId: string;
@@ -15,16 +15,16 @@ interface PayableObligationContextModalProps {
   onSuccess?: () => void;
 }
 
-export function PayableObligationContextModal({
+export function ReceivableDebtContextModal({
   isOpen,
   onClose,
   contactId,
   contactName,
   onSuccess,
-}: PayableObligationContextModalProps) {
+}: ReceivableDebtContextModalProps) {
   const { user } = useAuth();
-  const { invalidateAfterPayable } = useSWRInvalidation();
-  
+  const { invalidateAfterReceivable } = useSWRInvalidation();
+
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -34,8 +34,8 @@ export function PayableObligationContextModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user?.uid || !description || !amount || !dueDate) {
+
+    if (!user?.uid || !description || !amount) {
       toast.error('Por favor completa los campos requeridos');
       return;
     }
@@ -48,34 +48,32 @@ export function PayableObligationContextModal({
 
     setIsSubmitting(true);
     try {
-      await financialEngine.createPayableObligation(user.uid, {
-        creditorName: contactName,
-        creditorType: 'person',
-        contactId: contactId,
+      await financialEngine.createReceivableDebt(user.uid, {
         personId: contactId,
+        contactId: contactId,
         description,
         date: new Date(date),
-        dueDate: new Date(dueDate),
+        dueDate: dueDate ? new Date(dueDate) : undefined,
         amount: parsedAmount,
-        notes,
+        notes: notes || undefined,
       });
-      
-      toast.success('Cobro registrado correctamente');
-      
-      // Invalidate relevant SWR caches (includes person/people data)
-      invalidateAfterPayable(user.uid);
-      
+
+      toast.success('Deuda por cobrar registrada');
+
+      // Invalidate relevant SWR caches
+      invalidateAfterReceivable(user.uid);
+
       // Reset form
       setDescription('');
       setAmount('');
       setDate(new Date().toISOString().split('T')[0]);
       setDueDate('');
       setNotes('');
-      
+
       onClose();
       onSuccess?.();
     } catch (error) {
-      toast.error('Error al registrar el cobro');
+      toast.error('Error al registrar la deuda');
       console.error('[v0] Error:', error);
     } finally {
       setIsSubmitting(false);
@@ -90,8 +88,8 @@ export function PayableObligationContextModal({
         {/* Header */}
         <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold">Registrar Obligación</h2>
-            <p className="text-sm text-muted-foreground mt-1">Al {contactName}</p>
+            <h2 className="text-xl md:text-2xl font-bold">Registrar Deuda</h2>
+            <p className="text-sm text-muted-foreground mt-1">De {contactName}</p>
           </div>
           <button
             onClick={onClose}
@@ -110,7 +108,7 @@ export function PayableObligationContextModal({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ej: Servicio de consultoría"
+              placeholder="Ej: Préstamo, pago adeudado, etc."
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
               required
             />
@@ -134,7 +132,7 @@ export function PayableObligationContextModal({
             </div>
           </div>
 
-          {/* Date */}
+          {/* Collection Date */}
           <div>
             <label className="block text-sm font-medium mb-2">Fecha del Cobro</label>
             <input
@@ -147,13 +145,12 @@ export function PayableObligationContextModal({
 
           {/* Due Date */}
           <div>
-            <label className="block text-sm font-medium mb-2">Fecha de Vencimiento *</label>
+            <label className="block text-sm font-medium mb-2">Fecha de Vencimiento</label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-              required
             />
           </div>
 
@@ -163,7 +160,7 @@ export function PayableObligationContextModal({
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Añade detalles sobre el cobro..."
+              placeholder="Añade detalles sobre la deuda..."
               rows={3}
               className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
@@ -183,7 +180,7 @@ export function PayableObligationContextModal({
               disabled={isSubmitting}
               className="flex-1 bg-primary text-primary-foreground font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Guardando...' : 'Crear Obligación'}
+              {isSubmitting ? 'Guardando...' : 'Crear Deuda'}
             </button>
           </div>
         </form>

@@ -11,7 +11,7 @@ import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalI
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
 import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
 import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
-import { ReceivablePaymentContextModal } from '@/components/modals/ReceivablePaymentContextModal';
+import { ReceivableDebtContextModal } from '@/components/modals/ReceivableDebtContextModal';
 import { PayableObligationContextModal } from '@/components/modals/PayableObligationContextModal';
 import { PersonEditModal } from '@/components/modals/PersonEditModal';
 import { toast } from 'sonner';
@@ -237,7 +237,7 @@ export default function ContactDetailPage() {
               mutatePeople();
             }}
           />
-          <ReceivablePaymentContextModal
+          <ReceivableDebtContextModal
             isOpen={isCollectionModalOpen}
             onClose={() => setIsCollectionModalOpen(false)}
             contactId={id}
