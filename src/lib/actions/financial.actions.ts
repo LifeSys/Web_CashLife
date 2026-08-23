@@ -1,0 +1,189 @@
+'use server';
+
+import { prisma } from '@/lib/db/prisma';
+import { FinancialRepository } from '@/lib/repositories/financial.repository';
+import { transactionService } from '@/services/transaction.service';
+import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod } from '@/types';
+
+const toDate = (value?: Date | { toDate(): Date }) => (value && 'toDate' in value ? value.toDate() : value);
+const getStatus = (pendingBalance: number, originalAmount: number, dueDate?: Date | { toDate(): Date }) => {
+  if (pendingBalance <= 0) return 'paid' as const;
+  const date = toDate(dueDate);
+  if (date && date < new Date()) return 'overdue' as const;
+  return pendingBalance < originalAmount ? ('partial' as const) : ('pending' as const);
+};
+const periodToDate = (period: string, dueDay: number) => {
+  const [year, month] = period.split('-').map(Number);
+  return new Date(year, month - 1, Math.min(dueDay, 28));
+};
+const nextMonthlyPeriod = (period: string) => {
+  const [year, month] = period.split('-').map(Number);
+  const date = new Date(year, month, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+};
+
+const debtsRepo = new FinancialRepository<ReceivableDebt>(prisma.receivableDebt, 'date');
+const receivablePaymentsRepo = new FinancialRepository<ReceivablePayment>(prisma.receivablePayment, 'date');
+const obligationsRepo = new FinancialRepository<PayableObligation>(prisma.payableObligation, 'dueDate');
+const payablePaymentsRepo = new FinancialRepository<PayablePayment>(prisma.payablePayment, 'date');
+const scheduledRepo = new FinancialRepository<ScheduledPayment>(prisma.scheduledPayment, 'dueDay');
+const incomeRepo = new FinancialRepository<IncomeRecord>(prisma.incomeRecord, 'date');
+
+// ---- Cuentas por cobrar ----
+export async function getAllReceivableDebtsAction(uid: string) {
+  return debtsRepo.getAll(uid);
+}
+
+export async function getReceivablePaymentsByDebtAction(uid: string, debtId: string) {
+  return receivablePaymentsRepo.getByField(uid, 'debtId', debtId);
+}
+
+export async function createReceivableDebtAction(
+  uid: string,
+  debt: Omit<ReceivableDebt, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'pendingBalance' | 'status'>
+) {
+  return debtsRepo.create(uid, {
+    ...debt,
+    pendingBalance: debt.originalAmount,
+    status: getStatus(debt.originalAmount, debt.originalAmount, debt.dueDate as Date),
+  });
+}
+
+export async function registerReceivablePaymentAction(
+  uid: string,
+  payment: Omit<ReceivablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>
+) {
+  const debt = await debtsRepo.getById(uid, payment.debtId);
+  if (!debt) throw new Error('Cuenta por cobrar no encontrada');
+  const amount = Math.min(payment.amount, debt.pendingBalance);
+  const transaction = await transactionService.create(uid, {
+    monto: amount,
+    tipo: 'receivable_payment',
+    descripcion: `Cobro: ${debt.description}`,
+    fecha: payment.date,
+    cuenta: payment.accountId,
+    persona: payment.personId,
+    contactId: payment.contactId ?? payment.personId,
+    relatedDebtId: debt.id,
+  });
+  const created = await receivablePaymentsRepo.create(uid, { ...payment, amount, transactionId: transaction.id });
+  const pendingBalance = Math.max(debt.pendingBalance - amount, 0);
+  await debtsRepo.update(uid, debt.id, { pendingBalance, status: getStatus(pendingBalance, debt.originalAmount, debt.dueDate as Date) });
+  return created;
+}
+
+// ---- Cuentas por pagar ----
+export async function getAllPayableObligationsAction(uid: string) {
+  return obligationsRepo.getAll(uid);
+}
+
+export async function createPayableObligationAction(
+  uid: string,
+  obligation: Omit<PayableObligation, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'pendingBalance' | 'status'>
+) {
+  return obligationsRepo.create(uid, {
+    ...obligation,
+    pendingBalance: obligation.originalAmount,
+    status: getStatus(obligation.originalAmount, obligation.originalAmount, obligation.dueDate as Date),
+  });
+}
+
+export async function registerPayablePaymentAction(
+  uid: string,
+  payment: Omit<PayablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>
+) {
+  const obligation = await obligationsRepo.getById(uid, payment.obligationId);
+  if (!obligation) throw new Error('Cuenta por pagar no encontrada');
+  const amount = Math.min(payment.amount, obligation.pendingBalance);
+  const transaction = await transactionService.create(uid, {
+    monto: amount,
+    tipo: 'payable_payment',
+    descripcion: `Pago: ${obligation.description}`,
+    fecha: payment.date,
+    cuenta: payment.accountId,
+    contactId: payment.contactId ?? obligation.contactId,
+    persona: payment.personId ?? obligation.personId,
+    relatedObligationId: obligation.id,
+  });
+  const created = await payablePaymentsRepo.create(uid, { ...payment, amount, transactionId: transaction.id });
+  const pendingBalance = Math.max(obligation.pendingBalance - amount, 0);
+  await obligationsRepo.update(uid, obligation.id, { pendingBalance, status: getStatus(pendingBalance, obligation.originalAmount, obligation.dueDate as Date) });
+  return created;
+}
+
+// ---- Pagos programados ----
+export async function getAllScheduledPaymentsAction(uid: string) {
+  return scheduledRepo.getAll(uid);
+}
+
+export async function createScheduledPaymentAction(uid: string, payment: Omit<ScheduledPayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>) {
+  return scheduledRepo.create(uid, payment);
+}
+
+export async function getScheduledPaymentPeriodsAction(uid: string, paymentId: string): Promise<ScheduledPaymentPeriod[]> {
+  const rows = await prisma.scheduledPaymentPeriod.findMany({ where: { userId: uid, paymentId }, orderBy: { period: 'desc' } });
+  return rows as unknown as ScheduledPaymentPeriod[];
+}
+
+export async function ensureScheduledPaymentPeriodAction(uid: string, paymentId: string, period: string): Promise<ScheduledPaymentPeriod> {
+  const payment = await scheduledRepo.getById(uid, paymentId);
+  if (!payment) throw new Error('Pago programado no encontrado');
+  const existing = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId, period } } });
+  if (existing) return existing as unknown as ScheduledPaymentPeriod;
+  const dueDate = periodToDate(period, payment.dueDay);
+  const status = dueDate < new Date() ? 'overdue' : 'pending';
+  const created = await prisma.scheduledPaymentPeriod.create({
+    data: { userId: uid, paymentId, period, status, amount: payment.amount, dueDate, createdBy: uid, updatedBy: uid },
+  });
+  return created as unknown as ScheduledPaymentPeriod;
+}
+
+export async function markScheduledPaymentPeriodAsPaidAction(uid: string, id: string, period: string, accountId: string, paidAt: Date = new Date()) {
+  const payment = await scheduledRepo.getById(uid, id);
+  if (!payment) throw new Error('Pago programado no encontrado');
+  const tx = await transactionService.create(uid, {
+    monto: payment.amount,
+    tipo: 'scheduled_payment',
+    descripcion: `Pago programado: ${payment.name} (${period})`,
+    fecha: paidAt,
+    cuenta: accountId,
+    categoria: payment.category,
+    scheduledPaymentId: id,
+    scheduledPeriod: period,
+  });
+  await prisma.scheduledPaymentPeriod.upsert({
+    where: { paymentId_period: { paymentId: id, period } },
+    create: { userId: uid, paymentId: id, period, status: 'paid', amount: payment.amount, dueDate: periodToDate(period, payment.dueDay), paidAt, accountId, transactionId: tx.id, createdBy: uid, updatedBy: uid },
+    update: { status: 'paid', paidAt, accountId, transactionId: tx.id, updatedBy: uid },
+  });
+  await ensureScheduledPaymentPeriodAction(uid, id, nextMonthlyPeriod(period));
+  await scheduledRepo.update(uid, id, { lastPaidAt: paidAt, nextDuePeriod: nextMonthlyPeriod(period) } as Partial<ScheduledPayment>);
+  return tx;
+}
+
+export async function markScheduledPaymentAsPaidAction(uid: string, id: string, accountId: string) {
+  const now = new Date();
+  const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  return markScheduledPaymentPeriodAsPaidAction(uid, id, period, accountId, now);
+}
+
+// ---- Ingresos ----
+export async function getAllIncomesAction(uid: string) {
+  return incomeRepo.getAll(uid);
+}
+
+export async function createIncomeRecordAction(
+  uid: string,
+  income: Omit<IncomeRecord, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>
+) {
+  const transaction = await transactionService.create(uid, {
+    monto: income.amount,
+    tipo: 'income',
+    descripcion: income.description,
+    fecha: income.date,
+    cuenta: income.destinationAccountId,
+    categoria: income.category,
+    notas: income.notes,
+  });
+  return incomeRepo.create(uid, { ...income, transactionId: transaction.id });
+}

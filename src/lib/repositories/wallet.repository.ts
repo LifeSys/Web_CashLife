@@ -1,20 +1,27 @@
-import { collection, doc, getDocs, orderBy, query, runTransaction } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
-import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
+import { prisma } from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
 import type { Wallet } from '@/types';
 import { BaseRepository } from './base.repository';
 
+function toWallet(row: Record<string, unknown>): Wallet {
+  return { ...(row as object), id: row.id as string } as Wallet;
+}
+
 export class WalletRepository extends BaseRepository {
   async getAll(uid: string): Promise<Wallet[]> {
-    const q = query(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.WALLETS}`), orderBy('type', 'asc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ ...this.convertTimestampsToDate(doc.data() as Wallet), id: doc.id } as Wallet));
+    const rows = await prisma.wallet.findMany({ where: { userId: uid }, orderBy: { type: 'asc' } });
+    return rows.map(toWallet);
   }
 
   async create(uid: string, wallet: Omit<Wallet, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<Wallet> {
-    const docRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.WALLETS}`));
-    const walletData = this.createAuditedData(wallet, uid);
-    await runTransaction(db, async (t) => t.set(docRef, walletData));
-    return { id: docRef.id, ...this.convertTimestampsToDate(walletData) } as Wallet;
+    const row = await prisma.wallet.create({
+      data: {
+        ...(wallet as Record<string, unknown>),
+        userId: uid,
+        createdBy: uid,
+        updatedBy: uid,
+      } as Prisma.WalletUncheckedCreateInput,
+    });
+    return toWallet(row);
   }
 }

@@ -1,76 +1,43 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  query,
-  orderBy,
-  runTransaction,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { prisma } from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
 import { Category } from '@/types';
 import { BaseRepository } from './base.repository';
-import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
+
+function toCategory(row: Record<string, unknown>): Category {
+  return { ...(row as object), id: row.id as string } as Category;
+}
 
 export class CategoryRepository extends BaseRepository {
-  /**
-   * Obtiene todas las categorías del usuario
-   */
   async getAll(uid: string): Promise<Category[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}`),
-      orderBy('nombre', 'asc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Category>(doc.id, doc.data())));
+    const rows = await prisma.category.findMany({ where: { userId: uid }, orderBy: { nombre: 'asc' } });
+    return rows.map(toCategory);
   }
 
-  /**
-   * Obtiene categoría por ID
-   */
   async getById(uid: string, id: string): Promise<Category | null> {
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}/${id}`);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
-    return this.withDocId<Category>(docSnap.id, docSnap.data());
+    const row = await prisma.category.findFirst({ where: { id, userId: uid } });
+    return row ? toCategory(row) : null;
   }
 
-  /**
-   * Crea una nueva categoría
-   */
-  async create(
-    uid: string,
-    category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
-  ): Promise<Category> {
-    const docRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}`));
-    const categoryData = this.createAuditedData(category, uid);
-    await runTransaction(db, async (t) => {
-      t.set(docRef, categoryData);
+  async create(uid: string, category: Omit<Category, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<Category> {
+    const row = await prisma.category.create({
+      data: {
+        ...(category as Record<string, unknown>),
+        userId: uid,
+        createdBy: uid,
+        updatedBy: uid,
+      } as Prisma.CategoryUncheckedCreateInput,
     });
-    return {
-      id: docRef.id,
-      ...this.convertTimestampsToDate(categoryData),
-    };
+    return toCategory(row);
   }
 
-  /**
-   * Actualiza una categoría
-   */
-  async update(
-    uid: string,
-    id: string,
-    data: Partial<Category>
-  ): Promise<Category | null> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}/${id}`);
-      const docSnap = await t.get(docRef);
-      if (!docSnap.exists()) return null;
-
-      const updateData = this.updateAuditedData(data, uid);
-      t.update(docRef, updateData);
-
-      return this.withDocId<Category>(docSnap.id, { ...docSnap.data(), ...updateData });
+  async update(uid: string, id: string, data: Partial<Category>): Promise<Category | null> {
+    const existing = await prisma.category.findFirst({ where: { id, userId: uid } });
+    if (!existing) return null;
+    const { id: _id, userId: _uid, createdAt: _ca, createdBy: _cb, ...rest } = data as Record<string, unknown>;
+    const row = await prisma.category.update({
+      where: { id },
+      data: { ...rest, updatedBy: uid } as Prisma.CategoryUncheckedUpdateInput,
     });
+    return toCategory(row);
   }
 }

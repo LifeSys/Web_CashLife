@@ -1,7 +1,6 @@
 'use client';
 
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useAuth } from '@/providers/AuthProvider';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -13,7 +12,6 @@ import {
   ReceiptText,
   CalendarClock,
   TrendingUp,
-  LogOut,
 } from 'lucide-react';
 
 const navItems = [
@@ -39,7 +37,6 @@ const navItems = [
 export function Sidebar() {
   const isMobile = useIsMobile();
   const pathname = usePathname();
-  const { signOut } = useAuth();
 
   if (isMobile) return null;
 
@@ -98,13 +95,9 @@ export function Sidebar() {
         </ul>
       </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-border space-y-3">
-        <button onClick={signOut} className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-all duration-200 font-medium text-sm active:scale-95">
-          <LogOut className="w-4 h-4" />
-          Cerrar sesión
-        </button>
-      </div>
+      {/* Footer: sin "Cerrar sesión" mientras CashLife corre en modo local
+          (un solo usuario, sin login). Vuelve a aparecer cuando se retome
+          el login real para el lanzamiento web. */}
     </aside>
   );
 }

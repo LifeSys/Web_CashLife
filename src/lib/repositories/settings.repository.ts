@@ -1,60 +1,50 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  runTransaction,
-  Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { prisma } from '@/lib/db/prisma';
 import { Settings } from '@/types';
 import { BaseRepository } from './base.repository';
-import { FIRESTORE_COLLECTIONS, DEFAULT_SETTINGS } from '@/firebase/constants';
+import { DEFAULT_SETTINGS } from '@/firebase/constants';
+
+function toSettings(row: { saldoInicial: number; moneda: string; tema: string; notificaciones: boolean; onboardingCompleted: boolean; updatedAt: Date }): Settings {
+  return {
+    saldoInicial: row.saldoInicial,
+    moneda: row.moneda,
+    tema: row.tema as Settings['tema'],
+    notificaciones: row.notificaciones,
+    onboardingCompleted: row.onboardingCompleted,
+    updatedAt: row.updatedAt,
+  };
+}
 
 export class SettingsRepository extends BaseRepository {
   /**
    * Obtiene configuración del usuario
    */
   async get(uid: string): Promise<Settings> {
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.SETTINGS}/config`);
-    const docSnap = await getDoc(docRef);
-
-    if (!docSnap.exists()) {
-      return DEFAULT_SETTINGS;
-    }
-
-    return this.convertTimestampsToDate(docSnap.data() as Settings);
+    const row = await prisma.settings.findUnique({ where: { userId: uid } });
+    if (!row) return DEFAULT_SETTINGS;
+    return toSettings(row);
   }
 
   /**
    * Actualiza configuración del usuario
    */
   async update(uid: string, settings: Partial<Settings>): Promise<Settings> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.SETTINGS}/config`);
-      const updateData = {
-        ...settings,
-        updatedAt: Timestamp.now(),
-      };
-      t.set(docRef, updateData, { merge: true });
-      return this.convertTimestampsToDate({
-        ...DEFAULT_SETTINGS,
-        ...updateData,
-      });
+    const row = await prisma.settings.upsert({
+      where: { userId: uid },
+      create: { userId: uid, ...DEFAULT_SETTINGS, ...settings },
+      update: { ...settings },
     });
+    return toSettings(row);
   }
 
   /**
    * Inicializa configuración predeterminada
    */
   async initialize(uid: string): Promise<Settings> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.SETTINGS}/config`);
-      const settingsData = {
-        ...DEFAULT_SETTINGS,
-        updatedAt: Timestamp.now(),
-      };
-      t.set(docRef, settingsData);
-      return this.convertTimestampsToDate(settingsData);
+    const row = await prisma.settings.upsert({
+      where: { userId: uid },
+      create: { userId: uid, ...DEFAULT_SETTINGS },
+      update: {},
     });
+    return toSettings(row);
   }
 }

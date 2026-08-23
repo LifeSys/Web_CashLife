@@ -1,6 +1,12 @@
 import { Person } from '@/types';
-import { PersonRepository } from '@/lib/repositories/person.repository';
 import { receivableService, payableService } from './financial.service';
+import {
+  getAllPeopleAction,
+  getPersonByIdAction,
+  createPersonRecordAction,
+  updatePersonRecordAction,
+  deletePersonRecordAction,
+} from '@/lib/actions/person.actions';
 
 export interface PersonFinancialSummary {
   personId: string;
@@ -14,18 +20,16 @@ export interface PersonFinancialSummary {
 }
 
 class PersonService {
-  private repository = new PersonRepository();
-
   async getAll(uid: string): Promise<Person[]> {
-    return this.repository.getAll(uid);
+    return getAllPeopleAction(uid);
   }
 
   async getById(uid: string, id: string): Promise<Person | null> {
-    return this.repository.getById(uid, id);
+    return getPersonByIdAction(uid, id);
   }
 
   async getTotalDebt(uid: string, personType?: 'PRESTAMISTA' | 'DEUDOR'): Promise<number> {
-    const people = await this.repository.getAll(uid);
+    const people = await getAllPeopleAction(uid);
     let filtered = people;
     if (personType) {
       filtered = people.filter(p => p.tipo === personType);
@@ -34,7 +38,7 @@ class PersonService {
   }
 
   async getByType(uid: string, type: 'PRESTAMISTA' | 'DEUDOR'): Promise<Person[]> {
-    const people = await this.repository.getAll(uid);
+    const people = await getAllPeopleAction(uid);
     return people.filter(p => p.tipo === type && p.deuda > 0);
   }
 
@@ -87,19 +91,19 @@ class PersonService {
     person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
   ): Promise<Person> {
     // Prevent duplicate person names
-    const existingPeople = await this.repository.getAll(uid);
+    const existingPeople = await getAllPeopleAction(uid);
     if (existingPeople.some(p => p.nombre.toLowerCase() === person.nombre.toLowerCase())) {
       throw new Error(`Ya existe una persona llamada "${person.nombre}"`);
     }
-    return this.repository.create(uid, person);
+    return createPersonRecordAction(uid, person);
   }
 
   async update(uid: string, id: string, data: Partial<Person>): Promise<Person | null> {
-    return this.repository.update(uid, id, data);
+    return updatePersonRecordAction(uid, id, data);
   }
 
   async delete(uid: string, id: string): Promise<void> {
-    return this.repository.delete(uid, id);
+    await deletePersonRecordAction(uid, id);
   }
 }
 

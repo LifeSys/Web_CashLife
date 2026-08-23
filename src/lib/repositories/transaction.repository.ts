@@ -1,62 +1,66 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  addDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  runTransaction,
-  Timestamp,
-  getDoc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { prisma } from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
 import { Transaction } from '@/types';
-import { BaseRepository, PaginatedResult, PaginationOptions } from './base.repository';
-import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
-import { cleanFirestoreData } from './firestore-utils';
+import { PaginatedResult, PaginationOptions } from './base.repository';
 
-export class TransactionRepository extends BaseRepository {
+type TxClient = Prisma.TransactionClient;
+
+function toTransaction(row: Record<string, unknown>): Transaction {
+  return { ...(row as object), id: row.id as string } as Transaction;
+}
+
+const NON_BALANCE_ACCOUNTS = ['accounts-receivable', 'accounts-payable'];
+
+/**
+ * Delta de saldo para una cuenta "normal" (no tarjeta, no transferencia)
+ * según el tipo de movimiento. Antes esto se pasaba como función callback
+ * desde transaction.service.ts, pero los argumentos de una Server Action
+ * deben ser serializables (nada de funciones), así que ahora vive aquí,
+ * calculado únicamente a partir de datos serializables de la transacción.
+ */
+function calculateBalanceDelta(tipo: string, monto: number): number {
+  switch (tipo) {
+    case 'expense':
+    case 'payable_payment':
+    case 'scheduled_payment':
+    case 'transfer':
+    case 'loan':
+    case 'credit_card_payment':
+      return -monto;
+    case 'income':
+    case 'loan_payment':
+    case 'receivable_payment':
+      return monto;
+    case 'credit_card_charge':
+    default:
+      return 0;
+  }
+}
+
+export class TransactionRepository {
   /**
    * Obtiene todas las transacciones del usuario (no eliminadas)
    */
-  async getAll(
-    uid: string,
-    options?: PaginationOptions
-  ): Promise<PaginatedResult<Transaction>> {
+  async getAll(uid: string, options?: PaginationOptions): Promise<PaginatedResult<Transaction>> {
     const pageSize = options?.limit || 20;
-    const collectionPath = `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`;
+    const orderField = options?.orderBy || 'fecha';
+    const orderDirection = options?.orderDirection || 'desc';
+    const cursor = options?.startAfter as { id: string } | undefined;
 
-    let q = query(
-      collection(db, collectionPath),
-      where('isDeleted', '==', false),
-      orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
-      limit(pageSize + 1)
-    );
+    const rows = await prisma.transaction.findMany({
+      where: { userId: uid, isDeleted: false },
+      orderBy: { [orderField]: orderDirection },
+      take: pageSize + 1,
+      ...(cursor?.id ? { cursor: { id: cursor.id }, skip: 1 } : {}),
+    });
 
-    if (options?.startAfter) {
-      q = query(
-        collection(db, collectionPath),
-        where('isDeleted', '==', false),
-        orderBy(options?.orderBy || 'fecha', options?.orderDirection || 'desc'),
-        startAfter(options.startAfter),
-        limit(pageSize + 1)
-      );
-    }
-
-    const snapshot = await getDocs(q);
-    
-    const hasMore = snapshot.docs.length > pageSize;
-    const docs = snapshot.docs.slice(0, pageSize);
-
-    const items = docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+    const hasMore = rows.length > pageSize;
+    const items = rows.slice(0, pageSize).map(toTransaction);
 
     return {
       items,
       hasMore,
-      lastCursor: hasMore ? docs[docs.length - 1] : undefined,
+      lastCursor: hasMore ? { id: items[items.length - 1].id } : undefined,
     };
   }
 
@@ -64,240 +68,175 @@ export class TransactionRepository extends BaseRepository {
    * Obtiene transacción por ID
    */
   async getById(uid: string, id: string): Promise<Transaction | null> {
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}/${id}`);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
-    return this.withDocId<Transaction>(docSnap.id, docSnap.data());
+    const row = await prisma.transaction.findFirst({ where: { id, userId: uid } });
+    return row ? toTransaction(row) : null;
   }
 
   /**
    * Obtiene transacciones por rango de fechas
    */
-  async getByDateRange(
-    uid: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<Transaction[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
-      where('isDeleted', '==', false),
-      where('fecha', '>=', Timestamp.fromDate(startDate)),
-      where('fecha', '<=', Timestamp.fromDate(endDate)),
-      orderBy('fecha', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+  async getByDateRange(uid: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    const rows = await prisma.transaction.findMany({
+      where: { userId: uid, isDeleted: false, fecha: { gte: startDate, lte: endDate } },
+      orderBy: { fecha: 'desc' },
+    });
+    return rows.map(toTransaction);
   }
 
   /**
    * Obtiene transacciones por cuenta
    */
   async getByAccount(uid: string, accountId: string): Promise<Transaction[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
-      where('isDeleted', '==', false),
-      where('cuenta', '==', accountId),
-      orderBy('fecha', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+    const rows = await prisma.transaction.findMany({
+      where: { userId: uid, isDeleted: false, cuenta: accountId },
+      orderBy: { fecha: 'desc' },
+    });
+    return rows.map(toTransaction);
   }
 
   /**
    * Obtiene transacciones por categoría
    */
   async getByCategory(uid: string, categoryId: string): Promise<Transaction[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
-      where('isDeleted', '==', false),
-      where('categoria', '==', categoryId),
-      orderBy('fecha', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+    const rows = await prisma.transaction.findMany({
+      where: { userId: uid, isDeleted: false, categoria: categoryId },
+      orderBy: { fecha: 'desc' },
+    });
+    return rows.map(toTransaction);
   }
 
   /**
    * Obtiene transacciones por persona
    */
   async getByPerson(uid: string, personId: string): Promise<Transaction[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
-      where('isDeleted', '==', false),
-      where('persona', '==', personId),
-      orderBy('fecha', 'desc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Transaction>(doc.id, doc.data())));
+    const rows = await prisma.transaction.findMany({
+      where: { userId: uid, isDeleted: false, persona: personId },
+      orderBy: { fecha: 'desc' },
+    });
+    return rows.map(toTransaction);
   }
 
   /**
    * Obtiene el total de transacciones por tipo
    */
   async getTotalByType(uid: string, type: string): Promise<number> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`),
-      where('isDeleted', '==', false),
-      where('tipo', '==', type)
-    );
-
-    const snapshot = await getDocs(q);
-    let total = 0;
-    snapshot.docs.forEach((doc) => {
-      const tx = doc.data() as Transaction;
-      total += tx.monto;
+    const result = await prisma.transaction.aggregate({
+      where: { userId: uid, isDeleted: false, tipo: type },
+      _sum: { monto: true },
     });
-    return total;
+    return result._sum.monto ?? 0;
   }
 
   /**
-   * OPERACIÓN ATÓMICA: Crear transacción y actualizar saldo de cuenta
-   * Si ocurre un error, TODO se revierte
-   * @param calculateNewBalance Función que calcula el nuevo saldo
+   * OPERACIÓN ATÓMICA: Crear transacción y actualizar saldo de cuenta.
+   * Si ocurre un error, TODO se revierte (transacción SQL real).
    */
   async create(
     uid: string,
-    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>,
-    calculateNewBalance: (currentBalance: number) => number
+    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>
   ): Promise<Transaction> {
-    return await runTransaction(db, async (t) => {
-      if (transaction.tipo === 'transfer' && transaction.destinationAccountId) {
-        const sourceRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
-        const destinationRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.destinationAccountId}`);
-        const [sourceSnap, destinationSnap] = await Promise.all([t.get(sourceRef), t.get(destinationRef)]);
-        if (!sourceSnap.exists()) throw new Error(`Cuenta origen ${transaction.cuenta} no encontrada`);
-        if (!destinationSnap.exists()) throw new Error(`Cuenta destino ${transaction.destinationAccountId} no encontrada`);
-        const sourceSaldo = (sourceSnap.data().saldo ?? sourceSnap.data().balance ?? 0) as number;
-        const destinationSaldo = (destinationSnap.data().saldo ?? destinationSnap.data().balance ?? 0) as number;
-        t.update(sourceRef, { saldo: sourceSaldo - transaction.monto, balance: sourceSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
-        t.update(destinationRef, { saldo: destinationSaldo + transaction.monto, balance: destinationSaldo + transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
-      } else if (transaction.creditCardId) {
-        const cardRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}/${transaction.creditCardId}`);
-        const cardSnap = await t.get(cardRef);
-        if (!cardSnap.exists()) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
-        const data = cardSnap.data();
-        const currentUsed = (data.usedAmount ?? data.montoUtilizado ?? 0) as number;
-        const nextUsed = transaction.tipo === 'credit_card_payment'
-          ? Math.max(currentUsed - transaction.monto, 0)
-          : currentUsed + transaction.monto;
-        const limit = (data.creditLimit ?? data.lineaCredito ?? 0) as number;
-        t.update(cardRef, { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedAt: Timestamp.now(), updatedBy: uid });
-        if (transaction.tipo === 'credit_card_payment') {
-          const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
-          const accountSnap = await t.get(accountRef);
-          if (!accountSnap.exists()) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
-          const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
-          t.update(accountRef, { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedAt: Timestamp.now(), updatedBy: uid });
-        }
-      } else if (transaction.cuenta && !['accounts-receivable', 'accounts-payable'].includes(transaction.cuenta)) {
-        // 1. Obtener documento de cuenta real. Si el movimiento vino por billetera,
-        // transaction.cuenta debe ser la cuenta bancaria vinculada, no la billetera.
-        // No actualizar saldo para cuentas especiales (receivable_debt, payable_obligation)
-        const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${transaction.cuenta}`);
-        const accountSnap = await t.get(accountRef);
-        if (!accountSnap.exists()) {
-          throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
-        }
+    return prisma.$transaction(async (t) => {
+      await this.applyBalanceChange(t, uid, transaction);
 
-        const currentSaldo = accountSnap.data().saldo as number;
-        const newSaldo = calculateNewBalance(currentSaldo);
-
-        // 2. Actualizar saldo de cuenta
-        t.update(accountRef, {
-          saldo: newSaldo,
-          balance: newSaldo,
-          updatedAt: Timestamp.now(),
+      const created = await t.transaction.create({
+        data: {
+          ...(transaction as Record<string, unknown>),
+          fecha: new Date(transaction.fecha as unknown as string | Date),
+          userId: uid,
+          isDeleted: false,
+          createdBy: uid,
           updatedBy: uid,
-        });
-      }
+        } as Prisma.TransactionUncheckedCreateInput,
+      });
 
-      // 3. Crear documento de transacción
-      const txRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}`));
-      const txData = cleanFirestoreData(
-        this.createAuditedData(
-          {
-            ...transaction,
-            isDeleted: false,
-          },
-          uid
-        )
-      );
-
-      t.set(txRef, txData);
-
-      // 4. Retornar transacción creada
-      return {
-        id: txRef.id,
-        ...this.convertTimestampsToDate(txData),
-      } as Transaction;
+      return toTransaction(created);
     });
+  }
+
+  private async applyBalanceChange(
+    t: TxClient,
+    uid: string,
+    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'isDeleted'>
+  ) {
+    if (transaction.tipo === 'transfer' && transaction.destinationAccountId) {
+      const source = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
+      const destination = await t.account.findFirst({ where: { id: transaction.destinationAccountId, userId: uid } });
+      if (!source) throw new Error(`Cuenta origen ${transaction.cuenta} no encontrada`);
+      if (!destination) throw new Error(`Cuenta destino ${transaction.destinationAccountId} no encontrada`);
+      const sourceSaldo = source.saldo ?? source.balance ?? 0;
+      const destinationSaldo = destination.saldo ?? destination.balance ?? 0;
+      await t.account.update({ where: { id: source.id }, data: { saldo: sourceSaldo - transaction.monto, balance: sourceSaldo - transaction.monto, updatedBy: uid } });
+      await t.account.update({ where: { id: destination.id }, data: { saldo: destinationSaldo + transaction.monto, balance: destinationSaldo + transaction.monto, updatedBy: uid } });
+    } else if (transaction.creditCardId) {
+      const card = await t.creditCard.findFirst({ where: { id: transaction.creditCardId, userId: uid } });
+      if (!card) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
+      const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
+      const nextUsed = transaction.tipo === 'credit_card_payment'
+        ? Math.max(currentUsed - transaction.monto, 0)
+        : currentUsed + transaction.monto;
+      const limit = card.creditLimit ?? card.lineaCredito ?? 0;
+      await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
+      if (transaction.tipo === 'credit_card_payment' && transaction.cuenta) {
+        const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
+        if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
+        const currentSaldo = account.saldo ?? account.balance ?? 0;
+        await t.account.update({ where: { id: account.id }, data: { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedBy: uid } });
+      }
+    } else if (transaction.cuenta && !NON_BALANCE_ACCOUNTS.includes(transaction.cuenta)) {
+      const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
+      if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
+      const newSaldo = account.saldo + calculateBalanceDelta(transaction.tipo, transaction.monto);
+      await t.account.update({ where: { id: account.id }, data: { saldo: newSaldo, balance: newSaldo, updatedBy: uid } });
+    }
   }
 
   /**
    * Actualiza una transacción (no afecta saldos, es solo metadata)
    */
-  async update(
-    uid: string,
-    id: string,
-    data: Partial<Transaction>
-  ): Promise<Transaction | null> {
-    return await runTransaction(db, async (t) => {
-      const txRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}/${id}`);
-      const txSnap = await t.get(txRef);
-      if (!txSnap.exists()) return null;
-
-      const updateData = this.updateAuditedData(data, uid);
-      t.update(txRef, updateData);
-
-      return this.withDocId<Transaction>(txSnap.id, { ...txSnap.data(), ...updateData });
+  async update(uid: string, id: string, data: Partial<Transaction>): Promise<Transaction | null> {
+    const existing = await prisma.transaction.findFirst({ where: { id, userId: uid } });
+    if (!existing) return null;
+    const { id: _id, userId: _uid, createdAt: _ca, createdBy: _cb, ...rest } = data as Record<string, unknown>;
+    const updated = await prisma.transaction.update({
+      where: { id },
+      data: { ...rest, updatedBy: uid } as Prisma.TransactionUncheckedUpdateInput,
     });
+    return toTransaction(updated);
   }
 
   /**
    * OPERACIÓN ATÓMICA: Soft delete de transacción (revertir saldo)
    */
   async delete(uid: string, id: string): Promise<boolean> {
-    return await runTransaction(db, async (t) => {
-      const txRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.TRANSACTIONS}/${id}`);
-      const txSnap = await t.get(txRef);
-      if (!txSnap.exists()) return false;
-      const tx = txSnap.data() as Transaction;
-      if (tx.isDeleted) return false;
+    return prisma.$transaction(async (t) => {
+      const tx = await t.transaction.findFirst({ where: { id, userId: uid } });
+      if (!tx || tx.isDeleted) return false;
 
       if (tx.tipo === 'transfer' && tx.destinationAccountId) {
-        const sourceRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
-        const destinationRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.destinationAccountId}`);
-        const [sourceSnap, destinationSnap] = await Promise.all([t.get(sourceRef), t.get(destinationRef)]);
-        if (!sourceSnap.exists() || !destinationSnap.exists()) throw new Error('Cuenta de transferencia no encontrada');
-        const sourceSaldo = (sourceSnap.data().saldo ?? sourceSnap.data().balance ?? 0) as number;
-        const destinationSaldo = (destinationSnap.data().saldo ?? destinationSnap.data().balance ?? 0) as number;
-        t.update(sourceRef, { saldo: sourceSaldo + tx.monto, balance: sourceSaldo + tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
-        t.update(destinationRef, { saldo: destinationSaldo - tx.monto, balance: destinationSaldo - tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        const source = await t.account.findFirst({ where: { id: tx.cuenta ?? undefined, userId: uid } });
+        const destination = await t.account.findFirst({ where: { id: tx.destinationAccountId, userId: uid } });
+        if (!source || !destination) throw new Error('Cuenta de transferencia no encontrada');
+        const sourceSaldo = source.saldo ?? source.balance ?? 0;
+        const destinationSaldo = destination.saldo ?? destination.balance ?? 0;
+        await t.account.update({ where: { id: source.id }, data: { saldo: sourceSaldo + tx.monto, balance: sourceSaldo + tx.monto, updatedBy: uid } });
+        await t.account.update({ where: { id: destination.id }, data: { saldo: destinationSaldo - tx.monto, balance: destinationSaldo - tx.monto, updatedBy: uid } });
       } else if (tx.creditCardId) {
-        const cardRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CREDIT_CARDS}/${tx.creditCardId}`);
-        const cardSnap = await t.get(cardRef);
-        if (!cardSnap.exists()) throw new Error('Tarjeta no encontrada');
-        const data = cardSnap.data();
-        const currentUsed = (data.usedAmount ?? data.montoUtilizado ?? 0) as number;
+        const card = await t.creditCard.findFirst({ where: { id: tx.creditCardId, userId: uid } });
+        if (!card) throw new Error('Tarjeta no encontrada');
+        const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
         const nextUsed = tx.tipo === 'credit_card_payment' ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0);
-        const limit = (data.creditLimit ?? data.lineaCredito ?? 0) as number;
-        t.update(cardRef, { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedAt: Timestamp.now(), updatedBy: uid });
-        if (tx.tipo === 'credit_card_payment') {
-          const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
-          const accountSnap = await t.get(accountRef);
-          if (!accountSnap.exists()) throw new Error('Cuenta no encontrada');
-          const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
-          t.update(accountRef, { saldo: currentSaldo + tx.monto, balance: currentSaldo + tx.monto, updatedAt: Timestamp.now(), updatedBy: uid });
+        const limit = card.creditLimit ?? card.lineaCredito ?? 0;
+        await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
+        if (tx.tipo === 'credit_card_payment' && tx.cuenta) {
+          const account = await t.account.findFirst({ where: { id: tx.cuenta, userId: uid } });
+          if (!account) throw new Error('Cuenta no encontrada');
+          const currentSaldo = account.saldo ?? account.balance ?? 0;
+          await t.account.update({ where: { id: account.id }, data: { saldo: currentSaldo + tx.monto, balance: currentSaldo + tx.monto, updatedBy: uid } });
         }
-      } else {
-        const accountRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${tx.cuenta}`);
-        const accountSnap = await t.get(accountRef);
-        if (!accountSnap.exists()) throw new Error('Cuenta no encontrada');
-        const currentSaldo = (accountSnap.data().saldo ?? accountSnap.data().balance ?? 0) as number;
+      } else if (tx.cuenta && !NON_BALANCE_ACCOUNTS.includes(tx.cuenta)) {
+        const account = await t.account.findFirst({ where: { id: tx.cuenta, userId: uid } });
+        if (!account) throw new Error('Cuenta no encontrada');
+        const currentSaldo = account.saldo ?? account.balance ?? 0;
         let revertedSaldo = currentSaldo;
         switch (tx.tipo) {
           case 'expense':
@@ -312,10 +251,13 @@ export class TransactionRepository extends BaseRepository {
             revertedSaldo = currentSaldo - tx.monto;
             break;
         }
-        t.update(accountRef, { saldo: revertedSaldo, balance: revertedSaldo, updatedAt: Timestamp.now(), updatedBy: uid });
+        await t.account.update({ where: { id: account.id }, data: { saldo: revertedSaldo, balance: revertedSaldo, updatedBy: uid } });
       }
 
-      t.update(txRef, { isDeleted: true, deletedAt: Timestamp.now(), deletedBy: uid, updatedAt: Timestamp.now(), updatedBy: uid });
+      await t.transaction.update({
+        where: { id },
+        data: { isDeleted: true, deletedAt: new Date(), deletedBy: uid, updatedBy: uid },
+      });
       return true;
     });
   }

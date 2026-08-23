@@ -1,89 +1,50 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  query,
-  orderBy,
-  runTransaction,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { prisma } from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
 import { Person } from '@/types';
 import { BaseRepository } from './base.repository';
-import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
+
+function toPerson(row: Record<string, unknown>): Person {
+  return { ...(row as object), id: row.id as string } as Person;
+}
 
 export class PersonRepository extends BaseRepository {
-  /**
-   * Obtiene todas las personas del usuario
-   */
   async getAll(uid: string): Promise<Person[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.PEOPLE}`),
-      orderBy('nombre', 'asc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Person>(doc.id, doc.data())));
+    const rows = await prisma.person.findMany({ where: { userId: uid }, orderBy: { nombre: 'asc' } });
+    return rows.map(toPerson);
   }
 
-  /**
-   * Obtiene persona por ID
-   */
   async getById(uid: string, id: string): Promise<Person | null> {
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.PEOPLE}/${id}`);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
-    return this.withDocId<Person>(docSnap.id, docSnap.data());
+    const row = await prisma.person.findFirst({ where: { id, userId: uid } });
+    return row ? toPerson(row) : null;
   }
 
-  /**
-   * Crea una nueva persona
-   */
-  async create(
-    uid: string,
-    person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
-  ): Promise<Person> {
-    const docRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.PEOPLE}`));
-    const personData = this.createAuditedData(person, uid);
-    await runTransaction(db, async (t) => {
-      t.set(docRef, personData);
+  async create(uid: string, person: Omit<Person, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<Person> {
+    const row = await prisma.person.create({
+      data: {
+        ...(person as Record<string, unknown>),
+        userId: uid,
+        createdBy: uid,
+        updatedBy: uid,
+      } as Prisma.PersonUncheckedCreateInput,
     });
-    return {
-      id: docRef.id,
-      ...this.convertTimestampsToDate(personData),
-    };
+    return toPerson(row);
   }
 
-  /**
-   * Actualiza una persona
-   */
-  async update(
-    uid: string,
-    id: string,
-    data: Partial<Person>
-  ): Promise<Person | null> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.PEOPLE}/${id}`);
-      const docSnap = await t.get(docRef);
-      if (!docSnap.exists()) return null;
-
-      const updateData = this.updateAuditedData(data, uid);
-      t.update(docRef, updateData);
-
-      return this.withDocId<Person>(docSnap.id, { ...docSnap.data(), ...updateData });
+  async update(uid: string, id: string, data: Partial<Person>): Promise<Person | null> {
+    const existing = await prisma.person.findFirst({ where: { id, userId: uid } });
+    if (!existing) return null;
+    const { id: _id, userId: _uid, createdAt: _ca, createdBy: _cb, ...rest } = data as Record<string, unknown>;
+    const row = await prisma.person.update({
+      where: { id },
+      data: { ...rest, updatedBy: uid } as Prisma.PersonUncheckedUpdateInput,
     });
+    return toPerson(row);
   }
 
-  /**
-   * Elimina una persona
-   */
   async delete(uid: string, id: string): Promise<boolean> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.PEOPLE}/${id}`);
-      const docSnap = await t.get(docRef);
-      if (!docSnap.exists()) return false;
-      t.delete(docRef);
-      return true;
-    });
+    const existing = await prisma.person.findFirst({ where: { id, userId: uid } });
+    if (!existing) return false;
+    await prisma.person.delete({ where: { id } });
+    return true;
   }
 }

@@ -1,135 +1,111 @@
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  runTransaction,
-  Timestamp,
-  collection,
-  addDoc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
-import { User, Account, Category, Settings } from '@/types';
-import { BaseRepository } from './base.repository';
-import { FIRESTORE_COLLECTIONS, DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/firebase/constants';
+import { prisma } from '@/lib/db/prisma';
+import { User } from '@/types';
+import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/firebase/constants';
 
-export class UserRepository extends BaseRepository {
+function toUser(row: { id: string; email: string | null; nombre: string; avatar: string | null; createdAt: Date; updatedAt: Date }): User {
+  return {
+    uid: row.id,
+    id: row.id,
+    email: row.email ?? '',
+    nombre: row.nombre,
+    avatar: row.avatar ?? undefined,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+export class UserRepository {
   /**
    * Obtiene perfil del usuario
    */
   async getProfile(uid: string): Promise<User | null> {
-    const docRef = doc(db, `users/${uid}`);
-    const docSnap = await getDoc(docRef);
-
-    if (!docSnap.exists()) return null;
-
-    return {
-      uid,
-      ...this.convertTimestampsToDate(docSnap.data() as Omit<User, 'uid'>),
-    } as User;
+    const user = await prisma.user.findUnique({ where: { id: uid } });
+    if (!user) return null;
+    return toUser(user);
   }
 
   /**
    * Crea perfil de usuario
    */
-  async createProfile(
-    uid: string,
-    data: { email: string; nombre: string }
-  ): Promise<User> {
-    const docRef = doc(db, `users/${uid}`);
-    const profileData = {
-      email: data.email,
-      nombre: data.nombre,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    };
-    await setDoc(docRef, profileData);
-    return {
-      uid,
-      ...this.convertTimestampsToDate(profileData),
-    } as User;
+  async createProfile(uid: string, data: { email: string; nombre: string }): Promise<User> {
+    const user = await prisma.user.create({
+      data: { id: uid, email: data.email, nombre: data.nombre },
+    });
+    return toUser(user);
   }
 
   /**
    * Actualiza perfil del usuario
    */
   async updateProfile(uid: string, data: Partial<User>): Promise<User | null> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}`);
-      const docSnap = await t.get(docRef);
-      if (!docSnap.exists()) return null;
-
-      const updateData = {
-        ...data,
-        updatedAt: Timestamp.now(),
-      };
-      t.update(docRef, updateData);
-
-      return {
-        uid,
-        ...this.convertTimestampsToDate({
-          ...docSnap.data(),
-          ...updateData,
-        } as Omit<User, 'uid'>),
-      } as User;
+    const existing = await prisma.user.findUnique({ where: { id: uid } });
+    if (!existing) return null;
+    const user = await prisma.user.update({
+      where: { id: uid },
+      data: {
+        ...(data.email !== undefined ? { email: data.email } : {}),
+        ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
+        ...(data.avatar !== undefined ? { avatar: data.avatar } : {}),
+      },
     });
+    return toUser(user);
   }
 
   /**
    * OPERACIÓN ATÓMICA: Inicializa nuevo usuario con datos por defecto
-   * - Crea perfil
-   * - Crea settings
-   * - Crea cuentas por defecto
-   * - Crea categorías por defecto
+   * - Crea perfil (si no existe)
+   * - Crea settings (si no existen)
+   * - Crea cuentas por defecto (si no tiene ninguna)
+   * - Crea categorías por defecto (si no tiene ninguna)
    */
   async initializeNewUser(uid: string, data: { email: string; nombre: string }): Promise<void> {
-    return await runTransaction(db, async (t) => {
-      // 1. Crear perfil
-      const profileRef = doc(db, `users/${uid}`);
-      t.set(profileRef, {
-        email: data.email,
-        nombre: data.nombre,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+    await prisma.$transaction(async (tx) => {
+      await tx.user.upsert({
+        where: { id: uid },
+        create: { id: uid, email: data.email, nombre: data.nombre },
+        update: {},
       });
 
-      // 2. Crear settings
-      const settingsRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.SETTINGS}/config`);
-      t.set(settingsRef, {
-        ...DEFAULT_SETTINGS,
-        updatedAt: Timestamp.now(),
+      await tx.settings.upsert({
+        where: { userId: uid },
+        create: { userId: uid, ...DEFAULT_SETTINGS },
+        update: {},
       });
 
-      // 3. Crear cuentas por defecto
-      DEFAULT_ACCOUNTS.forEach((account) => {
-        const accountRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}`));
-        t.set(accountRef, {
-          nombre: account.nombre,
-          tipo: account.tipo,
-          color: account.color,
-          icono: account.icono,
-          saldo: 0,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-          createdBy: uid,
-          updatedBy: uid,
-        });
-      });
+      const accountCount = await tx.account.count({ where: { userId: uid } });
+      if (accountCount === 0) {
+        for (const account of DEFAULT_ACCOUNTS) {
+          await tx.account.create({
+            data: {
+              userId: uid,
+              nombre: account.nombre,
+              tipo: account.tipo,
+              color: account.color,
+              icono: account.icono,
+              saldo: 0,
+              createdBy: uid,
+              updatedBy: uid,
+            },
+          });
+        }
+      }
 
-      // 4. Crear categorías por defecto
-      DEFAULT_CATEGORIES.forEach((category) => {
-        const categoryRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.CATEGORIES}`));
-        t.set(categoryRef, {
-          nombre: category.nombre,
-          icono: category.icono,
-          color: category.color,
-          tipo: category.tipo,  // REQUIRED: expense or income
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-          createdBy: uid,
-          updatedBy: uid,
-        });
-      });
+      const categoryCount = await tx.category.count({ where: { userId: uid } });
+      if (categoryCount === 0) {
+        for (const category of DEFAULT_CATEGORIES) {
+          await tx.category.create({
+            data: {
+              userId: uid,
+              nombre: category.nombre,
+              icono: category.icono,
+              color: category.color,
+              tipo: category.tipo,
+              createdBy: uid,
+              updatedBy: uid,
+            },
+          });
+        }
+      }
     });
   }
 }

@@ -1,79 +1,56 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  query,
-  orderBy,
-  runTransaction,
-  Timestamp,
-  deleteDoc,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import { prisma } from '@/lib/db/prisma';
+import { Prisma } from '@prisma/client';
 import { Account } from '@/types';
 import { BaseRepository } from './base.repository';
-import { FIRESTORE_COLLECTIONS } from '@/firebase/constants';
+
+function toAccount(row: Record<string, unknown>): Account {
+  return { ...(row as object), id: row.id as string } as Account;
+}
 
 export class AccountRepository extends BaseRepository {
   /**
    * Obtiene todas las cuentas del usuario
    */
   async getAll(uid: string): Promise<Account[]> {
-    const q = query(
-      collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}`),
-      orderBy('nombre', 'asc')
-    );
-
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => (this.withDocId<Account>(doc.id, doc.data())));
+    const rows = await prisma.account.findMany({ where: { userId: uid }, orderBy: { nombre: 'asc' } });
+    return rows.map(toAccount);
   }
 
   /**
    * Obtiene cuenta por ID
    */
   async getById(uid: string, id: string): Promise<Account | null> {
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${id}`);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists()) return null;
-    return this.withDocId<Account>(docSnap.id, docSnap.data());
+    const row = await prisma.account.findFirst({ where: { id, userId: uid } });
+    return row ? toAccount(row) : null;
   }
 
   /**
    * Crea una nueva cuenta
    */
-  async create(
-    uid: string,
-    account: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>
-  ): Promise<Account> {
-    const docRef = doc(collection(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}`));
-    const accountData = this.createAuditedData(account, uid);
-    await runTransaction(db, async (t) => {
-      t.set(docRef, accountData);
+  async create(uid: string, account: Omit<Account, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<Account> {
+    const row = await prisma.account.create({
+      data: {
+        ...(account as Record<string, unknown>),
+        userId: uid,
+        createdBy: uid,
+        updatedBy: uid,
+      } as Prisma.AccountUncheckedCreateInput,
     });
-    return {
-      id: docRef.id,
-      ...this.convertTimestampsToDate(accountData),
-    };
+    return toAccount(row);
   }
 
   /**
    * Actualiza una cuenta
    */
-  async update(
-    uid: string,
-    id: string,
-    data: Partial<Account>
-  ): Promise<Account | null> {
-    return await runTransaction(db, async (t) => {
-      const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${id}`);
-      const docSnap = await t.get(docRef);
-      if (!docSnap.exists()) return null;
-
-      const updateData = this.updateAuditedData(data, uid);
-      t.update(docRef, updateData);
-
-      return this.withDocId<Account>(docSnap.id, { ...docSnap.data(), ...updateData });
+  async update(uid: string, id: string, data: Partial<Account>): Promise<Account | null> {
+    const existing = await prisma.account.findFirst({ where: { id, userId: uid } });
+    if (!existing) return null;
+    const { id: _id, userId: _uid, createdAt: _ca, createdBy: _cb, ...rest } = data as Record<string, unknown>;
+    const row = await prisma.account.update({
+      where: { id },
+      data: { ...rest, updatedBy: uid } as Prisma.AccountUncheckedUpdateInput,
     });
+    return toAccount(row);
   }
 
   /**
@@ -84,14 +61,12 @@ export class AccountRepository extends BaseRepository {
     if (!account) {
       throw new Error(`Cuenta ${id} no encontrada`);
     }
-    
-    // Prevenir eliminación de Efectivo
+
     if (account.nombre === 'Efectivo' && account.tipo === 'cash') {
       throw new Error('No se puede eliminar la cuenta Efectivo');
     }
 
-    const docRef = doc(db, `users/${uid}/${FIRESTORE_COLLECTIONS.ACCOUNTS}/${id}`);
-    await deleteDoc(docRef);
+    await prisma.account.delete({ where: { id } });
   }
 
   /**

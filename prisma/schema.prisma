@@ -1,0 +1,412 @@
+// CashLife - Schema Postgres (local por ahora, con vista a migrar a otra
+// base Postgres gestionada cuando se lance la versión web).
+// Mantiene el mismo modelo "todo cuelga de userId" que tenía Firestore
+// (users/{uid}/...), para que migrar después sea solo cambiar la
+// connection string.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// La connection string ya no va aquí (Prisma 7): la CLI la toma de
+// prisma.config.ts y el cliente en runtime de un driver adapter
+// (ver src/lib/db/prisma.ts).
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String?  @unique
+  nombre    String
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings           Settings?
+  accounts           Account[]
+  categories         Category[]
+  transactions       Transaction[]
+  people             Person[]
+  creditCards        CreditCard[]
+  wallets            Wallet[]
+  subscriptions      Subscription[]
+  receivableDebts    ReceivableDebt[]
+  receivablePayments ReceivablePayment[]
+  payableObligations PayableObligation[]
+  payablePayments    PayablePayment[]
+  scheduledPayments  ScheduledPayment[]
+  incomes            IncomeRecord[]
+
+  @@map("users")
+}
+
+model Settings {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saldoInicial        Float    @default(0)
+  moneda              String   @default("PEN")
+  tema                String   @default("oscuro")
+  notificaciones      Boolean  @default(true)
+  onboardingCompleted Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model Account {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre        String
+  saldo         Float     @default(0)
+  tipo          String?
+  banco         String?
+  subtipo       String?
+  creditLimit   Float?
+  cutDay        Int?
+  paymentDay    Int?
+  active        Boolean?  @default(true)
+  bank          String?
+  name          String?
+  balance       Float?
+  currency      String?
+  moneda        String?
+  saldoInicial  Float?
+  tarjetaDebito Boolean?
+  hasDebitCard  Boolean?
+  hasYape       Boolean?
+  hasPlin       Boolean?
+  color         String?
+  icono         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre    String
+  icono     String?
+  color     String?
+  tipo      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  @@index([userId])
+  @@map("categories")
+}
+
+model Transaction {
+  id                   String    @id @default(cuid())
+  userId               String
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monto                Float
+  tipo                 String
+  descripcion          String
+  fecha                DateTime
+  cuenta               String?
+  cuentaId             String?
+  walletId             String?
+  creditCardId         String?
+  destinationAccountId String?
+  categoria            String?
+  categoriaId          String?
+  persona              String?
+  personaId            String?
+  personId             String?
+  contactId            String?
+  relatedDebtId        String?
+  relatedObligationId  String?
+  scheduledPaymentId   String?
+  scheduledPeriod      String?
+  notas                String?
+  isLoanTransaction    Boolean?  @default(false)
+  isDeleted            Boolean   @default(false)
+  deletedAt            DateTime?
+  deletedBy             String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  createdBy             String?
+  updatedBy             String?
+
+  @@index([userId, isDeleted, fecha])
+  @@index([userId, cuenta])
+  @@index([userId, categoria])
+  @@index([userId, persona])
+  @@map("transactions")
+}
+
+model Person {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre      String
+  deuda       Float     @default(0)
+  tipo        String?
+  tipoDeuda   String?
+  fecha       DateTime?
+  contactType String?
+  roles       String[]  @default([])
+  phone       String?
+  email       String?
+  notes       String?
+  active      Boolean?  @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+
+  @@index([userId])
+  @@map("people")
+}
+
+model Wallet {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            String
+  linkedAccountId String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  updatedBy       String?
+
+  @@index([userId])
+  @@map("wallets")
+}
+
+model CreditCard {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre          String
+  banco           String
+  lineaCredito    Float
+  montoUtilizado  Float    @default(0)
+  marca           String
+  currency        String
+  lastDigits      String
+  cardColor       String
+  cutOffDay       Int
+  duePaymentDay   Int
+  minimumPayment  Float    @default(0)
+  linkedAccountId String
+  tasaInteres     Float?
+  interestRate    Float?
+  notes           String?
+  brand           String?
+  bank            String?
+  name            String?
+  creditLimit     Float?
+  usedAmount      Float?
+  availableAmount Float?
+  cutDay          Int?
+  paymentDay      Int?
+  fechaCorte      String?
+  fechaMaximaPago String?
+  pagoMinimo      Float?
+  color           String?
+  icono           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  createdBy       String?
+  updatedBy       String?
+
+  @@index([userId])
+  @@map("credit_cards")
+}
+
+model Subscription {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nombre           String
+  monto            Float
+  frecuencia       String
+  fechaVencimiento String
+  cuentaId         String?
+  activo           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String?
+  updatedBy        String?
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model ReceivableDebt {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  personId       String
+  contactId      String?
+  description    String
+  date           DateTime
+  dueDate        DateTime?
+  originalAmount Float
+  pendingBalance Float
+  status         String
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  createdBy      String?
+  updatedBy      String?
+
+  payments ReceivablePayment[]
+
+  @@index([userId])
+  @@index([userId, personId])
+  @@map("receivable_debts")
+}
+
+model ReceivablePayment {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  debtId        String
+  debt          ReceivableDebt @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  personId      String
+  contactId     String?
+  date          DateTime
+  amount        Float
+  accountId     String
+  observations  String?
+  transactionId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@index([userId])
+  @@index([userId, debtId])
+  @@map("receivable_payments")
+}
+
+model PayableObligation {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  creditorName   String
+  creditorType   String
+  contactId      String?
+  personId       String?
+  description    String
+  date           DateTime
+  dueDate        DateTime
+  originalAmount Float
+  pendingBalance Float
+  status         String
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  createdBy      String?
+  updatedBy      String?
+
+  payments PayablePayment[]
+
+  @@index([userId])
+  @@map("payable_obligations")
+}
+
+model PayablePayment {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  obligationId  String
+  obligation    PayableObligation @relation(fields: [obligationId], references: [id], onDelete: Cascade)
+  contactId     String?
+  personId      String?
+  date          DateTime
+  amount        Float
+  accountId     String
+  observations  String?
+  transactionId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@index([userId])
+  @@index([userId, obligationId])
+  @@map("payable_payments")
+}
+
+model ScheduledPayment {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String
+  category            String
+  amount              Float
+  dueDay              Int
+  frequency           String
+  customFrequencyDays Int?
+  suggestedAccountId  String?
+  active              Boolean   @default(true)
+  reminders           Int[]     @default([])
+  lastPaidAt          DateTime?
+  nextDuePeriod       String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdBy           String?
+  updatedBy           String?
+
+  periods ScheduledPaymentPeriod[]
+
+  @@index([userId])
+  @@map("scheduled_payments")
+}
+
+model ScheduledPaymentPeriod {
+  id            String    @id @default(cuid())
+  userId        String
+  paymentId     String
+  payment       ScheduledPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  period        String
+  status        String
+  amount        Float
+  dueDate       DateTime
+  paidAt        DateTime?
+  accountId     String?
+  transactionId String?
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@unique([paymentId, period])
+  @@index([userId])
+  @@map("scheduled_payment_periods")
+}
+
+model IncomeRecord {
+  id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description          String
+  category             String
+  date                 DateTime
+  amount               Float
+  destinationAccountId String
+  notes                String?
+  transactionId        String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  createdBy            String?
+  updatedBy            String?
+
+  @@index([userId])
+  @@map("incomes")
+}

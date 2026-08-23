@@ -1,6 +1,7 @@
-import { Timestamp } from 'firebase/firestore';
-
-export type FireDate = Timestamp | Date;
+// Antes podía venir de Firestore como Timestamp; con Postgres/Prisma
+// todas las fechas llegan como Date real. Se deja el alias para no tener
+// que tocar el resto de las interfaces de este archivo.
+export type FireDate = Date;
 export type Currency = 'PEN' | 'USD' | string;
 
 export interface User {
@@ -33,6 +34,8 @@ export interface Account {
   hasDebitCard?: boolean;
   hasYape?: boolean;
   hasPlin?: boolean;
+  saldoInicial?: number;
+  tarjetaDebito?: boolean;
   color?: string;
   icono?: string;
   createdAt?: FireDate;

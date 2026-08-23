@@ -1,15 +1,13 @@
 import type { Wallet } from '@/types';
-import { WalletRepository } from '@/lib/repositories/wallet.repository';
+import { getAllWalletsAction, createWalletRecordAction } from '@/lib/actions/wallet.actions';
 
 class WalletService {
-  private repository = new WalletRepository();
-
   async getAll(uid: string): Promise<Wallet[]> {
-    return this.repository.getAll(uid);
+    return getAllWalletsAction(uid);
   }
 
   async create(uid: string, wallet: Omit<Wallet, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>): Promise<Wallet> {
-    return this.repository.create(uid, wallet);
+    return createWalletRecordAction(uid, wallet);
   }
 }
 

@@ -1,28 +1,31 @@
 import { Category } from '@/types';
-import { CategoryRepository } from '@/lib/repositories/category.repository';
 import { DEFAULT_CATEGORIES } from '@/firebase/constants';
+import {
+  getAllCategoriesAction,
+  getCategoryByIdAction,
+  createCategoryRecordAction,
+  updateCategoryRecordAction,
+} from '@/lib/actions/category.actions';
 
 class CategoryService {
-  private repository = new CategoryRepository();
-
   async getAll(uid: string): Promise<Category[]> {
-    const categories = await this.repository.getAll(uid);
+    const categories = await getAllCategoriesAction(uid);
     // Auto-create default categories if none exist
     if (categories.length === 0) {
       await this.ensureDefaultCategories(uid);
-      return this.repository.getAll(uid);
+      return getAllCategoriesAction(uid);
     }
     return categories;
   }
 
   async ensureDefaultCategories(uid: string): Promise<void> {
     for (const category of DEFAULT_CATEGORIES) {
-      await this.repository.create(uid, category);
+      await createCategoryRecordAction(uid, category);
     }
   }
 
   async getById(uid: string, id: string): Promise<Category | null> {
-    return this.repository.getById(uid, id);
+    return getCategoryByIdAction(uid, id);
   }
 
   async create(
@@ -38,19 +41,19 @@ class CategoryService {
     }
 
     // Prevent duplicate category names within same type
-    const existingCategories = await this.repository.getAll(uid);
-    if (existingCategories.some(c => 
-      c.nombre.toLowerCase() === category.nombre.toLowerCase() && 
+    const existingCategories = await getAllCategoriesAction(uid);
+    if (existingCategories.some(c =>
+      c.nombre.toLowerCase() === category.nombre.toLowerCase() &&
       c.tipo === category.tipo
     )) {
       throw new Error(`Ya existe una categoría de ${category.tipo === 'expense' ? 'gasto' : 'ingreso'} llamada "${category.nombre}"`);
     }
-    
-    return this.repository.create(uid, category);
+
+    return createCategoryRecordAction(uid, category);
   }
 
   async update(uid: string, id: string, data: Partial<Category>): Promise<Category | null> {
-    return this.repository.update(uid, id, data);
+    return updateCategoryRecordAction(uid, id, data);
   }
 }
 

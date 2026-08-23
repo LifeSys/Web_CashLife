@@ -1,46 +1,56 @@
 import { Transaction } from '@/types';
-import { TransactionRepository } from '@/lib/repositories/transaction.repository';
 import { PaginationOptions } from '@/lib/repositories/base.repository';
 import { walletService } from '@/services/wallet.service';
+import {
+  getAllTransactionsAction,
+  getTransactionByIdAction,
+  getTransactionsByDateRangeAction,
+  getTransactionsByAccountAction,
+  getTransactionsByCategoryAction,
+  getTransactionsByPersonAction,
+  getTransactionsTotalByTypeAction,
+  createTransactionRecordAction,
+  updateTransactionAction,
+  deleteTransactionAction,
+} from '@/lib/actions/transaction.actions';
 
 /**
- * Lógica de negocio para transacciones
- * Valida, calcula saldos y coordina con el repository
+ * Lógica de negocio para transacciones.
+ * El cálculo de saldo y la persistencia ocurren del lado del servidor
+ * (Server Actions -> Prisma/Postgres); esta clase solo orquesta.
  */
 class TransactionService {
-  private repository = new TransactionRepository();
-
   async getAll(uid: string, options?: PaginationOptions) {
-    return await this.repository.getAll(uid, options);
+    return getAllTransactionsAction(uid, options);
   }
 
   async getById(uid: string, id: string): Promise<Transaction | null> {
-    return this.repository.getById(uid, id);
+    return getTransactionByIdAction(uid, id);
   }
 
   async getByDateRange(uid: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
-    return this.repository.getByDateRange(uid, startDate, endDate);
+    return getTransactionsByDateRangeAction(uid, startDate, endDate);
   }
 
   async getByAccount(uid: string, accountId: string): Promise<Transaction[]> {
-    return this.repository.getByAccount(uid, accountId);
+    return getTransactionsByAccountAction(uid, accountId);
   }
 
   async getByCategory(uid: string, categoryId: string): Promise<Transaction[]> {
-    return this.repository.getByCategory(uid, categoryId);
+    return getTransactionsByCategoryAction(uid, categoryId);
   }
 
   async getByPerson(uid: string, personId: string): Promise<Transaction[]> {
-    return this.repository.getByPerson(uid, personId);
+    return getTransactionsByPersonAction(uid, personId);
   }
 
   async getTotalByType(uid: string, type: string): Promise<number> {
-    return this.repository.getTotalByType(uid, type);
+    return getTransactionsTotalByTypeAction(uid, type);
   }
 
   /**
-   * Crear transacción con cálculo automático de saldo
-   * Usa transacción atómica en Firestore
+   * Crear transacción con cálculo automático de saldo.
+   * Usa una transacción SQL atómica (ver TransactionRepository.create).
    */
   async create(
     uid: string,
@@ -54,45 +64,18 @@ class TransactionService {
       normalizedTransaction.cuenta = wallet.linkedAccountId;
     }
 
-    // Función que calcula el nuevo saldo según el tipo de transacción
-    const calculateNewBalance = (currentBalance: number): number => {
-      if (normalizedTransaction.creditCardId && normalizedTransaction.tipo !== 'credit_card_payment') return currentBalance;
-      switch (normalizedTransaction.tipo) {
-        case 'expense':
-        case 'payable_payment':
-        case 'scheduled_payment':
-          return currentBalance - normalizedTransaction.monto;
-        case 'income':
-          return currentBalance + normalizedTransaction.monto;
-        case 'transfer':
-          return currentBalance - normalizedTransaction.monto;
-        case 'loan':
-          return currentBalance - normalizedTransaction.monto;
-        case 'loan_payment':
-        case 'receivable_payment':
-          return currentBalance + normalizedTransaction.monto;
-        case 'credit_card_payment':
-          return currentBalance - normalizedTransaction.monto;
-        case 'credit_card_charge':
-          return currentBalance;
-        default:
-          return currentBalance;
-      }
-    };
-
-    return this.repository.create(uid, normalizedTransaction, calculateNewBalance);
+    return createTransactionRecordAction(uid, normalizedTransaction);
   }
 
   async update(uid: string, id: string, data: Partial<Transaction>): Promise<Transaction | null> {
-    return this.repository.update(uid, id, data);
+    return updateTransactionAction(uid, id, data);
   }
 
   /**
-   * Eliminar transacción (soft delete) con cálculo automático de revertir saldo
-   * Usa transacción atómica en Firestore
+   * Eliminar transacción (soft delete) con reversión automática de saldo.
    */
   async delete(uid: string, id: string): Promise<boolean> {
-    return this.repository.delete(uid, id);
+    return deleteTransactionAction(uid, id);
   }
 }
 

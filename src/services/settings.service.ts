@@ -1,15 +1,13 @@
 import { Settings } from '@/types';
-import { SettingsRepository } from '@/lib/repositories/settings.repository';
+import { getSettingsAction, updateSettingsAction } from '@/lib/actions/settings.actions';
 
 class SettingsService {
-  private repository = new SettingsRepository();
-
   async get(uid: string): Promise<Settings> {
-    return this.repository.get(uid);
+    return getSettingsAction(uid);
   }
 
   async update(uid: string, data: Partial<Settings>): Promise<Settings> {
-    return this.repository.update(uid, data);
+    return updateSettingsAction(uid, data);
   }
 }
 

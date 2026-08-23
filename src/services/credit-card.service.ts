@@ -1,11 +1,14 @@
 import { CreditCard } from '@/types';
-import { CreditCardRepository } from '@/lib/repositories/credit-card.repository';
+import {
+  getAllCreditCardsAction,
+  createCreditCardRecordAction,
+  updateCreditCardRecordAction,
+  deleteCreditCardRecordAction,
+} from '@/lib/actions/credit-card.actions';
 
 class CreditCardService {
-  private repository = new CreditCardRepository();
-
   async getAll(uid: string): Promise<CreditCard[]> {
-    return this.repository.getAll(uid);
+    return getAllCreditCardsAction(uid);
   }
 
   async getById(uid: string, id: string): Promise<CreditCard | null> {
@@ -36,7 +39,7 @@ class CreditCardService {
     const creditLimit = card.lineaCredito;
     const usedAmount = card.montoUtilizado || 0;
 
-    return this.repository.create(uid, {
+    return createCreditCardRecordAction(uid, {
       ...card,
       userId: uid,
       lineaCredito: creditLimit,
@@ -86,13 +89,13 @@ class CreditCardService {
     // Prevent modifying system fields
     const { id: _id, userId: _uid, createdAt: _ca, createdBy: _cb, ...updateData } = data;
 
-    return this.repository.update(uid, id, updateData);
+    return updateCreditCardRecordAction(uid, id, updateData);
   }
 
   async delete(uid: string, id: string): Promise<void> {
     const card = await this.getById(uid, id);
     if (!card) throw new Error('Tarjeta no encontrada');
-    return this.repository.delete(uid, id);
+    await deleteCreditCardRecordAction(uid, id);
   }
 
   /**
