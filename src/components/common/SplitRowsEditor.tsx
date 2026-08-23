@@ -11,7 +11,12 @@ export interface SplitRow {
 interface SplitRowsEditorProps {
   rows: SplitRow[];
   onChange: (rows: SplitRow[]) => void;
-  /** Monto total del gasto, solo para mostrar "dividido X de Y" como referencia. */
+  /**
+   * Costo real del gasto (lo que a ti te cobran). Los montos que pongas por
+   * persona pueden sumar menos (tú cubres el resto) o más (tu margen/extra
+   * por gestionarlo) — solo se usa para mostrar la comparación, no limita
+   * lo que puedes escribir en cada fila.
+   */
   totalAmount?: number;
 }
 
@@ -73,8 +78,20 @@ export function SplitRowsEditor({ rows, onChange, totalAmount }: SplitRowsEditor
 
       {rows.length > 0 && (
         <p className="text-xs text-muted-foreground">
-          Dividido: {money(totalSplit)}
-          {totalAmount ? ` de ${money(totalAmount)} — el resto lo pagas tú` : ''}
+          {totalAmount ? (
+            totalSplit > totalAmount ? (
+              <>
+                Cobras {money(totalSplit)} · te cuesta {money(totalAmount)} ·{' '}
+                <span className="text-emerald-500 font-medium">tu margen: +{money(totalSplit - totalAmount)}</span>
+              </>
+            ) : totalSplit < totalAmount ? (
+              <>Dividido: {money(totalSplit)} de {money(totalAmount)} — el resto ({money(totalAmount - totalSplit)}) lo pagas tú</>
+            ) : (
+              <>Dividido: {money(totalSplit)} — cubre el costo completo, no pagas nada extra</>
+            )
+          ) : (
+            <>Dividido: {money(totalSplit)}</>
+          )}
         </p>
       )}
     </div>

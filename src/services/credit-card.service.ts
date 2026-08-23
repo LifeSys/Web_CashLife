@@ -4,6 +4,7 @@ import {
   createCreditCardRecordAction,
   updateCreditCardRecordAction,
   deleteCreditCardRecordAction,
+  adjustCreditCardUsageAction,
 } from '@/lib/actions/credit-card.actions';
 
 class CreditCardService {
@@ -96,6 +97,12 @@ class CreditCardService {
     const card = await this.getById(uid, id);
     if (!card) throw new Error('Tarjeta no encontrada');
     await deleteCreditCardRecordAction(uid, id);
+  }
+
+  /** Corrige el monto utilizado a mano, dejando un ajuste trazable en Movimientos. */
+  async adjustUsage(uid: string, id: string, newUsedAmount: number, reason?: string): Promise<CreditCard | null> {
+    if (newUsedAmount < 0) throw new Error('El monto utilizado no puede ser negativo');
+    return adjustCreditCardUsageAction(uid, id, newUsedAmount, reason);
   }
 
   /**

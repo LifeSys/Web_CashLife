@@ -11,12 +11,14 @@ import { personService, PersonFinancialSummary } from '@/services/person.service
 import { buildDebtMessage } from '@/lib/whatsapp';
 import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalInfo';
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
-import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
+import { ContactHistoryTimeline, type TimelineEvent } from '@/components/design-system/ContactHistoryTimeline';
 import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
 import { ReceivableDebtContextModal } from '@/components/modals/ReceivableDebtContextModal';
 import { PayableObligationContextModal } from '@/components/modals/PayableObligationContextModal';
 import { PersonEditModal } from '@/components/modals/PersonEditModal';
 import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
+import { receivableService, payableService } from '@/services/financial.service';
 import { toast } from 'sonner';
 
 export default function ContactDetailPage() {
@@ -35,6 +37,7 @@ export default function ContactDetailPage() {
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<TimelineEvent | null>(null);
 
   const contact = contacts.find((c) => c.id === id);
 
@@ -131,6 +134,23 @@ export default function ContactDetailPage() {
     }
   };
 
+  const handleConfirmDeleteEvent = async () => {
+    if (!user?.uid || !eventToDelete) return;
+    try {
+      if (eventToDelete.type === 'receivable') {
+        await receivableService.deleteDebt(user.uid, eventToDelete.id);
+      } else {
+        await payableService.deleteObligation(user.uid, eventToDelete.id);
+      }
+      toast.success('Eliminado correctamente');
+      setEventToDelete(null);
+      await handleRefreshAfterOperation();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar');
+      console.error('[CashLife] Error deleting timeline event:', error);
+    }
+  };
+
   const handleAddCollection = () => {
     setIsCollectionModalOpen(true);
   };
@@ -221,6 +241,7 @@ export default function ContactDetailPage() {
           debts={contactDebts}
           obligations={contactObligations}
           isLoading={isLoading}
+          onDelete={setEventToDelete}
         />
       </div>
 
@@ -271,6 +292,18 @@ export default function ContactDetailPage() {
           />
         </>
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!eventToDelete}
+        onClose={() => setEventToDelete(null)}
+        title={eventToDelete?.type === 'receivable' ? '¿Eliminar esta cuenta por cobrar?' : '¿Eliminar esta cuenta por pagar?'}
+        itemName={eventToDelete?.description ?? ''}
+        bullets={[
+          'Todo su historial de cobros/pagos parciales registrados',
+        ]}
+        warningNote="Si ya habías registrado cobros o pagos contra esto, ese dinero se revierte del saldo de la cuenta donde se había movido."
+        onConfirm={handleConfirmDeleteEvent}
+      />
     </div>
   );
 }

@@ -9,6 +9,8 @@ interface MoneyAccountCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onViewTransactions?: () => void;
+  /** Fila angosta tipo lista en vez de la tarjeta grande. */
+  compact?: boolean;
 }
 
 const formatCurrency = (value: number, currency: string = 'PEN') =>
@@ -26,6 +28,7 @@ export function MoneyAccountCard({
   onEdit,
   onDelete,
   onViewTransactions,
+  compact = false,
 }: MoneyAccountCardProps) {
   const getAccountTypeLabel = () => {
     switch (account.tipo) {
@@ -50,6 +53,43 @@ export function MoneyAccountCard({
     : 'bg-gradient-to-br from-blue-600 to-blue-700';
 
   const textColor = isEfectivo ? 'text-slate-300' : 'text-blue-100';
+
+  if (compact) {
+    return (
+      <div className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow flex flex-wrap items-center gap-2`}>
+        <div className="p-2 bg-white/10 rounded-lg flex-shrink-0">
+          {isEfectivo ? <Banknote className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
+        </div>
+        <div className="flex-1 min-w-[120px]">
+          <p className="font-bold text-sm truncate flex items-center gap-1.5">
+            {account.nombre}
+            {isEfectivo && <Lock className="w-3 h-3 text-yellow-300 flex-shrink-0" />}
+          </p>
+          <p className={`text-xs ${textColor} truncate`}>
+            {getAccountTypeLabel()}{!isEfectivo && account.banco ? ` · ${account.banco}` : ''}
+          </p>
+        </div>
+        <p className="font-bold text-sm whitespace-nowrap flex-shrink-0">
+          {formatCurrency(account.saldo || 0, account.moneda || account.currency || 'PEN')}
+        </p>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button onClick={onViewTransactions} title="Ver movimientos" className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+            <Eye className="w-4 h-4" />
+          </button>
+          {!isEfectivo && onEdit && (
+            <button onClick={onEdit} title="Editar cuenta" className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+              <Edit2 className="w-4 h-4" />
+            </button>
+          )}
+          {!isEfectivo && onDelete && (
+            <button onClick={onDelete} title="Eliminar cuenta" className="p-2 bg-red-500/30 hover:bg-red-500/50 rounded-lg transition-colors">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`${bgGradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreditCards } from '@/hooks/useCreditCards';
@@ -12,12 +13,16 @@ import { AccountsSection } from '@/components/sections/AccountsSection';
 import { CreditCardsSection } from '@/components/sections/CreditCardsSection';
 import { BankAccountModal } from '@/components/modals/BankAccountModal';
 import { CreditCardCreateModal } from '@/components/modals/CreditCardCreateModal';
+import { CreditCardEditModal } from '@/components/modals/CreditCardEditModal';
+import { CreditCardChargeModal } from '@/components/modals/CreditCardChargeModal';
+import { AccountEditModal } from '@/components/modals/AccountEditModal';
 import { PayCreditCardModal } from '@/components/modals/PayCreditCardModal';
 import { Account, CreditCard } from '@/types';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function CuentasPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { cuentas: accounts, mutate: mutateAccounts, isLoading: loadingAccounts } = useAccounts();
   const { creditCards: cards, mutate: mutateCreditCards, isLoading: loadingCards } = useCreditCards();
@@ -28,6 +33,10 @@ export default function CuentasPage() {
   const [showPayCardModal, setShowPayCardModal] = useState(false);
   const [selectedCardForPayment, setSelectedCardForPayment] = useState<CreditCard | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
+  const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
+  const [showChargeModal, setShowChargeModal] = useState(false);
+  const [cardForCharge, setCardForCharge] = useState<CreditCard | null>(null);
 
   // Ensure Efectivo exists on mount
   useEffect(() => {
@@ -113,33 +122,24 @@ export default function CuentasPage() {
   };
 
   const handleViewAccountTransactions = (accountId: string) => {
-    // TODO: Navigate to transactions view for account
-    console.log('[v0] View transactions for account:', accountId);
-    toast.info('Vista de movimientos próximamente');
+    router.push(`/dashboard/movimientos?cuenta=${accountId}`);
   };
 
   const handleViewCardTransactions = (cardId: string) => {
-    // TODO: Navigate to transactions view for card
-    console.log('[v0] View transactions for card:', cardId);
-    toast.info('Vista de movimientos próximamente');
+    router.push(`/dashboard/movimientos?tarjeta=${cardId}`);
   };
 
   const handleRecordCharge = (card: CreditCard) => {
-    // TODO: Open modal to record a new charge
-    console.log('[v0] Record charge for card:', card.id);
-    toast.info('Registro de compras próximamente');
+    setCardForCharge(card);
+    setShowChargeModal(true);
   };
 
   const handleEditAccount = (account: Account) => {
-    // TODO: Open edit modal for account
-    console.log('[v0] Edit account:', account.id);
-    toast.info('Edición de cuentas próximamente');
+    setAccountToEdit(account);
   };
 
   const handleEditCard = (card: CreditCard) => {
-    // TODO: Open edit modal for card
-    console.log('[v0] Edit card:', card.id);
-    toast.info('Edición de tarjetas próximamente');
+    setCardToEdit(card);
   };
 
   const isLoading = loadingAccounts || loadingCards || isDeleting;
@@ -223,6 +223,36 @@ export default function CuentasPage() {
           onSuccess={handlePaymentSuccess}
         />
       )}
+
+      {/* Account Edit Modal */}
+      <AccountEditModal
+        isOpen={!!accountToEdit}
+        account={accountToEdit}
+        onClose={() => setAccountToEdit(null)}
+        onSuccess={() => mutateAccounts()}
+      />
+
+      {/* Credit Card Edit Modal */}
+      <CreditCardEditModal
+        isOpen={!!cardToEdit}
+        card={cardToEdit}
+        onClose={() => setCardToEdit(null)}
+        onSuccess={() => mutateCreditCards()}
+      />
+
+      {/* Credit Card Charge Modal */}
+      <CreditCardChargeModal
+        isOpen={showChargeModal}
+        prefilledCardId={cardForCharge?.id}
+        onClose={() => {
+          setShowChargeModal(false);
+          setCardForCharge(null);
+        }}
+        onSuccess={() => {
+          mutateCreditCards();
+          mutateAccounts();
+        }}
+      />
     </div>
   );
 }

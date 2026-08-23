@@ -313,6 +313,7 @@ export interface ScheduledPayment {
   frequency: ScheduledPaymentFrequency;
   customFrequencyDays?: number;
   suggestedAccountId?: string;
+  autoPay?: boolean;
   active: boolean;
   reminders: number[];
   lastPaidAt?: FireDate;
@@ -345,6 +346,49 @@ export interface ScheduledPaymentSplit {
   scheduledPaymentId: string;
   personId: string;
   amount: number;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+// Reventas: cuenta compartida (ej. Netflix) alquilada por perfiles.
+export interface SharedService {
+  id: string;
+  name: string;
+  loginEmail?: string;
+  loginPassword?: string;
+  scheduledPaymentId?: string;
+  color?: string;
+  active: boolean;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface ServiceProfile {
+  id: string;
+  serviceId: string;
+  label: string;
+  pin?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface ProfileRental {
+  id: string;
+  profileId: string;
+  personId?: string;
+  startDate: FireDate;
+  endDate: FireDate;
+  price: number;
+  accountId?: string;
+  transactionId?: string;
+  paid?: boolean;
+  notes?: string;
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;

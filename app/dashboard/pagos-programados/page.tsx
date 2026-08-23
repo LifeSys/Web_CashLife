@@ -7,6 +7,7 @@ import { ScheduledPaymentRow } from '@/components/sections/ScheduledPaymentRow';
 import { ScheduledPaymentModal } from '@/components/modals/ScheduledPaymentModal';
 import { ScheduledPaymentPayModal } from '@/components/modals/ScheduledPaymentPayModal';
 import { ScheduledPaymentSplitsModal } from '@/components/modals/ScheduledPaymentSplitsModal';
+import { DeleteScheduledPaymentModal } from '@/components/modals/DeleteScheduledPaymentModal';
 import { EmptyState } from '@/components/design-system/feedback/EmptyState';
 import type { ScheduledPayment } from '@/types';
 
@@ -21,6 +22,8 @@ export default function PagosProgramadosPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [paymentToPay, setPaymentToPay] = useState<ScheduledPayment | null>(null);
   const [paymentToSplit, setPaymentToSplit] = useState<ScheduledPayment | null>(null);
+  const [paymentToEdit, setPaymentToEdit] = useState<ScheduledPayment | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<ScheduledPayment | null>(null);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -57,6 +60,8 @@ export default function PagosProgramadosPage() {
             period={period}
             onPay={setPaymentToPay}
             onManageSplit={setPaymentToSplit}
+            onEdit={setPaymentToEdit}
+            onDelete={setPaymentToDelete}
           />
         ))}
       </div>
@@ -64,6 +69,13 @@ export default function PagosProgramadosPage() {
       <ScheduledPaymentModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
+        onSuccess={() => mutate()}
+      />
+
+      <ScheduledPaymentModal
+        isOpen={!!paymentToEdit}
+        payment={paymentToEdit}
+        onClose={() => setPaymentToEdit(null)}
         onSuccess={() => mutate()}
       />
 
@@ -79,6 +91,13 @@ export default function PagosProgramadosPage() {
         isOpen={!!paymentToSplit}
         payment={paymentToSplit}
         onClose={() => setPaymentToSplit(null)}
+      />
+
+      <DeleteScheduledPaymentModal
+        isOpen={!!paymentToDelete}
+        payment={paymentToDelete}
+        onClose={() => setPaymentToDelete(null)}
+        onSuccess={() => mutate()}
       />
     </div>
   );

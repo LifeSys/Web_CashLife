@@ -74,6 +74,10 @@ export class AccountRepository extends BaseRepository {
    */
   async getTotalBalance(uid: string): Promise<number> {
     const accounts = await this.getAll(uid);
-    return accounts.reduce((total, account) => total + account.saldo, 0);
+    // Las tarjetas de crédito viven en su propia tabla, pero por si alguna
+    // vez queda una fila de tipo 'credit_card' en accounts (dato legado),
+    // se excluye igual que en el dashboard — su saldo es deuda, no dinero
+    // disponible, y sumarlo aquí infla el "saldo total" incorrectamente.
+    return accounts.filter((a) => a.tipo !== 'credit_card').reduce((total, account) => total + (account.saldo ?? account.balance ?? 0), 0);
   }
 }

@@ -7,7 +7,9 @@ import { usePayableObligations } from '@/hooks/useFinancial';
 import { payableService } from '@/services/financial.service';
 import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
 import { PayableObligationEditModal } from '@/components/modals/PayableObligationEditModal';
+import { PayableObligationHistoryModal } from '@/components/modals/PayableObligationHistoryModal';
 import { PayablePaymentModal } from '@/components/modals/PayablePaymentModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { toast } from 'sonner';
 import type { PayableObligation } from '@/types';
 
@@ -20,6 +22,8 @@ export default function Page() {
   const [selectedObligationId, setSelectedObligationId] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [obligationToEdit, setObligationToEdit] = useState<PayableObligation | null>(null);
+  const [historyObligationId, setHistoryObligationId] = useState<string | null>(null);
+  const [obligationToDelete, setObligationToDelete] = useState<PayableObligation | null>(null);
 
   const total = obligations.reduce((sum, item) => sum + (item.pendingBalance || 0), 0);
   const paid = obligations.reduce((sum, item) => sum + Math.max((item.originalAmount || 0) - (item.pendingBalance || 0), 0), 0);
@@ -45,19 +49,21 @@ export default function Page() {
     }
   };
 
-  const handleDelete = async (obligationId: string) => {
-    if (!user?.uid) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar?')) return;
+  const handleConfirmDelete = async () => {
+    if (!user?.uid || !obligationToDelete) return;
     try {
+      await payableService.deleteObligation(user.uid, obligationToDelete.id);
       toast.success('Eliminado correctamente');
+      setObligationToDelete(null);
       mutate();
     } catch (error) {
-      toast.error('Error al eliminar');
-      console.error('[v0] Error:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar');
+      console.error('[CashLife] Error deleting obligation:', error);
     }
   };
 
   const selectedObligation = selectedObligationId ? obligations.find((o) => o.id === selectedObligationId) : null;
+  const historyObligation = historyObligationId ? obligations.find((o) => o.id === historyObligationId) : null;
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -138,13 +144,13 @@ export default function Page() {
                   <Edit className="inline h-4 w-4" /> Editar
                 </button>
                 <button
-                  onClick={() => toast.info('Historial aún no está implementado')}
+                  onClick={() => setHistoryObligationId(item.id)}
                   className="rounded-lg bg-muted px-3 py-2 text-sm"
                 >
                   <History className="inline h-4 w-4" /> Historial
                 </button>
                 <button
-                  onClick={() => handleDelete(item.id)}
+                  onClick={() => setObligationToDelete(item)}
                   className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
                   <Trash2 className="inline h-4 w-4" /> Eliminar
@@ -186,6 +192,29 @@ export default function Page() {
         obligation={obligationToEdit}
         onClose={() => setObligationToEdit(null)}
         onSuccess={() => mutate()}
+      />
+
+      {historyObligation && (
+        <PayableObligationHistoryModal
+          isOpen={!!historyObligation}
+          obligationId={historyObligation.id}
+          obligation={historyObligation}
+          onClose={() => setHistoryObligationId(null)}
+          onRegisterPayment={() => {
+            setSelectedObligationId(historyObligation.id);
+            setIsPaymentOpen(true);
+          }}
+        />
+      )}
+
+      <ConfirmDeleteModal
+        isOpen={!!obligationToDelete}
+        onClose={() => setObligationToDelete(null)}
+        title="¿Eliminar esta cuenta por pagar?"
+        itemName={obligationToDelete?.description ?? ''}
+        bullets={['Todo su historial de pagos parciales registrados']}
+        warningNote="Si ya habías registrado pagos contra esto, ese dinero se revierte del saldo de la cuenta desde donde se había pagado."
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useCategories } from '@/hooks/useCategories';
@@ -14,20 +14,27 @@ interface CreditCardChargeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  prefilledCardId?: string;
 }
 
-export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCardChargeModalProps) {
+export function CreditCardChargeModal({ isOpen, onClose, onSuccess, prefilledCardId }: CreditCardChargeModalProps) {
   const { user } = useAuth();
   const { creditCards } = useCreditCards();
   const { categorias } = useCategories();
   const { invalidateAfterCreditCard } = useSWRInvalidation();
-  const [creditCardId, setCreditCardId] = useState('');
+  const [creditCardId, setCreditCardId] = useState(prefilledCardId || '');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setCreditCardId(prefilledCardId || '');
+    }
+  }, [isOpen, prefilledCardId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

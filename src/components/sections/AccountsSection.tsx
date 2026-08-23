@@ -44,9 +44,9 @@ export function AccountsSection({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-64 bg-muted rounded-2xl animate-pulse" />
+            <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
           ))}
         </div>
       ) : accounts.length === 0 ? (
@@ -55,7 +55,7 @@ export function AccountsSection({
           <p className="text-sm text-muted-foreground mt-1">Crea tu primera cuenta bancaria</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-2">
           {sortedAccounts.map(account => (
             <MoneyAccountCard
               key={account.id}
@@ -64,6 +64,7 @@ export function AccountsSection({
               onViewTransactions={() => onViewTransactions(account.id)}
               onEdit={account.nombre !== 'Efectivo' ? () => onEditAccount(account) : undefined}
               onDelete={account.nombre !== 'Efectivo' ? () => onDeleteAccount(account.id) : undefined}
+              compact
             />
           ))}
         </div>

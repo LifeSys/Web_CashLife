@@ -10,11 +10,17 @@ export function useTransactions() {
   const { user } = useAuth();
   const { data, isLoading, error, mutate } = useSWR(
     user?.uid ? ['transactions', user.uid] : null,
-    () => transactionService.getAll(user!.uid as string),
-    { 
-      revalidateOnFocus: true, 
+    // Sin `limit`, el repositorio pagina a 20 por defecto — y como este
+    // hook alimenta el Resumen Financiero, Reportes y el conteo de
+    // Movimientos, eso hacía que todo lo calculado ignorara silenciosamente
+    // cualquier transacción más allá de las 20 más recientes. Pedimos un
+    // límite alto para traer prácticamente todo (uso personal, no miles
+    // de movimientos por año).
+    () => transactionService.getAll(user!.uid as string, { limit: 5000 }),
+    {
+      revalidateOnFocus: true,
       revalidateOnReconnect: true,
-      dedupingInterval: 5000 
+      dedupingInterval: 5000
     }
   );
 

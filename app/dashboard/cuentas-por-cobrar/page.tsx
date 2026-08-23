@@ -8,12 +8,15 @@ import { usePeople } from '@/hooks/usePeople';
 import { useSettings } from '@/hooks/useSettings';
 import { useCollectionReminders } from '@/hooks/useCollectionReminders';
 import { personService } from '@/services/person.service';
+import { receivableService } from '@/services/financial.service';
 import { buildDebtMessage } from '@/lib/whatsapp';
 import { toPenEquivalent } from '@/lib/currency';
 import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
 import { ReceivableDebtEditModal } from '@/components/modals/ReceivableDebtEditModal';
+import { ReceivableDebtHistoryModal } from '@/components/modals/ReceivableDebtHistoryModal';
 import { ReceivablePaymentModal } from '@/components/modals/ReceivablePaymentModal';
 import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { DebtCard, SectionHeader, DashboardMetric, EmptyState } from '@/components/design-system';
 import type { Person, ReceivableDebt } from '@/types';
 import { toast } from 'sonner';
@@ -68,6 +71,8 @@ export default function Page() {
   const [searchQuery, setSearchQuery] = useState('');
   const [whatsAppContact, setWhatsAppContact] = useState<Person | null>(null);
   const [debtToEdit, setDebtToEdit] = useState<ReceivableDebt | null>(null);
+  const [debtToView, setDebtToView] = useState<ReceivableDebt | null>(null);
+  const [debtToDelete, setDebtToDelete] = useState<ReceivableDebt | null>(null);
 
   const contactById = useMemo(() => {
     const map = new Map<string, Person>();
@@ -113,15 +118,16 @@ export default function Page() {
     return sortDebts(filtered);
   }, [debts, activeFilter, searchQuery, contactById]);
 
-  const handleDelete = async (debtId: string) => {
-    if (!user?.uid) return;
-    if (!confirm('¿Estás seguro de que deseas eliminar?')) return;
+  const handleConfirmDelete = async () => {
+    if (!user?.uid || !debtToDelete) return;
     try {
+      await receivableService.deleteDebt(user.uid, debtToDelete.id);
       toast.success('Eliminado correctamente');
+      setDebtToDelete(null);
       mutate();
     } catch (error) {
-      toast.error('Error al eliminar');
-      console.error('[v0] Error:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar');
+      console.error('[CashLife] Error deleting debt:', error);
     }
   };
 
@@ -273,13 +279,10 @@ export default function Page() {
                     setSelectedDebtId(item.id);
                     setIsPaymentOpen(true);
                   }}
-                  onViewDetail={() => {
-                    // TODO: Open detail modal when available
-                    toast.info('Detalle de cobranza - Próximamente');
-                  }}
+                  onViewDetail={() => setDebtToView(item)}
                   onEdit={() => setDebtToEdit(item)}
                   onWhatsApp={contact ? () => setWhatsAppContact(contact) : undefined}
-                  onDelete={() => handleDelete(item.id)}
+                  onDelete={() => setDebtToDelete(item)}
                 />
               );
             })}
@@ -339,6 +342,29 @@ export default function Page() {
         personName={debtToEdit ? resolveContact(debtToEdit)?.nombre : undefined}
         onClose={() => setDebtToEdit(null)}
         onSuccess={() => mutate()}
+      />
+
+      {debtToView && (
+        <ReceivableDebtHistoryModal
+          isOpen={!!debtToView}
+          debtId={debtToView.id}
+          debt={{ ...debtToView, personName: resolveContact(debtToView)?.nombre }}
+          onClose={() => setDebtToView(null)}
+          onRegisterPayment={() => {
+            setSelectedDebtId(debtToView.id);
+            setIsPaymentOpen(true);
+          }}
+        />
+      )}
+
+      <ConfirmDeleteModal
+        isOpen={!!debtToDelete}
+        onClose={() => setDebtToDelete(null)}
+        title="¿Eliminar esta cuenta por cobrar?"
+        itemName={debtToDelete?.description ?? ''}
+        bullets={['Todo su historial de cobros parciales registrados']}
+        warningNote="Si ya habías registrado cobros contra esto, ese dinero se revierte del saldo de la cuenta donde se había movido."
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

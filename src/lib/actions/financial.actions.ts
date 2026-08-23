@@ -22,6 +22,20 @@ const nextMonthlyPeriod = (period: string) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 };
 
+/**
+ * El "método de pago" elegido para un pago programado puede ser una cuenta
+ * (banco/efectivo) o una tarjeta de crédito — ambas comparten el mismo
+ * selector en la UI. Aquí se resuelve a cuál de las dos corresponde el id,
+ * para pasarle el campo correcto a la transacción (cuenta vs creditCardId).
+ */
+async function resolvePaymentDestination(uid: string, id: string): Promise<{ cuenta?: string; creditCardId?: string }> {
+  const account = await prisma.account.findFirst({ where: { id, userId: uid } });
+  if (account) return { cuenta: id };
+  const card = await prisma.creditCard.findFirst({ where: { id, userId: uid } });
+  if (card) return { creditCardId: id };
+  throw new Error('Cuenta o tarjeta no encontrada');
+}
+
 const debtsRepo = new FinancialRepository<ReceivableDebt>(prisma.receivableDebt, 'date');
 const receivablePaymentsRepo = new FinancialRepository<ReceivablePayment>(prisma.receivablePayment, 'date');
 const obligationsRepo = new FinancialRepository<PayableObligation>(prisma.payableObligation, 'dueDate');
@@ -68,6 +82,29 @@ export async function updateReceivableDebtAction(
     pendingBalance,
     status: getStatus(pendingBalance, newOriginalAmount, dueDate as Date),
   });
+}
+
+/** Borra una cuenta por cobrar y revierte todos los cobros ya registrados contra ella. */
+export async function deleteReceivableDebtAction(uid: string, id: string): Promise<boolean> {
+  const existing = await debtsRepo.getById(uid, id);
+  if (!existing) return false;
+
+  const payments = await receivablePaymentsRepo.getByField(uid, 'debtId', id);
+  for (const payment of payments) {
+    if (payment.transactionId) {
+      await transactionService.delete(uid, payment.transactionId);
+    }
+  }
+  await prisma.receivablePayment.deleteMany({ where: { userId: uid, debtId: id } });
+
+  // Al crearla se registró también una transacción "Cuenta por cobrar: X"
+  // solo para que apareciera en Movimientos (cuenta especial que no mueve
+  // saldo real) — hay que borrarla también o queda un fantasma huérfano.
+  const creationTx = await prisma.transaction.findFirst({ where: { userId: uid, relatedDebtId: id, isDeleted: false } });
+  if (creationTx) await transactionService.delete(uid, creationTx.id);
+
+  await prisma.receivableDebt.delete({ where: { id } });
+  return true;
 }
 
 export async function registerReceivablePaymentAction(
@@ -127,6 +164,33 @@ export async function updatePayableObligationAction(
   });
 }
 
+export async function getPayablePaymentsByObligationAction(uid: string, obligationId: string) {
+  return payablePaymentsRepo.getByField(uid, 'obligationId', obligationId);
+}
+
+/** Borra una cuenta por pagar y revierte todos los pagos ya registrados contra ella. */
+export async function deletePayableObligationAction(uid: string, id: string): Promise<boolean> {
+  const existing = await obligationsRepo.getById(uid, id);
+  if (!existing) return false;
+
+  const payments = await payablePaymentsRepo.getByField(uid, 'obligationId', id);
+  for (const payment of payments) {
+    if (payment.transactionId) {
+      await transactionService.delete(uid, payment.transactionId);
+    }
+  }
+  await prisma.payablePayment.deleteMany({ where: { userId: uid, obligationId: id } });
+
+  // Igual que con las cuentas por cobrar: la transacción "Cuenta por pagar: X"
+  // que se creó junto con la obligación (solo para Movimientos) también hay
+  // que borrarla, si no queda un fantasma huérfano.
+  const creationTx = await prisma.transaction.findFirst({ where: { userId: uid, relatedObligationId: id, isDeleted: false } });
+  if (creationTx) await transactionService.delete(uid, creationTx.id);
+
+  await prisma.payableObligation.delete({ where: { id } });
+  return true;
+}
+
 export async function registerPayablePaymentAction(
   uid: string,
   payment: Omit<PayablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>
@@ -159,6 +223,17 @@ export async function createScheduledPaymentAction(uid: string, payment: Omit<Sc
   return scheduledRepo.create(uid, payment);
 }
 
+export async function updateScheduledPaymentAction(uid: string, id: string, data: Partial<ScheduledPayment>) {
+  return scheduledRepo.update(uid, id, data);
+}
+
+export async function deleteScheduledPaymentAction(uid: string, id: string): Promise<boolean> {
+  const existing = await prisma.scheduledPayment.findFirst({ where: { id, userId: uid } });
+  if (!existing) return false;
+  await prisma.scheduledPayment.delete({ where: { id } });
+  return true;
+}
+
 export async function getScheduledPaymentSplitsAction(uid: string, scheduledPaymentId: string): Promise<ScheduledPaymentSplit[]> {
   return splitsRepo.getByField(uid, 'scheduledPaymentId', scheduledPaymentId);
 }
@@ -188,6 +263,15 @@ export async function ensureScheduledPaymentPeriodAction(uid: string, paymentId:
   const existing = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId, period } } });
   if (existing) return existing as unknown as ScheduledPaymentPeriod;
   const dueDate = periodToDate(period, payment.dueDay);
+
+  // Pagos con cargo/débito automático: si ya llegó (o pasó) la fecha de cobro,
+  // se registran solos como pagados — el usuario no tiene que marcarlos.
+  if (payment.autoPay && payment.suggestedAccountId && dueDate <= new Date()) {
+    await markScheduledPaymentPeriodAsPaidAction(uid, paymentId, period, payment.suggestedAccountId, dueDate);
+    const created = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId, period } } });
+    return created as unknown as ScheduledPaymentPeriod;
+  }
+
   const status = dueDate < new Date() ? 'overdue' : 'pending';
   const created = await prisma.scheduledPaymentPeriod.create({
     data: { userId: uid, paymentId, period, status, amount: payment.amount, dueDate, createdBy: uid, updatedBy: uid },
@@ -204,15 +288,16 @@ export async function markScheduledPaymentPeriodAsPaidAction(uid: string, id: st
   const existingPeriod = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId: id, period } } });
   const wasAlreadyPaid = existingPeriod?.status === 'paid';
 
+  const destination = await resolvePaymentDestination(uid, accountId);
   const tx = await transactionService.create(uid, {
     monto: payment.amount,
     tipo: 'scheduled_payment',
     descripcion: `Pago programado: ${payment.name} (${period})`,
     fecha: paidAt,
-    cuenta: accountId,
     categoria: payment.category,
     scheduledPaymentId: id,
     scheduledPeriod: period,
+    ...destination,
   });
   await prisma.scheduledPaymentPeriod.upsert({
     where: { paymentId_period: { paymentId: id, period } },

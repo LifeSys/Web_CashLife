@@ -33,14 +33,19 @@ export function useCalculations(transacciones: Transaction[], saldoTotal?: numbe
       return tDate >= startOfMonth && tDate <= endOfMonth && !t.isDeleted;
     });
 
-    // Income: direct income, collected receivables, loan origination, received loans, payable debt registration
+    // Ingresos reales: dinero que YA entró. 'receivable_debt' (registrar que
+    // alguien te debe) NO cuenta — todavía no has cobrado nada, solo quedó
+    // anotado. Ese dinero entra recién como 'receivable_payment' cuando de
+    // verdad te pagan; contar ambos sería contarlo dos veces.
     const ingresosDelMes = transaccionesDelMes
-      .filter(t => ['income', 'receivable_payment', 'loan', 'receivable_debt'].includes(t.tipo))
+      .filter(t => ['income', 'receivable_payment'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
-    // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments, payable obligation registration
+    // Gastos reales: dinero que YA salió. 'payable_obligation' (registrar que
+    // le debes a alguien) tampoco cuenta por la misma razón — sale recién
+    // como 'payable_payment' cuando de verdad lo pagas.
     const gastosDelMes = transaccionesDelMes
-      .filter(t => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment', 'payable_obligation'].includes(t.tipo))
+      .filter(t => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment'].includes(t.tipo))
       .reduce((sum, t) => sum + t.monto, 0);
 
     const balance = ingresosDelMes - gastosDelMes;
@@ -49,9 +54,12 @@ export function useCalculations(transacciones: Transaction[], saldoTotal?: numbe
       .filter(t => t.tipo === 'loan' && !t.isDeleted)
       .reduce((sum, t) => sum + t.monto, 0);
 
-    const dineroPorCobrar = transacciones
+    const dineroYaCobradoDePrestamos = transacciones
       .filter(t => t.tipo === 'loan_payment' && !t.isDeleted)
       .reduce((sum, t) => sum + t.monto, 0);
+
+    // "Por Cobrar" = lo que todavía falta que te devuelvan, no lo ya cobrado.
+    const dineroPorCobrar = Math.max(dineroPrestado - dineroYaCobradoDePrestamos, 0);
 
     return {
       saldoTotal: saldoTotal || 0,
@@ -73,7 +81,7 @@ export function useExpensesByCategory(transacciones: Transaction[]) {
 
     const transaccionesDelMes = transacciones.filter(t => {
       const tDate = convertToDate(t.fecha);
-      return tDate >= startOfMonth && tDate <= endOfMonth && ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment', 'payable_obligation'].includes(t.tipo) && !t.isDeleted;
+      return tDate >= startOfMonth && tDate <= endOfMonth && ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment'].includes(t.tipo) && !t.isDeleted;
     });
 
     const byCategory: Record<string, { amount: number; count: number }> = {};
@@ -105,12 +113,11 @@ export function useMonthlyTrend(transacciones: Transaction[]) {
         months[monthKey] = { ingresos: 0, gastos: 0 };
       }
 
-      // Income: direct income, collected receivables, loan origination
-      if (['income', 'receivable_payment', 'loan'].includes(t.tipo)) {
+      // Mismo criterio que useCalculations: solo dinero que de verdad entró o salió.
+      if (['income', 'receivable_payment'].includes(t.tipo)) {
         months[monthKey].ingresos += t.monto;
-      } 
-      // Expenses: direct expenses, credit card charges, payable payments, scheduled payments, credit card payments
-      else if (['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(t.tipo)) {
+      }
+      else if (['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment'].includes(t.tipo)) {
         months[monthKey].gastos += t.monto;
       }
     });

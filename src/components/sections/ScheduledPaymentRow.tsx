@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Repeat, Users } from 'lucide-react';
+import { Repeat, Users, Zap } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useScheduledPaymentPeriods, useScheduledPaymentSplits } from '@/hooks/useFinancial';
 import { usePeople } from '@/hooks/usePeople';
 import { scheduledPaymentService } from '@/services/financial.service';
 import { PaymentCard } from '@/components/design-system/cards/PaymentCard';
+import { MonthlyPaymentTimeline } from '@/components/design-system/MonthlyPaymentTimeline';
 import type { ScheduledPayment, ScheduledPaymentPeriodStatus } from '@/types';
 
 interface ScheduledPaymentRowProps {
@@ -14,6 +15,8 @@ interface ScheduledPaymentRowProps {
   period: string;
   onPay: (payment: ScheduledPayment) => void;
   onManageSplit: (payment: ScheduledPayment) => void;
+  onEdit: (payment: ScheduledPayment) => void;
+  onDelete: (payment: ScheduledPayment) => void;
 }
 
 const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n || 0);
@@ -25,7 +28,7 @@ const STATUS_MAP: Record<ScheduledPaymentPeriodStatus, 'pending' | 'overdue' | '
   skipped: 'cancelled',
 };
 
-export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit }: ScheduledPaymentRowProps) {
+export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onEdit, onDelete }: ScheduledPaymentRowProps) {
   const { user } = useAuth();
   const { periods, isLoading, mutate } = useScheduledPaymentPeriods(payment.id);
   const { splits } = useScheduledPaymentSplits(payment.id);
@@ -60,11 +63,19 @@ export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit }: S
       <PaymentCard
         description={payment.name}
         amount={money(payment.amount)}
-        dueDate={`Día ${payment.dueDay} · ${payment.category}`}
+        dueDate={`Día ${payment.dueDay} · ${payment.category}${payment.autoPay ? ' · Cobro automático' : ''}`}
         status={status}
-        icon={<Repeat className="w-5 h-5 text-muted-foreground" />}
+        onEdit={() => onEdit(payment)}
+        onDelete={() => onDelete(payment)}
+        icon={
+          payment.autoPay ? (
+            <Zap className="w-5 h-5 text-blue-500" />
+          ) : (
+            <Repeat className="w-5 h-5 text-muted-foreground" />
+          )
+        }
         action={
-          status === 'pending' || status === 'overdue'
+          !payment.autoPay && (status === 'pending' || status === 'overdue')
             ? { label: 'Marcar como pagado', onClick: () => onPay(payment) }
             : undefined
         }
@@ -76,6 +87,11 @@ export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit }: S
         <Users className="w-3.5 h-3.5" />
         {splitNames.length > 0 ? `Se divide con: ${splitNames.join(', ')}` : 'Dividir con otras personas'}
       </button>
+      <MonthlyPaymentTimeline
+        periods={periods}
+        createdAt={payment.createdAt}
+        year={Number(period.split('-')[0])}
+      />
     </div>
   );
 }

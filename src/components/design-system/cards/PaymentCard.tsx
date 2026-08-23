@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { PremiumCard } from './PremiumCard';
 
 type PaymentStatus = 'scheduled' | 'pending' | 'overdue' | 'paid' | 'cancelled';
@@ -13,6 +14,8 @@ interface PaymentCardProps {
   icon?: ReactNode;
   recipient?: string;
   onClick?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
   action?: {
     label: string;
     onClick: () => void;
@@ -55,6 +58,8 @@ export function PaymentCard({
   icon,
   recipient,
   onClick,
+  onEdit,
+  onDelete,
   action,
 }: PaymentCardProps) {
   const config = statusConfig[status];
@@ -77,7 +82,33 @@ export function PaymentCard({
               <p className="text-xs text-muted-foreground mt-1">{recipient}</p>
             )}
           </div>
-          {icon && <div className="text-2xl ml-2">{icon}</div>}
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            {onEdit && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                title="Editar"
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                title="Eliminar"
+                className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            {icon && <div className="text-2xl">{icon}</div>}
+          </div>
         </div>
 
         {/* Amount and Status */}

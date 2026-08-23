@@ -215,5 +215,20 @@ export function useSWRInvalidation() {
       // Invalidate transactions and accounts
       invalidateAfterMovement(uid);
     },
+
+    // Invalidate after a reventas rental (asignar/renovar/eliminar perfil)
+    invalidateAfterRental: (uid: string) => {
+      mutate((key) => {
+        if (typeof key === 'string') return false;
+        if (Array.isArray(key) && key[1] === uid) {
+          const keyName = key[0];
+          return ['service-profiles', 'all-service-profiles', 'profile-rentals', 'shared-services'].includes(keyName);
+        }
+        return false;
+      });
+
+      // Cada alquiler crea/revierte un ingreso real.
+      invalidateAfterMovement(uid);
+    },
   };
 }

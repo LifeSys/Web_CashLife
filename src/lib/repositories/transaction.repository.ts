@@ -18,6 +18,12 @@ const NON_BALANCE_ACCOUNTS = ['accounts-receivable', 'accounts-payable'];
  * deben ser serializables (nada de funciones), así que ahora vive aquí,
  * calculado únicamente a partir de datos serializables de la transacción.
  */
+// El tipo declarado oficialmente en TransactionType es 'card_payment', pero
+// en algún punto se coló 'credit_card_payment' en la lógica de saldos —
+// aceptamos ambos para no romper filas históricas que hayan quedado con
+// cualquiera de los dos nombres.
+const isCardPaymentTipo = (tipo: string) => tipo === 'card_payment' || tipo === 'credit_card_payment';
+
 function calculateBalanceDelta(tipo: string, monto: number): number {
   switch (tipo) {
     case 'expense':
@@ -25,6 +31,7 @@ function calculateBalanceDelta(tipo: string, monto: number): number {
     case 'scheduled_payment':
     case 'transfer':
     case 'loan':
+    case 'card_payment':
     case 'credit_card_payment':
       return -monto;
     case 'income':
@@ -171,12 +178,12 @@ export class TransactionRepository {
       const card = await t.creditCard.findFirst({ where: { id: transaction.creditCardId, userId: uid } });
       if (!card) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
       const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
-      const nextUsed = transaction.tipo === 'credit_card_payment'
+      const nextUsed = isCardPaymentTipo(transaction.tipo)
         ? Math.max(currentUsed - transaction.monto, 0)
         : currentUsed + transaction.monto;
       const limit = card.creditLimit ?? card.lineaCredito ?? 0;
       await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
-      if (transaction.tipo === 'credit_card_payment' && transaction.cuenta) {
+      if (isCardPaymentTipo(transaction.tipo) && transaction.cuenta) {
         const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
         if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
         const currentSaldo = account.saldo ?? account.balance ?? 0;
@@ -224,10 +231,10 @@ export class TransactionRepository {
         const card = await t.creditCard.findFirst({ where: { id: tx.creditCardId, userId: uid } });
         if (!card) throw new Error('Tarjeta no encontrada');
         const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
-        const nextUsed = tx.tipo === 'credit_card_payment' ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0);
+        const nextUsed = isCardPaymentTipo(tx.tipo) ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0);
         const limit = card.creditLimit ?? card.lineaCredito ?? 0;
         await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
-        if (tx.tipo === 'credit_card_payment' && tx.cuenta) {
+        if (isCardPaymentTipo(tx.tipo) && tx.cuenta) {
           const account = await t.account.findFirst({ where: { id: tx.cuenta, userId: uid } });
           if (!account) throw new Error('Cuenta no encontrada');
           const currentSaldo = account.saldo ?? account.balance ?? 0;

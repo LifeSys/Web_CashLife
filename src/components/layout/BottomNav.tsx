@@ -11,6 +11,7 @@ import {
   ReceiptText,
   CalendarClock,
   TrendingUp,
+  Share2,
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +30,7 @@ const navItems = [
     icon: ReceiptText,
   },
   { href: '/dashboard/pagos-programados', label: 'Pagos', icon: CalendarClock },
+  { href: '/dashboard/reventas', label: 'Reventas', icon: Share2 },
   { href: '/dashboard/ingresos', label: 'Ingresos', icon: TrendingUp },
   { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
 ];

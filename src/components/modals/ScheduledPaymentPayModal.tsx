@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCreditCards } from '@/hooks/useCreditCards';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency',
 export function ScheduledPaymentPayModal({ isOpen, onClose, payment, period, onSuccess }: ScheduledPaymentPayModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
+  const { creditCards } = useCreditCards();
   const { invalidateAfterScheduledPayment } = useSWRInvalidation();
   const [accountId, setAccountId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,7 +37,7 @@ export function ScheduledPaymentPayModal({ isOpen, onClose, payment, period, onS
     e.preventDefault();
     if (!user?.uid) return;
     if (!selectedAccountId) {
-      toast.error('Selecciona una cuenta');
+      toast.error('Selecciona una cuenta o tarjeta');
       return;
     }
 
@@ -75,16 +77,23 @@ export function ScheduledPaymentPayModal({ isOpen, onClose, payment, period, onS
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium">¿Desde qué cuenta pagaste?</label>
+            <label className="text-sm font-medium">¿Desde qué cuenta o tarjeta pagaste?</label>
             <select
               value={selectedAccountId}
               onChange={(e) => setAccountId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
             >
-              <option value="">Selecciona una cuenta</option>
-              {accountOptions.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
+              <option value="">Selecciona una cuenta o tarjeta</option>
+              <optgroup label="Cuentas">
+                {accountOptions.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre}</option>
+                ))}
+              </optgroup>
+              <optgroup label="Tarjetas de crédito">
+                {creditCards.map((c) => (
+                  <option key={c.id} value={c.id}>{c.nombre} •••• {c.lastDigits}</option>
+                ))}
+              </optgroup>
             </select>
           </div>
 

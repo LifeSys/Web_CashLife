@@ -93,9 +93,9 @@ export function CreditCardsSection({
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid gap-2">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="h-96 bg-muted rounded-3xl animate-pulse" />
+            <div key={i} className="h-20 bg-muted rounded-xl animate-pulse" />
           ))}
         </div>
       ) : cards.length === 0 ? (
@@ -104,7 +104,7 @@ export function CreditCardsSection({
           <p className="text-sm text-muted-foreground mt-1">Crea tu primera tarjeta de crédito</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid gap-2">
           {cards.map(card => {
             const linkedAccount = accounts.find(a => a.id === card.linkedAccountId);
             return (
@@ -117,6 +117,7 @@ export function CreditCardsSection({
                 onViewTransactions={() => onViewTransactions(card.id)}
                 onEdit={() => onEditCard(card)}
                 onDelete={() => onDeleteCard(card.id)}
+                compact
               />
             );
           })}

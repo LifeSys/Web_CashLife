@@ -38,6 +38,7 @@ model User {
   scheduledPayments  ScheduledPayment[]
   scheduledPaymentSplits ScheduledPaymentSplit[]
   incomes            IncomeRecord[]
+  sharedServices     SharedService[]
 
   @@map("users")
 }
@@ -377,6 +378,7 @@ model ScheduledPayment {
   frequency           String
   customFrequencyDays Int?
   suggestedAccountId  String?
+  autoPay             Boolean   @default(false)
   active              Boolean   @default(true)
   reminders           Int[]     @default([])
   lastPaidAt          DateTime?
@@ -436,6 +438,81 @@ model ScheduledPaymentPeriod {
   @@unique([paymentId, period])
   @@index([userId])
   @@map("scheduled_payment_periods")
+}
+
+// Reventas: una cuenta compartida (ej. Netflix) que se alquila por perfiles a
+// distintos clientes, cada uno con su propio ciclo de fechas y precio —
+// independiente del pago programado que cubre el costo real del servicio.
+model SharedService {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  loginEmail         String?
+  loginPassword      String?
+  // Enlaza con el ScheduledPayment que paga el costo real (ej. la
+  // suscripción Netflix), para poder mostrar el margen: ingresos - costo.
+  scheduledPaymentId String?
+  color              String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String?
+  updatedBy          String?
+
+  profiles ServiceProfile[]
+
+  @@index([userId])
+  @@map("shared_services")
+}
+
+// Un cupo/perfil dentro de la cuenta compartida (ej. "Perfil 1").
+model ServiceProfile {
+  id        String        @id @default(cuid())
+  userId    String
+  serviceId String
+  service   SharedService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  label     String
+  pin       String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  createdBy String?
+  updatedBy String?
+
+  rentals ProfileRental[]
+
+  @@index([userId])
+  @@index([serviceId])
+  @@map("service_profiles")
+}
+
+// Un ciclo de alquiler de un perfil a un cliente: quién lo tiene, desde
+// cuándo hasta cuándo y en cuánto se le vendió. Se crea una fila nueva en
+// cada renovación (no se sobrescribe), así queda el historial completo.
+model ProfileRental {
+  id            String         @id @default(cuid())
+  userId        String
+  profileId     String
+  profile       ServiceProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  personId      String?
+  startDate     DateTime
+  endDate       DateTime
+  price         Float
+  accountId     String?
+  transactionId String?
+  // Si el cliente todavía no pagó este ciclo, no se registra ingreso (no
+  // hay transactionId) sino una cuenta por cobrar — se puede marcar pagado
+  // luego desde Por Cobrar como cualquier otra deuda.
+  paid          Boolean        @default(true)
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  createdBy     String?
+  updatedBy     String?
+
+  @@index([userId])
+  @@index([profileId])
+  @@map("profile_rentals")
 }
 
 model IncomeRecord {

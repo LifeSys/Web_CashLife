@@ -1,14 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
+import { useAccounts } from '@/hooks/useAccounts';
+import { useCreditCards } from '@/hooks/useCreditCards';
 import { MovementCard } from '@/components/common/MovementCard';
-import { SectionHeader } from '@/components/common/SectionHeader';
+import { X } from 'lucide-react';
 
-export default function MovimientosPage() {
+function MovimientosContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const cuentaFiltro = searchParams.get('cuenta');
+  const tarjetaFiltro = searchParams.get('tarjeta');
+
   const { transacciones } = useTransactions();
   const { categorias } = useCategories();
+  const { cuentas } = useAccounts();
+  const { creditCards } = useCreditCards();
   const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes' | 'año'>('todos');
 
   const getCategoryName = (categoryId: string) => {
@@ -23,6 +33,9 @@ export default function MovimientosPage() {
     const yearAgo = new Date(now.getFullYear(), 0, 1);
 
     return transacciones.filter(t => {
+      if (cuentaFiltro && t.cuentaId !== cuentaFiltro && t.destinationAccountId !== cuentaFiltro) return false;
+      if (tarjetaFiltro && t.creditCardId !== tarjetaFiltro) return false;
+
       const tDate = t.fecha instanceof Date ? t.fecha : t.fecha.toDate();
       const tDateOnly = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
 
@@ -44,6 +57,9 @@ export default function MovimientosPage() {
     { id: 'año', label: 'Año' },
   ];
 
+  const filteredAccountName = cuentaFiltro ? cuentas.find(c => c.id === cuentaFiltro)?.nombre : null;
+  const filteredCardName = tarjetaFiltro ? creditCards.find(c => c.id === tarjetaFiltro)?.nombre : null;
+
   return (
     <div className="space-y-6 p-4 md:p-6">
       {/* Header */}
@@ -51,6 +67,20 @@ export default function MovimientosPage() {
         <h1 className="text-2xl md:text-3xl font-bold">Movimientos</h1>
         <p className="text-muted-foreground">Historial completo de transacciones</p>
       </div>
+
+      {(filteredAccountName || filteredCardName) && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
+          <span>
+            Filtrando por: <b>{filteredAccountName || filteredCardName}</b>
+          </span>
+          <button
+            onClick={() => router.push('/dashboard/movimientos')}
+            className="ml-auto inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs font-medium hover:bg-muted/80"
+          >
+            <X className="h-3 w-3" /> Quitar filtro
+          </button>
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex gap-2 overflow-x-auto pb-2">
@@ -88,5 +118,13 @@ export default function MovimientosPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MovimientosPage() {
+  return (
+    <Suspense fallback={null}>
+      <MovimientosContent />
+    </Suspense>
   );
 }

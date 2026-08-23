@@ -2,9 +2,9 @@
 
 import { ReceivableDebt, PayableObligation } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Trash2 } from 'lucide-react';
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   date: Date;
   type: 'receivable' | 'payable';
@@ -22,6 +22,7 @@ interface ContactHistoryTimelineProps {
   obligations: PayableObligation[];
   isLoading?: boolean;
   onViewDetails?: (event: TimelineEvent) => void;
+  onDelete?: (event: TimelineEvent) => void;
 }
 
 const STATUS_COLORS = {
@@ -53,6 +54,7 @@ export function ContactHistoryTimeline({
   obligations,
   isLoading,
   onViewDetails,
+  onDelete,
 }: ContactHistoryTimelineProps) {
   // Combine and sort events chronologically (newest first)
   const events: TimelineEvent[] = [
@@ -172,16 +174,30 @@ export function ContactHistoryTimeline({
                   )}
                 </div>
 
-                {/* Status badge */}
-                <span
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${statusColor}`}
-                >
-                  {event.status === 'paid' && '✓'}
-                  {event.status === 'pending' && '⏳'}
-                  {event.status === 'partial' && '◐'}
-                  {event.status === 'overdue' && '⚠'}
-                  {STATUS_LABELS[event.status]}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {/* Status badge */}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${statusColor}`}
+                  >
+                    {event.status === 'paid' && '✓'}
+                    {event.status === 'pending' && '⏳'}
+                    {event.status === 'partial' && '◐'}
+                    {event.status === 'overdue' && '⚠'}
+                    {STATUS_LABELS[event.status]}
+                  </span>
+                  {onDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(event);
+                      }}
+                      title="Eliminar"
+                      className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
