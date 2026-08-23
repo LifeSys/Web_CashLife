@@ -56,6 +56,36 @@ export const SWR_KEYS = {
 export function useSWRInvalidation() {
   const { mutate } = useSWRConfig();
 
+  // Función local (no método de objeto) para que invalidateAfterScheduledPayment
+  // pueda llamarla directamente sin depender de `this` — el hook se usa casi
+  // siempre desestructurado (`const { invalidateAfterX } = useSWRInvalidation()`),
+  // y ahí `this` dentro de un método de objeto literal llega `undefined`.
+  const invalidateAfterMovement = (uid: string) => {
+    // Invalidate transactions (primary source)
+    mutate((key) => {
+      if (typeof key === 'string') return false;
+      if (Array.isArray(key) && key[0] === 'transactions' && key[1] === uid) return true;
+      return false;
+    });
+
+    // Invalidate financial summaries
+    mutate((key) => {
+      if (typeof key === 'string') return false;
+      if (Array.isArray(key) && key[1] === uid) {
+        const keyName = key[0];
+        return ['financial-summary', 'income-total', 'expense-total', 'balance'].includes(keyName);
+      }
+      return false;
+    });
+
+    // Invalidate accounts (balances may change)
+    mutate((key) => {
+      if (typeof key === 'string') return false;
+      if (Array.isArray(key) && (key[0] === 'accounts' || key[0] === 'accountTotal') && key[1] === uid) return true;
+      return false;
+    });
+  };
+
   return {
     // Invalidate single key
     invalidate: (key: string | string[] | null) => {
@@ -80,31 +110,7 @@ export function useSWRInvalidation() {
     },
 
     // Invalidate after expense/income/transfer (affects most screens)
-    invalidateAfterMovement: (uid: string) => {
-      // Invalidate transactions (primary source)
-      mutate((key) => {
-        if (typeof key === 'string') return false;
-        if (Array.isArray(key) && key[0] === 'transactions' && key[1] === uid) return true;
-        return false;
-      });
-
-      // Invalidate financial summaries
-      mutate((key) => {
-        if (typeof key === 'string') return false;
-        if (Array.isArray(key) && key[1] === uid) {
-          const keyName = key[0];
-          return ['financial-summary', 'income-total', 'expense-total', 'balance'].includes(keyName);
-        }
-        return false;
-      });
-
-      // Invalidate accounts (balances may change)
-      mutate((key) => {
-        if (typeof key === 'string') return false;
-        if (Array.isArray(key) && (key[0] === 'accounts' || key[0] === 'accountTotal') && key[1] === uid) return true;
-        return false;
-      });
-    },
+    invalidateAfterMovement,
 
     // Invalidate after receivable debt operation
     invalidateAfterReceivable: (uid: string) => {
@@ -194,7 +200,7 @@ export function useSWRInvalidation() {
       });
 
       // Invalidate transactions and accounts
-      this.invalidateAfterMovement(uid);
+      invalidateAfterMovement(uid);
     },
   };
 }

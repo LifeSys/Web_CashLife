@@ -10,6 +10,7 @@ import {
   getAllScheduledPaymentsAction,
   createScheduledPaymentAction,
   getScheduledPaymentPeriodsAction,
+  ensureScheduledPaymentPeriodAction,
   markScheduledPaymentPeriodAsPaidAction,
   markScheduledPaymentAsPaidAction,
   getAllIncomesAction,
@@ -56,6 +57,9 @@ class ScheduledPaymentService {
   }
   getPeriods(uid: string, paymentId: string): Promise<ScheduledPaymentPeriod[]> {
     return getScheduledPaymentPeriodsAction(uid, paymentId);
+  }
+  ensurePeriod(uid: string, paymentId: string, period: string): Promise<ScheduledPaymentPeriod> {
+    return ensureScheduledPaymentPeriodAction(uid, paymentId, period);
   }
   markPeriodAsPaid(uid: string, id: string, period: string, accountId: string, paidAt = new Date()) {
     return markScheduledPaymentPeriodAsPaidAction(uid, id, period, accountId, paidAt);

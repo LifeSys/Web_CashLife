@@ -6,6 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
 import { accountService } from '@/services/account.service';
 import { toast } from 'sonner';
+import type { AccountType } from '@/types';
 
 interface BankAccountModalProps {
   isOpen: boolean;
@@ -13,9 +14,16 @@ interface BankAccountModalProps {
   onSuccess?: () => void;
 }
 
+const ACCOUNT_TYPES: { value: AccountType; label: string; hint: string }[] = [
+  { value: 'bank', label: 'Cuenta bancaria', hint: 'BCP, Interbank, BBVA, Yape, Plin...' },
+  { value: 'cash', label: 'Efectivo', hint: 'Otro fondo en efectivo aparte de "Efectivo"' },
+  { value: 'safe_box', label: 'Caja fuerte', hint: 'Dinero guardado, no en un banco' },
+];
+
 export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModalProps) {
   const { user } = useAuth();
   const { mutate } = useAccounts();
+  const [tipo, setTipo] = useState<AccountType>('bank');
   const [nombre, setNombre] = useState('');
   const [banco, setBanco] = useState('');
   const [saldoInicial, setSaldoInicial] = useState('');
@@ -26,6 +34,18 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
 
   if (!isOpen) return null;
 
+  const isBank = tipo === 'bank';
+
+  const resetForm = () => {
+    setTipo('bank');
+    setNombre('');
+    setBanco('');
+    setSaldoInicial('');
+    setMoneda('PEN');
+    setTieneDebito(false);
+    setVinculacion([]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.uid) return;
@@ -35,7 +55,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
       toast.error('El nombre de la cuenta es requerido');
       return;
     }
-    if (!banco.trim()) {
+    if (isBank && !banco.trim()) {
       toast.error('El banco es requerido');
       return;
     }
@@ -54,22 +74,17 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
     try {
       await accountService.create(user.uid, {
         nombre: nombre.trim(),
-        tipo: 'bank',
-        banco: banco.trim(),
-        saldo: saldo,
+        tipo,
+        banco: isBank ? banco.trim() : undefined,
+        saldo,
         moneda,
-        hasDebitCard: tieneDebito,
-        hasYape: vinculacion.includes('yape'),
-        hasPlin: vinculacion.includes('plin'),
+        hasDebitCard: isBank ? tieneDebito : undefined,
+        hasYape: isBank ? vinculacion.includes('yape') : undefined,
+        hasPlin: isBank ? vinculacion.includes('plin') : undefined,
       });
-      toast.success('Cuenta bancaria creada exitosamente');
+      toast.success('Cuenta creada exitosamente');
       mutate();
-      setNombre('');
-      setBanco('');
-      setSaldoInicial('');
-      setMoneda('PEN');
-      setTieneDebito(false);
-      setVinculacion([]);
+      resetForm();
       onClose();
       onSuccess?.();
     } catch (error) {
@@ -86,8 +101,8 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
       <div className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-2xl md:rounded-2xl bg-card shadow-2xl">
         <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold">Crear Cuenta Bancaria</h2>
-            <p className="text-sm text-muted-foreground mt-1">Configura tu nueva cuenta de banco</p>
+            <h2 className="text-xl md:text-2xl font-bold">Crear Cuenta</h2>
+            <p className="text-sm text-muted-foreground mt-1">Configura tu nueva cuenta</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-all">
             <X className="w-5 h-5" />
@@ -95,22 +110,51 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
         </div>
         <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Nombre de la cuenta</label>
-            <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Mi cuenta BCP" className="w-full rounded-lg border border-border bg-muted px-3 py-2" />
+            <label className="block text-sm font-medium mb-2">Tipo de cuenta</label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {ACCOUNT_TYPES.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setTipo(option.value)}
+                  className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                    tipo === option.value
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-muted hover:border-primary/40'
+                  }`}
+                >
+                  <p className="text-sm font-medium">{option.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{option.hint}</p>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Banco</label>
-            <select value={banco} onChange={(e) => setBanco(e.target.value)} className="w-full rounded-lg border border-border bg-muted px-3 py-2">
-              <option value="">Selecciona un banco</option>
-              <option value="BCP">BCP</option>
-              <option value="Interbank">Interbank</option>
-              <option value="BBVA">BBVA</option>
-              <option value="Scotiabank">Scotiabank</option>
-              <option value="Banco de Crédito">Banco de Crédito</option>
-              <option value="Otro">Otro</option>
-            </select>
+            <label className="block text-sm font-medium mb-2">Nombre de la cuenta</label>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder={isBank ? 'Mi cuenta BCP' : tipo === 'safe_box' ? 'Caja fuerte casa' : 'Efectivo dólares'}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
           </div>
+
+          {isBank && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Banco</label>
+              <select value={banco} onChange={(e) => setBanco(e.target.value)} className="w-full rounded-lg border border-border bg-muted px-3 py-2">
+                <option value="">Selecciona un banco</option>
+                <option value="BCP">BCP</option>
+                <option value="Interbank">Interbank</option>
+                <option value="BBVA">BBVA</option>
+                <option value="Scotiabank">Scotiabank</option>
+                <option value="Banco de Crédito">Banco de Crédito</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">Saldo Inicial</label>
@@ -126,14 +170,16 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
             </select>
           </div>
 
-          <div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={tieneDebito} onChange={(e) => setTieneDebito(e.target.checked)} className="rounded" />
-              <span className="text-sm font-medium">¿Tiene tarjeta de débito?</span>
-            </label>
-          </div>
+          {isBank && (
+            <div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={tieneDebito} onChange={(e) => setTieneDebito(e.target.checked)} className="rounded" />
+                <span className="text-sm font-medium">¿Tiene tarjeta de débito?</span>
+              </label>
+            </div>
+          )}
 
-          {tieneDebito && (
+          {isBank && tieneDebito && (
             <div>
               <label className="block text-sm font-medium mb-2">¿Vinculada con?</label>
               <div className="space-y-2">
