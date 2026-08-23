@@ -36,6 +36,7 @@ model User {
   payableObligations PayableObligation[]
   payablePayments    PayablePayment[]
   scheduledPayments  ScheduledPayment[]
+  scheduledPaymentSplits ScheduledPaymentSplit[]
   incomes            IncomeRecord[]
 
   @@map("users")
@@ -50,6 +51,15 @@ model Settings {
   tema                String   @default("oscuro")
   notificaciones      Boolean  @default(true)
   onboardingCompleted Boolean  @default(false)
+  // Método de cobro preferido (Yape, Plin, cuenta...) para incluir en los
+  // mensajes de cobranza por WhatsApp.
+  metodoPagoLabel     String?
+  metodoPagoValor     String?
+  // Tipo de cambio USD -> PEN usado por defecto al registrar deudas en
+  // dólares (se puede pisar por transacción). tipoCambioUpdatedAt indica
+  // si vino de la API automática o de un guardado manual.
+  tipoCambioUsdPen      Float?
+  tipoCambioUpdatedAt   DateTime?
   updatedAt           DateTime @updatedAt
 
   @@map("settings")
@@ -161,6 +171,9 @@ model Person {
   email       String?
   notes       String?
   active      Boolean?  @default(true)
+  // Último recordatorio de cobro enviado (se abrió WhatsApp), para no
+  // insistirle dos veces el mismo día y ver a quién le toca seguir.
+  lastReminderAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   createdBy   String?
@@ -257,6 +270,15 @@ model ReceivableDebt {
   originalAmount Float
   pendingBalance Float
   status         String
+  // Moneda de la deuda (PEN por defecto) y tipo de cambio a PEN "congelado"
+  // en el momento de crearla — para que el neto en soles no cambie después
+  // solo porque el dólar se movió.
+  moneda         String    @default("PEN")
+  tipoCambio     Float     @default(1)
+  // Si esta deuda se generó sola al marcar un pago programado dividido
+  // como pagado, acá queda el id del pago programado de origen — para
+  // poder mostrarla distinto en la UI.
+  sourceScheduledPaymentId String?
   notes          String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -307,6 +329,8 @@ model PayableObligation {
   originalAmount Float
   pendingBalance Float
   status         String
+  moneda         String   @default("PEN")
+  tipoCambio     Float    @default(1)
   notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -363,9 +387,32 @@ model ScheduledPayment {
   updatedBy           String?
 
   periods ScheduledPaymentPeriod[]
+  splits  ScheduledPaymentSplit[]
 
   @@index([userId])
   @@map("scheduled_payments")
+}
+
+// Si un pago programado se divide con otras personas (ej. Netflix entre 5),
+// cada fila es "a esta persona le toca pagar tanto". Al marcar el periodo
+// como pagado, se genera automáticamente una cuenta por cobrar por cada
+// participante con su parte.
+model ScheduledPaymentSplit {
+  id                 String   @id @default(cuid())
+  userId             String
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPaymentId String
+  scheduledPayment   ScheduledPayment @relation(fields: [scheduledPaymentId], references: [id], onDelete: Cascade)
+  personId           String
+  amount             Float
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  createdBy          String?
+  updatedBy          String?
+
+  @@unique([scheduledPaymentId, personId])
+  @@index([userId])
+  @@map("scheduled_payment_splits")
 }
 
 model ScheduledPaymentPeriod {

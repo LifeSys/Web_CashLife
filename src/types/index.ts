@@ -117,6 +117,8 @@ export interface Person {
   notes?: string;
   transacciones?: unknown[];
   active?: boolean;
+  // Última vez que se le mandó un recordatorio de cobro (se abrió WhatsApp).
+  lastReminderAt?: FireDate;
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;
@@ -200,6 +202,14 @@ export interface Settings {
   tema: 'oscuro' | 'claro';
   notificaciones: boolean;
   onboardingCompleted: boolean;
+  // Método de cobro preferido (ej. "Yape" + "987654321") para incluir en
+  // los mensajes de cobranza por WhatsApp.
+  metodoPagoLabel?: string;
+  metodoPagoValor?: string;
+  // Tipo de cambio USD -> PEN por defecto (manual o de la última
+  // actualización automática) y cuándo se fijó.
+  tipoCambioUsdPen?: number;
+  tipoCambioUpdatedAt?: FireDate;
   updatedAt?: FireDate;
 }
 
@@ -228,6 +238,12 @@ export interface ReceivableDebt {
   originalAmount: number;
   pendingBalance: number;
   status: DebtStatus;
+  // Moneda de la deuda y tipo de cambio a PEN congelado al crearla.
+  moneda?: Currency;
+  tipoCambio?: number;
+  // Si se generó sola al marcar un pago programado dividido como pagado,
+  // acá queda el id de ese pago programado.
+  sourceScheduledPaymentId?: string;
   notes?: string;
   createdAt?: FireDate;
   updatedAt?: FireDate;
@@ -263,6 +279,8 @@ export interface PayableObligation {
   originalAmount: number;
   pendingBalance: number;
   status: DebtStatus;
+  moneda?: Currency;
+  tipoCambio?: number;
   notes?: string;
   createdAt?: FireDate;
   updatedAt?: FireDate;
@@ -316,6 +334,17 @@ export interface ScheduledPaymentPeriod {
   accountId?: string;
   transactionId?: string;
   notes?: string;
+  createdAt?: FireDate;
+  updatedAt?: FireDate;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
+export interface ScheduledPaymentSplit {
+  id: string;
+  scheduledPaymentId: string;
+  personId: string;
+  amount: number;
   createdAt?: FireDate;
   updatedAt?: FireDate;
   createdBy?: string;

@@ -8,10 +8,10 @@ export function cn(...inputs: ClassValue[]) {
 /**
  * Format number as currency (PEN)
  */
-export function formatCurrency(value: number): string {
+export function formatCurrency(value: number, currency: string = 'PEN'): string {
   return new Intl.NumberFormat('es-PE', {
     style: 'currency',
-    currency: 'PEN',
+    currency,
   }).format(value || 0)
 }
 

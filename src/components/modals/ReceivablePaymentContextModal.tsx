@@ -8,6 +8,7 @@ import { useReceivableDebts } from '@/hooks/useFinancial';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface ReceivablePaymentContextModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export function ReceivablePaymentContextModal({
   
   const [selectedDebtId, setSelectedDebtId] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -88,7 +89,7 @@ export function ReceivablePaymentContextModal({
         contactId: contactId,
         amount: parsedAmount,
         accountId: accountOptions[0]?.id || '', // Usar primera cuenta disponible
-        date: new Date(date),
+        date: parseLocalDate(date),
         observations: notes,
       });
       
@@ -100,7 +101,7 @@ export function ReceivablePaymentContextModal({
       // Reset form
       setSelectedDebtId('');
       setAmount('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setNotes('');
       
       onClose();

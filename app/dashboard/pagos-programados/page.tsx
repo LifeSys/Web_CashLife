@@ -6,6 +6,7 @@ import { useScheduledPayments } from '@/hooks/useFinancial';
 import { ScheduledPaymentRow } from '@/components/sections/ScheduledPaymentRow';
 import { ScheduledPaymentModal } from '@/components/modals/ScheduledPaymentModal';
 import { ScheduledPaymentPayModal } from '@/components/modals/ScheduledPaymentPayModal';
+import { ScheduledPaymentSplitsModal } from '@/components/modals/ScheduledPaymentSplitsModal';
 import { EmptyState } from '@/components/design-system/feedback/EmptyState';
 import type { ScheduledPayment } from '@/types';
 
@@ -19,6 +20,7 @@ export default function PagosProgramadosPage() {
   const [period] = useState(currentPeriod());
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [paymentToPay, setPaymentToPay] = useState<ScheduledPayment | null>(null);
+  const [paymentToSplit, setPaymentToSplit] = useState<ScheduledPayment | null>(null);
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -54,6 +56,7 @@ export default function PagosProgramadosPage() {
             payment={payment}
             period={period}
             onPay={setPaymentToPay}
+            onManageSplit={setPaymentToSplit}
           />
         ))}
       </div>
@@ -70,6 +73,12 @@ export default function PagosProgramadosPage() {
         period={period}
         onClose={() => setPaymentToPay(null)}
         onSuccess={() => setPaymentToPay(null)}
+      />
+
+      <ScheduledPaymentSplitsModal
+        isOpen={!!paymentToSplit}
+        payment={paymentToSplit}
+        onClose={() => setPaymentToSplit(null)}
       />
     </div>
   );

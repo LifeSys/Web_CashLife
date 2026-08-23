@@ -7,6 +7,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface PayablePaymentModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export function PayablePaymentModal({
   const { invalidateAfterPayable } = useSWRInvalidation();
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -57,14 +58,14 @@ export function PayablePaymentModal({
         contactId,
         amount: parsedAmount,
         accountId,
-        date: new Date(date),
+        date: parseLocalDate(date),
         observations: notes,
       });
       toast.success('Pago registrado correctamente');
       invalidateAfterPayable(user.uid);
       setAmount('');
       setAccountId('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setNotes('');
       onClose();
       onSuccess?.();

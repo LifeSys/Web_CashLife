@@ -7,6 +7,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface TransferModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps
   const [fromAccountId, setFromAccountId] = useState('');
   const [toAccountId, setToAccountId] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,7 +49,7 @@ export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps
       await financialEngine.createTransfer(user.uid, {
         monto: parsedAmount,
         descripcion: description || 'Transferencia entre cuentas',
-        fecha: new Date(date),
+        fecha: parseLocalDate(date),
         cuenta: fromAccountId,
         destinationAccountId: toAccountId,
       });
@@ -57,7 +58,7 @@ export function TransferModal({ isOpen, onClose, onSuccess }: TransferModalProps
       setFromAccountId('');
       setToAccountId('');
       setAmount('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setDescription('');
       onClose();
       onSuccess?.();

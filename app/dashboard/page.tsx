@@ -10,6 +10,7 @@ import {
   Minus,
   Plus,
   ArrowRightLeft,
+  MessageCircle,
 } from 'lucide-react';
 import { useTransactions } from '@/hooks/useTransactions';
 import { useAccounts } from '@/hooks/useAccounts';
@@ -19,6 +20,11 @@ import {
   useScheduledPayments,
 } from '@/hooks/useFinancial';
 import { useCreditCards } from '@/hooks/useCreditCards';
+import { useCollectionReminders, FOLLOW_UP_DAYS } from '@/hooks/useCollectionReminders';
+import { useSettings } from '@/hooks/useSettings';
+import { personService } from '@/services/person.service';
+import { buildDebtMessage } from '@/lib/whatsapp';
+import { toPenEquivalent } from '@/lib/currency';
 import {
   DashboardMetric,
   SectionHeader,
@@ -29,6 +35,9 @@ import { RecentTransactions } from '@/features/dashboard/components/RecentTransa
 import { ExpenseModal } from '@/components/modals/ExpenseModal';
 import { IncomeModal } from '@/components/modals/IncomeModal';
 import { TransferModal } from '@/components/modals/TransferModal';
+import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
+import { useAuth } from '@/providers/AuthProvider';
+import type { Person } from '@/types';
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat('es-PE', {
@@ -45,24 +54,38 @@ const toDate = (value: unknown) =>
       : new Date(String(value));
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [whatsAppContact, setWhatsAppContact] = useState<Person | null>(null);
   const { transacciones } = useTransactions();
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
   const { obligations } = usePayableObligations();
   const { scheduledPayments } = useScheduledPayments();
   const { creditCards } = useCreditCards();
+  const { settings } = useSettings();
+  const { followUpRows, mutatePeople } = useCollectionReminders();
+
+  const handleReminderSent = async (contact: Person) => {
+    if (!user?.uid) return;
+    try {
+      await personService.update(user.uid, contact.id, { lastReminderAt: new Date() });
+      mutatePeople();
+    } catch (error) {
+      console.error('[CashLife] Error registrando recordatorio:', error);
+    }
+  };
 
   const data = useMemo(() => {
     const now = new Date();
     const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const availableMoney = cuentas.filter((a) => a.tipo !== 'credit_card').reduce((sum, a) => sum + (a.saldo ?? a.balance ?? 0), 0);
-    const receivableTotal = debts.reduce((sum, d) => sum + (d.pendingBalance || 0), 0);
-    const personDebt = obligations.filter((o) => o.creditorType === 'person' || !!o.personId).reduce((sum, o) => sum + (o.pendingBalance || 0), 0);
-    const bankDebt = obligations.filter((o) => o.creditorType === 'bank').reduce((sum, o) => sum + (o.pendingBalance || 0), 0);
-    const otherDebt = obligations.filter((o) => o.creditorType !== 'person' && o.creditorType !== 'bank' && !o.personId).reduce((sum, o) => sum + (o.pendingBalance || 0), 0);
+    const receivableTotal = debts.reduce((sum, d) => sum + toPenEquivalent(d.pendingBalance || 0, d.tipoCambio), 0);
+    const personDebt = obligations.filter((o) => o.creditorType === 'person' || !!o.personId).reduce((sum, o) => sum + toPenEquivalent(o.pendingBalance || 0, o.tipoCambio), 0);
+    const bankDebt = obligations.filter((o) => o.creditorType === 'bank').reduce((sum, o) => sum + toPenEquivalent(o.pendingBalance || 0, o.tipoCambio), 0);
+    const otherDebt = obligations.filter((o) => o.creditorType !== 'person' && o.creditorType !== 'bank' && !o.personId).reduce((sum, o) => sum + toPenEquivalent(o.pendingBalance || 0, o.tipoCambio), 0);
     const creditUsed = creditCards.reduce((sum, c) => sum + (c.usedAmount ?? c.montoUtilizado ?? 0), 0);
     const totalDebt = personDebt + bankDebt + otherDebt + creditUsed;
     const monthTransactions = transacciones.filter((tx) => toDate(tx.fecha) >= startMonth);
@@ -83,7 +106,22 @@ export default function DashboardPage() {
       <ExpenseModal isOpen={isExpenseModalOpen} onClose={() => setIsExpenseModalOpen(false)} />
       <IncomeModal isOpen={isIncomeModalOpen} onClose={() => setIsIncomeModalOpen(false)} />
       <TransferModal isOpen={isTransferModalOpen} onClose={() => setIsTransferModalOpen(false)} />
-      
+      {whatsAppContact && (
+        <WhatsAppMessageModal
+          isOpen={!!whatsAppContact}
+          onClose={() => setWhatsAppContact(null)}
+          contactName={whatsAppContact.nombre}
+          phone={whatsAppContact.phone}
+          initialMessage={buildDebtMessage({
+            contactName: whatsAppContact.nombre,
+            netBalance: followUpRows.find((row) => row.contact.id === whatsAppContact.id)?.netBalance ?? 0,
+            paymentMethodLabel: settings?.metodoPagoLabel,
+            paymentMethodValue: settings?.metodoPagoValor,
+          })}
+          onSend={() => handleReminderSent(whatsAppContact)}
+        />
+      )}
+
     <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24 md:pb-8">
       {/* BLOQUE 1: Encabezado Premium con saludo */}
       <div className="flex flex-col gap-4">
@@ -158,6 +196,47 @@ export default function DashboardPage() {
           />
         </div>
       </div>
+
+      {/* BLOQUE 2b: Cobros pendientes de seguimiento (aviso, no envía nada solo) */}
+      {followUpRows.length > 0 && (
+        <div className="space-y-6">
+          <SectionHeader
+            title="Cobros pendientes"
+            subtitle={
+              followUpRows.length === 1
+                ? `1 persona te debe y no le has escrito en más de ${FOLLOW_UP_DAYS} días`
+                : `${followUpRows.length} personas te deben y no les has escrito en más de ${FOLLOW_UP_DAYS} días`
+            }
+          />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {followUpRows.map(({ contact, netBalance, daysSinceReminder }) => (
+              <ContainerCard key={contact.id} padding="lg" shadow="md" className="hover:shadow-lg transition-all duration-200">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
+                      {contact.nombre}
+                    </p>
+                    <p className="text-2xl font-bold mt-3">{formatCurrency(netBalance)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {daysSinceReminder === null ? 'Nunca le has escrito' : `Último recordatorio hace ${daysSinceReminder} días`}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-green-500/10 rounded-lg flex-shrink-0">
+                    <Users className="w-5 h-5 text-green-600" />
+                  </div>
+                </div>
+                <button
+                  onClick={() => setWhatsAppContact(contact)}
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition-all duration-200 text-sm active:scale-95"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Escribirle
+                </button>
+              </ContainerCard>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* BLOQUE 3: Actividad Reciente */}
       <div className="space-y-6">

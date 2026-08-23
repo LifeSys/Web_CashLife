@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { Person, ContactKind } from '@/types';
 import { useAuth } from '@/providers/AuthProvider';
 import { personService } from '@/services/person.service';
+import { normalizePhoneNumber } from '@/lib/phone';
 import { toast } from 'sonner';
 
 interface PersonEditModalProps {
@@ -55,7 +56,7 @@ export function PersonEditModal({ isOpen, onClose, contact, onSuccess }: PersonE
       await personService.update(user.uid, contact.id, {
         nombre: nombre.trim(),
         contactType,
-        phone: phone.trim() || undefined,
+        phone: phone.trim() ? normalizePhoneNumber(phone) : undefined,
         email: email.trim() || undefined,
         notes: notes.trim() || undefined,
       });

@@ -7,6 +7,7 @@ import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
 import { personService } from '@/services/person.service';
+import { normalizePhoneNumber, formatPhoneDisplay } from '@/lib/phone';
 import type { ContactKind, ContactRole } from '@/types';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
@@ -17,13 +18,27 @@ export default function ContactosPage() {
   const { debts } = useReceivableDebts();
   const { obligations } = usePayableObligations();
   const [nombre, setNombre] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [contactType, setContactType] = useState<ContactKind>('person');
 
   const createContact = async () => {
     if (!user?.uid || !nombre.trim()) return;
     const roles: ContactRole[] = contactType === 'bank' ? ['bank'] : ['other'];
-    await personService.create(user.uid, { nombre: nombre.trim(), deuda: 0, tipo: 'DEUDOR', fecha: new Date(), contactType, roles, active: true });
+    await personService.create(user.uid, {
+      nombre: nombre.trim(),
+      phone: phone.trim() ? normalizePhoneNumber(phone) : undefined,
+      email: email.trim() || undefined,
+      deuda: 0,
+      tipo: 'DEUDOR',
+      fecha: new Date(),
+      contactType,
+      roles,
+      active: true,
+    });
     setNombre('');
+    setPhone('');
+    setEmail('');
     mutate();
   };
 
@@ -34,19 +49,26 @@ export default function ContactosPage() {
         <p className="text-muted-foreground">Administra personas, empresas, bancos y proveedores.</p>
       </div>
 
-      <section className="rounded-xl border border-border bg-card p-4 grid gap-3 md:grid-cols-[1fr_180px_auto]">
-        <input className="rounded-lg border border-border bg-muted px-3 py-2" placeholder="Nombre del contacto" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <select className="rounded-lg border border-border bg-muted px-3 py-2" value={contactType} onChange={(e) => setContactType(e.target.value as ContactKind)}>
-          <option value="person">Persona</option>
-          <option value="company">Empresa</option>
-          <option value="bank">Banco</option>
-          <option value="client">Cliente</option>
-          <option value="provider">Proveedor</option>
-          <option value="entity">Entidad</option>
-        </select>
-        <button onClick={createContact} className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground">
-          <PlusCircle className="h-4 w-4" /> Crear
-        </button>
+      <section className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <div className="grid gap-3 md:grid-cols-3">
+          <input className="rounded-lg border border-border bg-muted px-3 py-2" placeholder="Nombre del contacto" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+          <input className="rounded-lg border border-border bg-muted px-3 py-2" type="tel" placeholder="Teléfono (+51 999 999 999)" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <input className="rounded-lg border border-border bg-muted px-3 py-2" type="email" placeholder="Email (opcional)" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+          <select className="rounded-lg border border-border bg-muted px-3 py-2" value={contactType} onChange={(e) => setContactType(e.target.value as ContactKind)}>
+            <option value="person">Persona</option>
+            <option value="company">Empresa</option>
+            <option value="bank">Banco</option>
+            <option value="client">Cliente</option>
+            <option value="provider">Proveedor</option>
+            <option value="entity">Entidad</option>
+          </select>
+          <button onClick={createContact} className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 font-semibold text-primary-foreground">
+            <PlusCircle className="h-4 w-4" /> Crear
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground">El teléfono es lo que activa el botón de WhatsApp en la ficha del contacto — puedes dejarlo vacío y agregarlo después desde "Editar".</p>
       </section>
 
       <div className="grid gap-4">
@@ -65,7 +87,7 @@ export default function ContactosPage() {
                     <h2 className="font-bold">{c.nombre}</h2>
                     <div className="flex items-center gap-2 mt-1">
                       {c.phone && (
-                        <p className="text-xs text-muted-foreground">{c.phone}</p>
+                        <p className="text-xs text-muted-foreground">{formatPhoneDisplay(c.phone)}</p>
                       )}
                       {c.contactType && (
                         <span className="inline-block px-2 py-0.5 text-xs font-medium rounded bg-primary/10 text-primary">

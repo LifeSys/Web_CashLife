@@ -1,11 +1,13 @@
-import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod } from '@/types';
+import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 import {
   getAllReceivableDebtsAction,
   getReceivablePaymentsByDebtAction,
   createReceivableDebtAction,
+  updateReceivableDebtAction,
   registerReceivablePaymentAction,
   getAllPayableObligationsAction,
   createPayableObligationAction,
+  updatePayableObligationAction,
   registerPayablePaymentAction,
   getAllScheduledPaymentsAction,
   createScheduledPaymentAction,
@@ -13,6 +15,8 @@ import {
   ensureScheduledPaymentPeriodAction,
   markScheduledPaymentPeriodAsPaidAction,
   markScheduledPaymentAsPaidAction,
+  getScheduledPaymentSplitsAction,
+  setScheduledPaymentSplitsAction,
   getAllIncomesAction,
   createIncomeRecordAction,
 } from '@/lib/actions/financial.actions';
@@ -31,6 +35,9 @@ class ReceivableService {
   createDebt(uid: string, debt: Omit<ReceivableDebt, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'pendingBalance' | 'status'>) {
     return createReceivableDebtAction(uid, debt);
   }
+  updateDebt(uid: string, id: string, updates: Partial<Pick<ReceivableDebt, 'description' | 'originalAmount' | 'date' | 'dueDate' | 'notes' | 'moneda' | 'tipoCambio'>>) {
+    return updateReceivableDebtAction(uid, id, updates);
+  }
   registerPayment(uid: string, payment: Omit<ReceivablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>) {
     return registerReceivablePaymentAction(uid, payment);
   }
@@ -42,6 +49,9 @@ class PayableService {
   }
   createObligation(uid: string, obligation: Omit<PayableObligation, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'pendingBalance' | 'status'>) {
     return createPayableObligationAction(uid, obligation);
+  }
+  updateObligation(uid: string, id: string, updates: Partial<Pick<PayableObligation, 'description' | 'originalAmount' | 'date' | 'dueDate' | 'notes' | 'creditorName' | 'creditorType' | 'moneda' | 'tipoCambio'>>) {
+    return updatePayableObligationAction(uid, id, updates);
   }
   registerPayment(uid: string, payment: Omit<PayablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>) {
     return registerPayablePaymentAction(uid, payment);
@@ -66,6 +76,12 @@ class ScheduledPaymentService {
   }
   markAsPaid(uid: string, id: string, accountId: string) {
     return markScheduledPaymentAsPaidAction(uid, id, accountId);
+  }
+  getSplits(uid: string, scheduledPaymentId: string): Promise<ScheduledPaymentSplit[]> {
+    return getScheduledPaymentSplitsAction(uid, scheduledPaymentId);
+  }
+  setSplits(uid: string, scheduledPaymentId: string, splits: { personId: string; amount: number }[]): Promise<ScheduledPaymentSplit[]> {
+    return setScheduledPaymentSplitsAction(uid, scheduledPaymentId, splits);
   }
 }
 

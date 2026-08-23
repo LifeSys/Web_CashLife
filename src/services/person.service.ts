@@ -1,5 +1,6 @@
 import { Person } from '@/types';
 import { receivableService, payableService } from './financial.service';
+import { toPenEquivalent } from '@/lib/currency';
 import {
   getAllPeopleAction,
   getPersonByIdAction,
@@ -56,9 +57,10 @@ class PersonService {
     const personDebts = debts.filter(d => d.personId === personId);
     const personObligations = obligations.filter(o => o.personId === personId || o.contactId === personId);
 
-    // Calculate totals
-    const meDebe = personDebts.reduce((sum, d) => sum + (d.pendingBalance || 0), 0);
-    const leDebo = personObligations.reduce((sum, o) => sum + (o.pendingBalance || 0), 0);
+    // Calculate totals (convertidos a soles con el tipo de cambio congelado
+    // de cada deuda, no el de hoy)
+    const meDebe = personDebts.reduce((sum, d) => sum + toPenEquivalent(d.pendingBalance || 0, d.tipoCambio), 0);
+    const leDebo = personObligations.reduce((sum, o) => sum + toPenEquivalent(o.pendingBalance || 0, o.tipoCambio), 0);
     const totalOperations = personDebts.length + personObligations.length;
 
     // Find most recent operation date

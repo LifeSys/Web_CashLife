@@ -6,7 +6,9 @@ import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
+import { useSettings } from '@/hooks/useSettings';
 import { personService, PersonFinancialSummary } from '@/services/person.service';
+import { buildDebtMessage } from '@/lib/whatsapp';
 import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalInfo';
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
 import { ContactHistoryTimeline } from '@/components/design-system/ContactHistoryTimeline';
@@ -14,6 +16,7 @@ import { ContactActionButtons } from '@/components/design-system/ContactActionBu
 import { ReceivableDebtContextModal } from '@/components/modals/ReceivableDebtContextModal';
 import { PayableObligationContextModal } from '@/components/modals/PayableObligationContextModal';
 import { PersonEditModal } from '@/components/modals/PersonEditModal';
+import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
 import { toast } from 'sonner';
 
 export default function ContactDetailPage() {
@@ -23,13 +26,15 @@ export default function ContactDetailPage() {
   const { contacts, mutate: mutatePeople } = usePeople();
   const { debts, mutate: mutateDebts } = useReceivableDebts();
   const { obligations, mutate: mutateObligations } = usePayableObligations();
-  
+  const { settings } = useSettings();
+
   const [financialSummary, setFinancialSummary] = useState<PersonFinancialSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingActions, setIsLoadingActions] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
 
   const contact = contacts.find((c) => c.id === id);
 
@@ -78,19 +83,24 @@ export default function ContactDetailPage() {
       toast.error('No hay número de teléfono registrado');
       return;
     }
+    setIsWhatsAppModalOpen(true);
+  };
 
-    const phoneNumber = contact.phone.replace(/\D/g, '');
-    const pendingDebt = financialSummary?.meDebe || 0;
-    
-    let message = `Hola ${contact.nombre},`;
-    if (pendingDebt > 0) {
-      message += ` tenemos registrado que me debes ${new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(pendingDebt)}. ¿Puedes agendar un pago?`;
-    } else {
-      message += ` quería confirmar los detalles de nuestras operaciones pendientes.`;
+  const whatsAppMessage = buildDebtMessage({
+    contactName: contact?.nombre ?? '',
+    netBalance: financialSummary?.netBalance ?? 0,
+    paymentMethodLabel: settings?.metodoPagoLabel,
+    paymentMethodValue: settings?.metodoPagoValor,
+  });
+
+  const handleReminderSent = async () => {
+    if (!user?.uid || !id) return;
+    try {
+      await personService.update(user.uid, id, { lastReminderAt: new Date() });
+      mutatePeople();
+    } catch (error) {
+      console.error('[CashLife] Error registrando recordatorio:', error);
     }
-
-    const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
   };
 
   const handleCall = () => {
@@ -250,6 +260,14 @@ export default function ContactDetailPage() {
             contactId={id}
             contactName={contact.nombre}
             onSuccess={handleRefreshAfterOperation}
+          />
+          <WhatsAppMessageModal
+            isOpen={isWhatsAppModalOpen}
+            onClose={() => setIsWhatsAppModalOpen(false)}
+            contactName={contact.nombre}
+            phone={contact.phone}
+            initialMessage={whatsAppMessage}
+            onSend={handleReminderSent}
           />
         </>
       )}

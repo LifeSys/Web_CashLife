@@ -3,7 +3,7 @@
 import useSWR from 'swr';
 import { payableService, receivableService, scheduledPaymentService, incomeService } from '@/services/financial.service';
 import { useAuth } from '@/providers/AuthProvider';
-import type { IncomeRecord, PayableObligation, ReceivableDebt, ScheduledPayment, ScheduledPaymentPeriod } from '@/types';
+import type { IncomeRecord, PayableObligation, ReceivableDebt, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 
 export function useReceivableDebts() {
   const { user } = useAuth();
@@ -24,6 +24,15 @@ export function useScheduledPaymentPeriods(paymentId?: string) {
   const { user } = useAuth();
   const { data, isLoading, error, mutate } = useSWR<ScheduledPaymentPeriod[]>(user?.uid && paymentId ? ['scheduled-payment-periods', user.uid, paymentId] : null, () => scheduledPaymentService.getPeriods(user!.uid as string, paymentId!), { revalidateOnFocus: false, dedupingInterval: 30000 });
   return { periods: data ?? [], isLoading, error, mutate };
+}
+export function useScheduledPaymentSplits(scheduledPaymentId?: string) {
+  const { user } = useAuth();
+  const { data, isLoading, error, mutate } = useSWR<ScheduledPaymentSplit[]>(
+    user?.uid && scheduledPaymentId ? ['scheduled-payment-splits', user.uid, scheduledPaymentId] : null,
+    () => scheduledPaymentService.getSplits(user!.uid as string, scheduledPaymentId!),
+    { revalidateOnFocus: false, dedupingInterval: 30000 }
+  );
+  return { splits: data ?? [], isLoading, error, mutate };
 }
 export function useIncomes() {
   const { user } = useAuth();

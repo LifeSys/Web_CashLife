@@ -7,6 +7,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface CreditCardPaymentModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export function CreditCardPaymentModal({
   const { invalidateAfterCreditCard } = useSWRInvalidation();
   const [amount, setAmount] = useState(String(usedAmount));
   const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -55,14 +56,14 @@ export function CreditCardPaymentModal({
         cuenta: accountId,
         cuentaId: accountId,
         descripcion: `Pago de tarjeta: ${creditCardName}`,
-        fecha: new Date(date),
+        fecha: parseLocalDate(date),
         notas: notes,
       });
       toast.success('Pago registrado correctamente');
       invalidateAfterCreditCard(user.uid);
       setAmount(String(usedAmount));
       setAccountId('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setNotes('');
       onClose();
       onSuccess?.();

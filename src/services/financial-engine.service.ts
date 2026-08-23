@@ -75,8 +75,8 @@ class FinancialEngineService {
   /**
    * Create receivable debt AND generate transaction
    */
-  async createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
-    const debt = await receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes });
+  async createReceivableDebt(uid: string, input: { personId: string; contactId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string; moneda?: string; tipoCambio?: number }) {
+    const debt = await receivableService.createDebt(uid, { personId: input.personId, contactId: input.contactId ?? input.personId, description: input.description, date: input.date, dueDate: input.dueDate, originalAmount: input.amount, notes: input.notes, moneda: input.moneda ?? 'PEN', tipoCambio: input.tipoCambio ?? 1 });
     // Create transaction for receivable debt registration
     await transactionService.create(uid, {
       monto: input.amount,
@@ -96,8 +96,8 @@ class FinancialEngineService {
   /**
    * Create payable obligation AND generate transaction
    */
-  async createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string }) {
-    const obligation = await payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes });
+  async createPayableObligation(uid: string, input: { creditorName: string; creditorType?: 'person' | 'bank' | 'company' | 'sunat' | 'other'; contactId?: string; personId?: string; description: string; amount: number; date: Date; dueDate?: Date; notes?: string; moneda?: string; tipoCambio?: number }) {
+    const obligation = await payableService.createObligation(uid, { creditorName: input.creditorName, creditorType: input.creditorType ?? 'person', contactId: input.contactId, personId: input.personId, description: input.description, date: input.date, dueDate: input.dueDate ?? input.date, originalAmount: input.amount, notes: input.notes, moneda: input.moneda ?? 'PEN', tipoCambio: input.tipoCambio ?? 1 });
     // Create transaction for payable obligation registration
     await transactionService.create(uid, {
       monto: input.amount,

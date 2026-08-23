@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
+import { useSettings } from '@/hooks/useSettings';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface PayableObligationModalProps {
   isOpen: boolean;
@@ -18,13 +20,16 @@ interface PayableObligationModalProps {
 export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledContactId }: PayableObligationModalProps) {
   const { user } = useAuth();
   const { contacts } = usePeople();
+  const { settings } = useSettings();
   const { invalidateAfterPayable } = useSWRInvalidation();
   const [creditorName, setCreditorName] = useState('');
   const [creditorType, setCreditorType] = useState<'person' | 'bank' | 'company' | 'sunat' | 'other'>('person');
   const [contactId, setContactId] = useState(prefilledContactId || '');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [moneda, setMoneda] = useState<'PEN' | 'USD'>('PEN');
+  const [tipoCambio, setTipoCambio] = useState('');
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [dueDate, setDueDate] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +47,12 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledCo
       return;
     }
 
+    const parsedRate = moneda === 'USD' ? Number(tipoCambio) : 1;
+    if (moneda === 'USD' && (!parsedRate || parsedRate <= 0)) {
+      toast.error('Ingresa el tipo de cambio del día');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await financialEngine.createPayableObligation(user.uid, {
@@ -50,10 +61,12 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledCo
         contactId,
         personId: contactId,
         description,
-        date: new Date(date),
-        dueDate: dueDate ? new Date(dueDate) : new Date(date),
+        date: parseLocalDate(date),
+        dueDate: dueDate ? parseLocalDate(dueDate) : parseLocalDate(date),
         amount: parsedAmount,
         notes,
+        moneda,
+        tipoCambio: parsedRate,
       });
       toast.success('Obligación registrada');
       invalidateAfterPayable(user.uid);
@@ -62,7 +75,9 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledCo
       setContactId('');
       setDescription('');
       setAmount('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setMoneda('PEN');
+      setTipoCambio('');
+      setDate(formatDateInput(new Date()));
       setDueDate('');
       setNotes('');
       onClose();
@@ -145,18 +160,55 @@ export function PayableObligationModal({ isOpen, onClose, onSuccess, prefilledCo
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium">Monto Original *</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
-            />
+          <div className="grid grid-cols-[1fr_110px] gap-3">
+            <div>
+              <label className="text-sm font-medium">Monto Original *</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Moneda</label>
+              <select
+                value={moneda}
+                onChange={(e) => {
+                  const value = e.target.value as 'PEN' | 'USD';
+                  setMoneda(value);
+                  if (value === 'USD' && !tipoCambio && settings?.tipoCambioUsdPen) {
+                    setTipoCambio(String(settings.tipoCambioUsdPen));
+                  }
+                }}
+                className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
+              >
+                <option value="PEN">S/ PEN</option>
+                <option value="USD">$ USD</option>
+              </select>
+            </div>
           </div>
+
+          {moneda === 'USD' && (
+            <div>
+              <label className="text-sm font-medium">Tipo de cambio (S/ por USD) *</label>
+              <input
+                type="number"
+                step="0.0001"
+                min="0"
+                value={tipoCambio}
+                onChange={(e) => setTipoCambio(e.target.value)}
+                placeholder="3.75"
+                className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Se guarda con esta obligación — si el dólar sube o baja después, este monto en soles no cambia.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="text-sm font-medium">Fecha</label>

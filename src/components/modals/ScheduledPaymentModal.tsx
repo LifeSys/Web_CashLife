@@ -7,6 +7,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import { useCategories } from '@/hooks/useCategories';
 import { scheduledPaymentService } from '@/services/financial.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
+import { SplitRowsEditor, type SplitRow } from '@/components/common/SplitRowsEditor';
 import { toast } from 'sonner';
 import type { ScheduledPaymentFrequency } from '@/types';
 
@@ -34,6 +35,8 @@ export function ScheduledPaymentModal({ isOpen, onClose, onSuccess }: ScheduledP
   const [dueDay, setDueDay] = useState('1');
   const [frequency, setFrequency] = useState<ScheduledPaymentFrequency>('monthly');
   const [suggestedAccountId, setSuggestedAccountId] = useState('');
+  const [showSplit, setShowSplit] = useState(false);
+  const [splitRows, setSplitRows] = useState<SplitRow[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -48,6 +51,8 @@ export function ScheduledPaymentModal({ isOpen, onClose, onSuccess }: ScheduledP
     setDueDay('1');
     setFrequency('monthly');
     setSuggestedAccountId('');
+    setShowSplit(false);
+    setSplitRows([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,9 +74,13 @@ export function ScheduledPaymentModal({ isOpen, onClose, onSuccess }: ScheduledP
       return;
     }
 
+    const validSplits = splitRows
+      .filter((r) => r.personId && Number(r.amount) > 0)
+      .map((r) => ({ personId: r.personId, amount: Number(r.amount) }));
+
     setIsSubmitting(true);
     try {
-      await scheduledPaymentService.create(user.uid, {
+      const created = await scheduledPaymentService.create(user.uid, {
         name: name.trim(),
         category: category || 'Otros',
         amount: parsedAmount,
@@ -81,6 +90,9 @@ export function ScheduledPaymentModal({ isOpen, onClose, onSuccess }: ScheduledP
         reminders: [],
         suggestedAccountId: suggestedAccountId || undefined,
       });
+      if (validSplits.length > 0) {
+        await scheduledPaymentService.setSplits(user.uid, created.id, validSplits);
+      }
       toast.success('Pago programado creado');
       invalidateAfterScheduledPayment(user.uid);
       resetForm();
@@ -181,6 +193,29 @@ export function ScheduledPaymentModal({ isOpen, onClose, onSuccess }: ScheduledP
                 <option key={c.id} value={c.id}>{c.nombre}</option>
               ))}
             </select>
+          </div>
+
+          <div className="border-t border-border pt-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSplit}
+                onChange={(e) => {
+                  setShowSplit(e.target.checked);
+                  if (e.target.checked && splitRows.length === 0) setSplitRows([{ personId: '', amount: '' }]);
+                }}
+                className="rounded"
+              />
+              <span className="text-sm font-medium">¿Se divide con otras personas?</span>
+            </label>
+            {showSplit && (
+              <div className="mt-3">
+                <SplitRowsEditor rows={splitRows} onChange={setSplitRows} totalAmount={Number(amount) || undefined} />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Cuando marques un mes como pagado, se creará automáticamente una cuenta por cobrar a cada persona con lo que le toca.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 pt-4">

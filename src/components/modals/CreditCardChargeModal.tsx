@@ -8,6 +8,7 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface CreditCardChargeModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,7 +47,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
       await financialEngine.chargeCreditCard(user.uid, {
         monto: parsedAmount,
         descripcion: description,
-        fecha: new Date(date),
+        fecha: parseLocalDate(date),
         creditCardId,
         categoriaId: categoryId || undefined,
         notas: notes,
@@ -57,7 +58,7 @@ export function CreditCardChargeModal({ isOpen, onClose, onSuccess }: CreditCard
       setDescription('');
       setAmount('');
       setCategoryId('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setNotes('');
       onClose();
       onSuccess?.();

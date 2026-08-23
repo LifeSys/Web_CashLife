@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { FinancialRepository } from '@/lib/repositories/financial.repository';
 import { transactionService } from '@/services/transaction.service';
-import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod } from '@/types';
+import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 
 const toDate = (value?: Date | { toDate(): Date }) => (value && 'toDate' in value ? value.toDate() : value);
 const getStatus = (pendingBalance: number, originalAmount: number, dueDate?: Date | { toDate(): Date }) => {
@@ -27,6 +27,7 @@ const receivablePaymentsRepo = new FinancialRepository<ReceivablePayment>(prisma
 const obligationsRepo = new FinancialRepository<PayableObligation>(prisma.payableObligation, 'dueDate');
 const payablePaymentsRepo = new FinancialRepository<PayablePayment>(prisma.payablePayment, 'date');
 const scheduledRepo = new FinancialRepository<ScheduledPayment>(prisma.scheduledPayment, 'dueDay');
+const splitsRepo = new FinancialRepository<ScheduledPaymentSplit>(prisma.scheduledPaymentSplit, 'createdAt');
 const incomeRepo = new FinancialRepository<IncomeRecord>(prisma.incomeRecord, 'date');
 
 // ---- Cuentas por cobrar ----
@@ -46,6 +47,26 @@ export async function createReceivableDebtAction(
     ...debt,
     pendingBalance: debt.originalAmount,
     status: getStatus(debt.originalAmount, debt.originalAmount, debt.dueDate as Date),
+  });
+}
+
+export async function updateReceivableDebtAction(
+  uid: string,
+  id: string,
+  updates: Partial<Pick<ReceivableDebt, 'description' | 'originalAmount' | 'date' | 'dueDate' | 'notes' | 'moneda' | 'tipoCambio'>>
+) {
+  const existing = await debtsRepo.getById(uid, id);
+  if (!existing) throw new Error('Cuenta por cobrar no encontrada');
+  // El monto ya cobrado no se toca; solo se recalcula lo pendiente contra
+  // el monto original corregido.
+  const paidSoFar = existing.originalAmount - existing.pendingBalance;
+  const newOriginalAmount = updates.originalAmount ?? existing.originalAmount;
+  const pendingBalance = Math.max(newOriginalAmount - paidSoFar, 0);
+  const dueDate = updates.dueDate ?? existing.dueDate;
+  return debtsRepo.update(uid, id, {
+    ...updates,
+    pendingBalance,
+    status: getStatus(pendingBalance, newOriginalAmount, dueDate as Date),
   });
 }
 
@@ -88,6 +109,24 @@ export async function createPayableObligationAction(
   });
 }
 
+export async function updatePayableObligationAction(
+  uid: string,
+  id: string,
+  updates: Partial<Pick<PayableObligation, 'description' | 'originalAmount' | 'date' | 'dueDate' | 'notes' | 'creditorName' | 'creditorType' | 'moneda' | 'tipoCambio'>>
+) {
+  const existing = await obligationsRepo.getById(uid, id);
+  if (!existing) throw new Error('Cuenta por pagar no encontrada');
+  const paidSoFar = existing.originalAmount - existing.pendingBalance;
+  const newOriginalAmount = updates.originalAmount ?? existing.originalAmount;
+  const pendingBalance = Math.max(newOriginalAmount - paidSoFar, 0);
+  const dueDate = updates.dueDate ?? existing.dueDate;
+  return obligationsRepo.update(uid, id, {
+    ...updates,
+    pendingBalance,
+    status: getStatus(pendingBalance, newOriginalAmount, dueDate as Date),
+  });
+}
+
 export async function registerPayablePaymentAction(
   uid: string,
   payment: Omit<PayablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>
@@ -120,6 +159,24 @@ export async function createScheduledPaymentAction(uid: string, payment: Omit<Sc
   return scheduledRepo.create(uid, payment);
 }
 
+export async function getScheduledPaymentSplitsAction(uid: string, scheduledPaymentId: string): Promise<ScheduledPaymentSplit[]> {
+  return splitsRepo.getByField(uid, 'scheduledPaymentId', scheduledPaymentId);
+}
+
+/** Reemplaza toda la lista de participantes de un pago programado. */
+export async function setScheduledPaymentSplitsAction(
+  uid: string,
+  scheduledPaymentId: string,
+  splits: { personId: string; amount: number }[]
+): Promise<ScheduledPaymentSplit[]> {
+  await prisma.scheduledPaymentSplit.deleteMany({ where: { userId: uid, scheduledPaymentId } });
+  for (const split of splits) {
+    if (split.amount <= 0) continue;
+    await splitsRepo.create(uid, { scheduledPaymentId, personId: split.personId, amount: split.amount });
+  }
+  return splitsRepo.getByField(uid, 'scheduledPaymentId', scheduledPaymentId);
+}
+
 export async function getScheduledPaymentPeriodsAction(uid: string, paymentId: string): Promise<ScheduledPaymentPeriod[]> {
   const rows = await prisma.scheduledPaymentPeriod.findMany({ where: { userId: uid, paymentId }, orderBy: { period: 'desc' } });
   return rows as unknown as ScheduledPaymentPeriod[];
@@ -141,6 +198,12 @@ export async function ensureScheduledPaymentPeriodAction(uid: string, paymentId:
 export async function markScheduledPaymentPeriodAsPaidAction(uid: string, id: string, period: string, accountId: string, paidAt: Date = new Date()) {
   const payment = await scheduledRepo.getById(uid, id);
   if (!payment) throw new Error('Pago programado no encontrado');
+
+  // Si ya estaba pagado, no volver a generar las cuentas por cobrar de los
+  // participantes (evita duplicarlas si se aprieta "marcar pagado" dos veces).
+  const existingPeriod = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId: id, period } } });
+  const wasAlreadyPaid = existingPeriod?.status === 'paid';
+
   const tx = await transactionService.create(uid, {
     monto: payment.amount,
     tipo: 'scheduled_payment',
@@ -156,6 +219,25 @@ export async function markScheduledPaymentPeriodAsPaidAction(uid: string, id: st
     create: { userId: uid, paymentId: id, period, status: 'paid', amount: payment.amount, dueDate: periodToDate(period, payment.dueDay), paidAt, accountId, transactionId: tx.id, createdBy: uid, updatedBy: uid },
     update: { status: 'paid', paidAt, accountId, transactionId: tx.id, updatedBy: uid },
   });
+
+  // Si este pago se divide con otras personas, generar automáticamente una
+  // cuenta por cobrar por cada una con su parte de este periodo.
+  if (!wasAlreadyPaid) {
+    const splits = await splitsRepo.getByField(uid, 'scheduledPaymentId', id);
+    for (const split of splits) {
+      await createReceivableDebtAction(uid, {
+        personId: split.personId,
+        contactId: split.personId,
+        description: `${payment.name} (${period}) — tu parte`,
+        date: paidAt,
+        originalAmount: split.amount,
+        moneda: 'PEN',
+        tipoCambio: 1,
+        sourceScheduledPaymentId: id,
+      });
+    }
+  }
+
   await ensureScheduledPaymentPeriodAction(uid, id, nextMonthlyPeriod(period));
   await scheduledRepo.update(uid, id, { lastPaidAt: paidAt, nextDuePeriod: nextMonthlyPeriod(period) } as Partial<ScheduledPayment>);
   return tx;

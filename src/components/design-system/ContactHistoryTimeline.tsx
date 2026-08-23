@@ -14,6 +14,7 @@ interface TimelineEvent {
   pendingBalance: number;
   originalAmount: number;
   concept?: string;
+  moneda?: string;
 }
 
 interface ContactHistoryTimelineProps {
@@ -65,6 +66,7 @@ export function ContactHistoryTimeline({
       pendingBalance: d.pendingBalance || 0,
       originalAmount: d.originalAmount,
       concept: d.description,
+      moneda: d.moneda,
     })),
     ...obligations.map(o => ({
       id: o.id,
@@ -76,6 +78,7 @@ export function ContactHistoryTimeline({
       pendingBalance: o.pendingBalance || 0,
       originalAmount: o.originalAmount,
       concept: o.description,
+      moneda: o.moneda,
     })),
   ]
     .sort((a, b) => {
@@ -160,11 +163,11 @@ export function ContactHistoryTimeline({
                       event.type === 'receivable' ? 'text-green-400' : 'text-red-400'
                     }`}
                   >
-                    {event.type === 'receivable' ? '+' : '-'}{formatCurrency(event.amount)}
+                    {event.type === 'receivable' ? '+' : '-'}{formatCurrency(event.amount, event.moneda)}
                   </p>
                   {event.pendingBalance > 0 && (
                     <p className="text-xs text-amber-400 mt-1">
-                      Pendiente: {formatCurrency(event.pendingBalance)}
+                      Pendiente: {formatCurrency(event.pendingBalance, event.moneda)}
                     </p>
                   )}
                 </div>

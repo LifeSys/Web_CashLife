@@ -1,7 +1,15 @@
 'use client';
 
 import { Person } from '@/types';
-import { Mail, Phone, Building2, FileText, Edit2, Trash2, MessageCircle, PhoneCall } from 'lucide-react';
+import { formatPhoneDisplay } from '@/lib/phone';
+import { Mail, Phone, Building2, FileText, Edit2, Trash2, MessageCircle, PhoneCall, Clock } from 'lucide-react';
+
+function formatRelativeDays(date: Date): string {
+  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  return `hace ${days} días`;
+}
 
 interface ContactPersonalInfoProps {
   contact: Person;
@@ -114,7 +122,7 @@ export function ContactPersonalInfo({
             <Phone className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Teléfono</p>
-              <p className="text-base font-medium truncate">{contact.phone}</p>
+              <p className="text-base font-medium truncate">{formatPhoneDisplay(contact.phone)}</p>
             </div>
           </div>
         )}
@@ -126,6 +134,17 @@ export function ContactPersonalInfo({
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Email</p>
               <p className="text-base font-medium truncate">{contact.email}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Último recordatorio */}
+        {contact.lastReminderAt && (
+          <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border">
+            <Clock className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Último recordatorio</p>
+              <p className="text-base font-medium">{formatRelativeDays(new Date(contact.lastReminderAt as unknown as string))}</p>
             </div>
           </div>
         )}

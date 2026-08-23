@@ -8,6 +8,7 @@ import { useCategories } from '@/hooks/useCategories';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
+import { parseLocalDate, formatDateInput } from '@/lib/date';
 
 interface ExpenseModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,7 +47,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
       await financialEngine.createExpense(user.uid, {
         monto: parsedAmount,
         descripcion: description,
-        fecha: new Date(date),
+        fecha: parseLocalDate(date),
         cuenta: accountId,
         cuentaId: accountId,
         categoriaId: categoryId || undefined,
@@ -58,7 +59,7 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
       setAmount('');
       setAccountId('');
       setCategoryId('');
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(formatDateInput(new Date()));
       setNotes('');
       onClose();
       onSuccess?.();

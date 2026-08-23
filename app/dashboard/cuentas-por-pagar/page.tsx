@@ -6,8 +6,10 @@ import { useAuth } from '@/providers/AuthProvider';
 import { usePayableObligations } from '@/hooks/useFinancial';
 import { payableService } from '@/services/financial.service';
 import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
+import { PayableObligationEditModal } from '@/components/modals/PayableObligationEditModal';
 import { PayablePaymentModal } from '@/components/modals/PayablePaymentModal';
 import { toast } from 'sonner';
+import type { PayableObligation } from '@/types';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
 
@@ -17,6 +19,7 @@ export default function Page() {
   const [isNewObligationOpen, setIsNewObligationOpen] = useState(false);
   const [selectedObligationId, setSelectedObligationId] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [obligationToEdit, setObligationToEdit] = useState<PayableObligation | null>(null);
 
   const total = obligations.reduce((sum, item) => sum + (item.pendingBalance || 0), 0);
   const paid = obligations.reduce((sum, item) => sum + Math.max((item.originalAmount || 0) - (item.pendingBalance || 0), 0), 0);
@@ -129,7 +132,7 @@ export default function Page() {
                   <CheckCircle2 className="inline h-4 w-4" /> Marcar pagado
                 </button>
                 <button
-                  onClick={() => toast.info('Editar aún no está implementado')}
+                  onClick={() => setObligationToEdit(item)}
                   className="rounded-lg bg-muted px-3 py-2 text-sm"
                 >
                   <Edit className="inline h-4 w-4" /> Editar
@@ -177,6 +180,13 @@ export default function Page() {
           onSuccess={() => mutate()}
         />
       )}
+
+      <PayableObligationEditModal
+        isOpen={!!obligationToEdit}
+        obligation={obligationToEdit}
+        onClose={() => setObligationToEdit(null)}
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }

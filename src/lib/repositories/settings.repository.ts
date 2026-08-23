@@ -3,13 +3,28 @@ import { Settings } from '@/types';
 import { BaseRepository } from './base.repository';
 import { DEFAULT_SETTINGS } from '@/firebase/constants';
 
-function toSettings(row: { saldoInicial: number; moneda: string; tema: string; notificaciones: boolean; onboardingCompleted: boolean; updatedAt: Date }): Settings {
+function toSettings(row: {
+  saldoInicial: number;
+  moneda: string;
+  tema: string;
+  notificaciones: boolean;
+  onboardingCompleted: boolean;
+  metodoPagoLabel?: string | null;
+  metodoPagoValor?: string | null;
+  tipoCambioUsdPen?: number | null;
+  tipoCambioUpdatedAt?: Date | null;
+  updatedAt: Date;
+}): Settings {
   return {
     saldoInicial: row.saldoInicial,
     moneda: row.moneda,
     tema: row.tema as Settings['tema'],
     notificaciones: row.notificaciones,
     onboardingCompleted: row.onboardingCompleted,
+    metodoPagoLabel: row.metodoPagoLabel ?? undefined,
+    metodoPagoValor: row.metodoPagoValor ?? undefined,
+    tipoCambioUsdPen: row.tipoCambioUsdPen ?? undefined,
+    tipoCambioUpdatedAt: row.tipoCambioUpdatedAt ?? undefined,
     updatedAt: row.updatedAt,
   };
 }

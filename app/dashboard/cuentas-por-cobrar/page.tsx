@@ -1,13 +1,21 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { PlusCircle, Search } from 'lucide-react';
+import { PlusCircle, Search, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useReceivableDebts } from '@/hooks/useFinancial';
-import { receivableService } from '@/services/financial.service';
+import { usePeople } from '@/hooks/usePeople';
+import { useSettings } from '@/hooks/useSettings';
+import { useCollectionReminders } from '@/hooks/useCollectionReminders';
+import { personService } from '@/services/person.service';
+import { buildDebtMessage } from '@/lib/whatsapp';
+import { toPenEquivalent } from '@/lib/currency';
 import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
+import { ReceivableDebtEditModal } from '@/components/modals/ReceivableDebtEditModal';
 import { ReceivablePaymentModal } from '@/components/modals/ReceivablePaymentModal';
+import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
 import { DebtCard, SectionHeader, DashboardMetric, EmptyState } from '@/components/design-system';
+import type { Person, ReceivableDebt } from '@/types';
 import { toast } from 'sonner';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
@@ -25,62 +33,85 @@ const sortDebts = (debts: any[]) => {
   return debts.sort((a, b) => {
     const statusA = getStatus(a);
     const statusB = getStatus(b);
-    
+
     // Priority: overdue > pending > partial > paid
     const priority = { overdue: 0, pending: 1, partial: 2, paid: 3 };
     const priorityDiff = priority[statusA] - priority[statusB];
     if (priorityDiff !== 0) return priorityDiff;
-    
+
     // Within same priority, sort by dueDate (nearest first)
     if (a.dueDate && b.dueDate) {
       return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     }
-    
+
     return 0;
   });
+};
+
+const formatRelativeDays = (date: Date): string => {
+  const days = Math.floor((Date.now() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (days <= 0) return 'hoy';
+  if (days === 1) return 'ayer';
+  return `hace ${days} días`;
 };
 
 export default function Page() {
   const { user } = useAuth();
   const { debts, mutate } = useReceivableDebts();
+  const { contacts } = usePeople();
+  const { settings } = useSettings();
+  const { rows: quickCollection, mutatePeople } = useCollectionReminders();
   const [isNewDebtOpen, setIsNewDebtOpen] = useState(false);
   const [selectedDebtId, setSelectedDebtId] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [whatsAppContact, setWhatsAppContact] = useState<Person | null>(null);
+  const [debtToEdit, setDebtToEdit] = useState<ReceivableDebt | null>(null);
 
-  // Calculate metrics
-  const totalOriginal = debts.reduce((sum, d) => sum + d.originalAmount, 0);
-  const totalPaid = debts.reduce((sum, item) => sum + Math.max((item.originalAmount || 0) - (item.pendingBalance || 0), 0), 0);
-  const totalPending = debts.reduce((sum, item) => sum + (item.pendingBalance || 0), 0);
+  const contactById = useMemo(() => {
+    const map = new Map<string, Person>();
+    contacts.forEach((c) => map.set(c.id, c));
+    return map;
+  }, [contacts]);
+
+  const resolveContact = (item: { personId?: string; contactId?: string }) =>
+    contactById.get(item.contactId ?? item.personId ?? '');
+
+  // Calculate metrics (convertidos a soles con el tipo de cambio congelado
+  // de cada deuda, no el de hoy)
+  const totalOriginal = debts.reduce((sum, d) => sum + toPenEquivalent(d.originalAmount, d.tipoCambio), 0);
+  const totalPaid = debts.reduce((sum, item) => sum + toPenEquivalent(Math.max((item.originalAmount || 0) - (item.pendingBalance || 0), 0), item.tipoCambio), 0);
+  const totalPending = debts.reduce((sum, item) => sum + toPenEquivalent(item.pendingBalance || 0, item.tipoCambio), 0);
   const totalOverdue = debts.reduce((sum, item) => {
     const status = getStatus(item);
-    return status === 'overdue' ? sum + (item.pendingBalance || 0) : sum;
+    return status === 'overdue' ? sum + toPenEquivalent(item.pendingBalance || 0, item.tipoCambio) : sum;
   }, 0);
 
   // Filter and sort debts
   const filteredDebts = useMemo(() => {
     let filtered = debts.filter((debt) => {
       const status = getStatus(debt);
-      
+
       // Filter by status
       if (activeFilter !== 'all' && status !== activeFilter) {
         return false;
       }
-      
+
       // Filter by search query
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesContact = debt.personName?.toLowerCase().includes(query);
+        const contactName = resolveContact(debt)?.nombre ?? '';
+        const matchesContact = contactName.toLowerCase().includes(query);
         const matchesDescription = debt.description?.toLowerCase().includes(query);
         return matchesContact || matchesDescription;
       }
-      
+
       return true;
     });
-    
+
     return sortDebts(filtered);
-  }, [debts, activeFilter, searchQuery]);
+  }, [debts, activeFilter, searchQuery, contactById]);
 
   const handleDelete = async (debtId: string) => {
     if (!user?.uid) return;
@@ -91,6 +122,16 @@ export default function Page() {
     } catch (error) {
       toast.error('Error al eliminar');
       console.error('[v0] Error:', error);
+    }
+  };
+
+  const handleReminderSent = async (contact: Person) => {
+    if (!user?.uid) return;
+    try {
+      await personService.update(user.uid, contact.id, { lastReminderAt: new Date() });
+      mutatePeople();
+    } catch (error) {
+      console.error('[CashLife] Error registrando recordatorio:', error);
     }
   };
 
@@ -140,6 +181,35 @@ export default function Page() {
         />
       </div>
 
+      {/* Cobranza rápida */}
+      {quickCollection.length > 0 && (
+        <div>
+          <SectionHeader title="Cobranza rápida" subtitle="A quién le toca cobrarle — un WhatsApp por persona, con el neto ya calculado" />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {quickCollection.map(({ contact, netBalance }) => (
+              <div key={contact.id} className="rounded-lg border border-border bg-card p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-semibold truncate">{contact.nombre}</p>
+                  <p className="text-sm text-amber-600 font-bold">{formatCurrency(netBalance)}</p>
+                  {contact.lastReminderAt && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Recordado {formatRelativeDays(new Date(contact.lastReminderAt as unknown as string))}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => setWhatsAppContact(contact)}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold bg-green-500/20 text-green-600 px-3 py-2 rounded-lg hover:bg-green-500/30 transition-colors"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  Chat
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Filters and Search */}
       <div className="space-y-4">
         {/* Filter Buttons */}
@@ -183,36 +253,36 @@ export default function Page() {
           subtitle={`${filteredDebts.length} de ${debts.length} registros`}
         />
         {filteredDebts.length > 0 ? (
-          <div className="grid gap-4">
-            {filteredDebts.map((item) => (
-              <DebtCard
-                key={item.id}
-                personName={item.personName || item.description}
-                description={item.description}
-                createdDate={item.date}
-                dueDate={item.dueDate}
-                originalAmount={item.originalAmount}
-                paidAmount={item.originalAmount - item.pendingBalance}
-                status={getStatus(item)}
-                onRegisterPayment={() => {
-                  setSelectedDebtId(item.id);
-                  setIsPaymentOpen(true);
-                }}
-                onViewDetail={() => {
-                  // TODO: Open detail modal when available
-                  toast.info('Detalle de cobranza - Próximamente');
-                }}
-                onEdit={() => {
-                  // TODO: Open edit modal
-                  toast.info('Editar cobranza - Próximamente');
-                }}
-                onWhatsApp={() => {
-                  // TODO: Implement WhatsApp integration
-                  toast.info('WhatsApp - Próximamente');
-                }}
-                onDelete={() => handleDelete(item.id)}
-              />
-            ))}
+          <div className="grid gap-2">
+            {filteredDebts.map((item) => {
+              const contact = resolveContact(item);
+              return (
+                <DebtCard
+                  key={item.id}
+                  personName={contact?.nombre || item.description}
+                  description={item.description}
+                  createdDate={item.date}
+                  dueDate={item.dueDate}
+                  originalAmount={item.originalAmount}
+                  paidAmount={item.originalAmount - item.pendingBalance}
+                  currency={item.moneda}
+                  fromScheduledPayment={!!item.sourceScheduledPaymentId}
+                  compact
+                  status={getStatus(item)}
+                  onRegisterPayment={() => {
+                    setSelectedDebtId(item.id);
+                    setIsPaymentOpen(true);
+                  }}
+                  onViewDetail={() => {
+                    // TODO: Open detail modal when available
+                    toast.info('Detalle de cobranza - Próximamente');
+                  }}
+                  onEdit={() => setDebtToEdit(item)}
+                  onWhatsApp={contact ? () => setWhatsAppContact(contact) : undefined}
+                  onDelete={() => handleDelete(item.id)}
+                />
+              );
+            })}
           </div>
         ) : (
           <EmptyState
@@ -246,6 +316,30 @@ export default function Page() {
           onSuccess={() => mutate()}
         />
       )}
+
+      {whatsAppContact && (
+        <WhatsAppMessageModal
+          isOpen={!!whatsAppContact}
+          onClose={() => setWhatsAppContact(null)}
+          contactName={whatsAppContact.nombre}
+          phone={whatsAppContact.phone}
+          initialMessage={buildDebtMessage({
+            contactName: whatsAppContact.nombre,
+            netBalance: quickCollection.find((row) => row.contact.id === whatsAppContact.id)?.netBalance ?? 0,
+            paymentMethodLabel: settings?.metodoPagoLabel,
+            paymentMethodValue: settings?.metodoPagoValor,
+          })}
+          onSend={() => handleReminderSent(whatsAppContact)}
+        />
+      )}
+
+      <ReceivableDebtEditModal
+        isOpen={!!debtToEdit}
+        debt={debtToEdit}
+        personName={debtToEdit ? resolveContact(debtToEdit)?.nombre : undefined}
+        onClose={() => setDebtToEdit(null)}
+        onSuccess={() => mutate()}
+      />
     </div>
   );
 }

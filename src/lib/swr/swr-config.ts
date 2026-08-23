@@ -191,11 +191,24 @@ export function useSWRInvalidation() {
 
     // Invalidate after scheduled payment
     invalidateAfterScheduledPayment: (uid: string) => {
-      // Invalidate scheduled payments
+      // Invalidate scheduled payments (y sus splits/periodos)
       mutate((key) => {
         if (typeof key === 'string') return false;
-        if (Array.isArray(key) && key[0] === 'scheduled-payments' && key[1] === uid) return true;
-        if (Array.isArray(key) && key[0] === 'scheduled-payment-periods' && key[1] === uid) return true;
+        if (Array.isArray(key) && key[1] === uid) {
+          const keyName = key[0];
+          return ['scheduled-payments', 'scheduled-payment-periods', 'scheduled-payment-splits'].includes(keyName);
+        }
+        return false;
+      });
+
+      // Marcar un periodo como pagado puede generar cuentas por cobrar
+      // nuevas (división del gasto) — refrescar personas/cobranza también.
+      mutate((key) => {
+        if (typeof key === 'string') return false;
+        if (Array.isArray(key) && key[1] === uid) {
+          const keyName = key[0];
+          return ['receivable-debts', 'people'].includes(keyName);
+        }
         return false;
       });
 
