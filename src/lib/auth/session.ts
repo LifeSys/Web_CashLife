@@ -8,19 +8,24 @@
  * hacerse pasar por otro usuario, porque no puede calcular la firma sin
  * el secreto del servidor.
  *
- * Hay dos cookies distintas:
+ * Hay tres cookies distintas:
  * - `cashlife_session`: sesión real, ya autenticado del todo.
  * - `cashlife_2fa_pending`: estado intermedio de login — la contraseña ya
  *   se verificó correcta, pero falta el código de verificación en dos
  *   pasos. Dura 5 minutos y no sirve para acceder a nada por sí sola.
+ * - `cashlife_webauthn_challenge`: el "challenge" aleatorio que exige el
+ *   estándar WebAuthn/passkeys mientras dura el registro o la
+ *   verificación con huella/Face ID — dura 2 minutos.
  */
 import { cookies } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 export const SESSION_COOKIE = 'cashlife_session';
 const PENDING_2FA_COOKIE = 'cashlife_2fa_pending';
+const WEBAUTHN_CHALLENGE_COOKIE = 'cashlife_webauthn_challenge';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 días
 const PENDING_2FA_MAX_AGE_SECONDS = 60 * 5; // 5 minutos
+const WEBAUTHN_CHALLENGE_MAX_AGE_SECONDS = 60 * 2; // 2 minutos
 
 function getSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -119,4 +124,30 @@ export async function getPending2FAUserId(): Promise<string | null> {
   const expiresAt = Number(payload.slice(separatorIndex + 1));
   if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
   return userId;
+}
+
+// ---- Challenge de WebAuthn/passkeys ----
+
+export async function setWebauthnChallenge(challenge: string): Promise<void> {
+  const token = `${challenge}.${sign(challenge)}`;
+  const store = await cookies();
+  store.set(WEBAUTHN_CHALLENGE_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: WEBAUTHN_CHALLENGE_MAX_AGE_SECONDS,
+  });
+}
+
+export async function getWebauthnChallenge(): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(WEBAUTHN_CHALLENGE_COOKIE)?.value;
+  if (!token) return null;
+  return unsignToken(token);
+}
+
+export async function clearWebauthnChallenge(): Promise<void> {
+  const store = await cookies();
+  store.delete(WEBAUTHN_CHALLENGE_COOKIE);
 }

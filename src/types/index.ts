@@ -225,10 +225,12 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   signUp(email: string, password: string, nombre: string): Promise<void>;
-  /** Devuelve requiresTotp: true si la contraseña fue correcta pero falta el código de verificación en dos pasos (usar verifyTotp para completar el login). */
-  signIn(email: string, password: string): Promise<{ requiresTotp: boolean }>;
-  /** Segundo paso del login cuando signIn devolvió requiresTotp: true. */
+  /** Devuelve requiresTotp: true si la contraseña fue correcta pero falta el código de verificación en dos pasos (usar verifyTotp o loginWithPasskey para completar el login). hasPasskey indica si además puede usar una llave de acceso en vez del código. */
+  signIn(email: string, password: string): Promise<{ requiresTotp: boolean; hasPasskey: boolean }>;
+  /** Segundo paso del login cuando signIn devolvió requiresTotp: true — código de 6 dígitos o de respaldo. */
   verifyTotp(code: string): Promise<void>;
+  /** Alternativa a verifyTotp: completa el segundo paso del login con huella/Face ID en vez de escribir un código. */
+  loginWithPasskey(): Promise<void>;
   signOut(): Promise<void>;
   /** Vuelve a cargar el perfil desde el servidor (ej. tras editar nombre/email o activar 2FA). */
   refreshUser(): Promise<void>;

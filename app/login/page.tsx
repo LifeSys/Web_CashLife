@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Fingerprint } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { toast } from 'sonner';
 
@@ -11,8 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [needsTotp, setNeedsTotp] = useState(false);
+  const [hasPasskey, setHasPasskey] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signIn, verifyTotp } = useAuth();
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const { signIn, verifyTotp, loginWithPasskey } = useAuth();
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +30,7 @@ export default function LoginPage() {
       setLoading(true);
       const result = await signIn(email, password);
       if (result.requiresTotp) {
+        setHasPasskey(result.hasPasskey);
         setNeedsTotp(true);
         return;
       }
@@ -37,6 +41,22 @@ export default function LoginPage() {
       toast.error(message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLoginWithPasskey = async () => {
+    try {
+      setPasskeyLoading(true);
+      await loginWithPasskey();
+      router.push('/dashboard');
+    } catch (error) {
+      // El usuario cancelando el prompt de huella/Face ID también cae acá — no hace falta un toast agresivo para eso.
+      const message = error instanceof Error ? error.message : 'No se pudo verificar la llave de acceso';
+      if (!message.toLowerCase().includes('user') && !message.toLowerCase().includes('cancel')) {
+        toast.error(message);
+      }
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -111,7 +131,26 @@ export default function LoginPage() {
               </button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyCode} className="space-y-4">
+            <div className="space-y-4">
+              {hasPasskey && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleLoginWithPasskey}
+                    disabled={passkeyLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 font-medium disabled:opacity-50"
+                  >
+                    <Fingerprint className="w-5 h-5" />
+                    {passkeyLoading ? 'Verificando...' : 'Usar huella / Face ID'}
+                  </button>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <div className="flex-1 h-px bg-border" />
+                    o con el código
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                </>
+              )}
+              <form onSubmit={handleVerifyCode} className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Ingresa el código de 6 dígitos de tu app de autenticación (Google Authenticator o similar), o uno de tus códigos de respaldo.
               </p>
@@ -148,7 +187,8 @@ export default function LoginPage() {
               >
                 ← Volver
               </button>
-            </form>
+              </form>
+            </div>
           )}
 
           {!needsTotp && (

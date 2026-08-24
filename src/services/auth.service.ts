@@ -1,4 +1,10 @@
 import type { User } from '@/types';
+import type {
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/server';
 import {
   updateProfileAction,
   changePasswordAction,
@@ -6,6 +12,11 @@ import {
   confirmTotpEnrollmentAction,
   disableTotpAction,
   type TotpEnrollmentStart,
+  listPasskeysAction,
+  deletePasskeyAction,
+  startPasskeyRegistrationAction,
+  finishPasskeyRegistrationAction,
+  type PasskeyInfo,
 } from '@/lib/actions/auth.actions';
 
 class AuthService {
@@ -28,6 +39,25 @@ class AuthService {
   disableTotp(input: { password: string }): Promise<void> {
     return disableTotpAction(input);
   }
+
+  listPasskeys(): Promise<PasskeyInfo[]> {
+    return listPasskeysAction();
+  }
+
+  deletePasskey(id: string): Promise<void> {
+    return deletePasskeyAction(id);
+  }
+
+  startPasskeyRegistration(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    return startPasskeyRegistrationAction();
+  }
+
+  finishPasskeyRegistration(response: RegistrationResponseJSON, name?: string): Promise<void> {
+    return finishPasskeyRegistrationAction(response, name);
+  }
 }
 
 export const authService = new AuthService();
+
+// Re-exportados para que el login (que no pasa por AuthProvider para esto) los pueda usar directo.
+export type { RegistrationResponseJSON, AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON };

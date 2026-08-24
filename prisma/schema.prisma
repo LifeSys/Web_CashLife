@@ -52,8 +52,31 @@ model User {
   scheduledPaymentSplits ScheduledPaymentSplit[]
   incomes            IncomeRecord[]
   sharedServices     SharedService[]
+  passkeys           Passkey[]
 
   @@map("users")
+}
+
+// Llave de acceso (WebAuthn/passkey) — huella, Face ID, Windows Hello. Se
+// usa como alternativa a escribir el código de 6 dígitos en el segundo
+// paso del login. Un usuario puede tener varias (una por dispositivo).
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      BigInt    @default(0)
+  deviceType   String?
+  backedUp     Boolean   @default(false)
+  transports   String[]  @default([])
+  // Nombre amigable para reconocerla en la lista (ej. "iPhone de Johann").
+  name         String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  @@index([userId])
+  @@map("passkeys")
 }
 
 model Settings {

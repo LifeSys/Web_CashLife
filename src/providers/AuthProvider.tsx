@@ -1,7 +1,16 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSessionUserAction, signInAction, signUpAction, signOutAction, verifyLoginTotpAction } from '@/lib/actions/auth.actions';
+import { startAuthentication } from '@simplewebauthn/browser';
+import {
+  getSessionUserAction,
+  signInAction,
+  signUpAction,
+  signOutAction,
+  verifyLoginTotpAction,
+  startPasskeyLoginAction,
+  finishPasskeyLoginAction,
+} from '@/lib/actions/auth.actions';
 import { User, AuthContextType } from '@/types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -40,13 +49,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const result = await signInAction({ email, password });
-    if (result.requiresTotp) return { requiresTotp: true };
+    if (result.requiresTotp) return { requiresTotp: true, hasPasskey: result.hasPasskey };
     setUser(result.user);
-    return { requiresTotp: false };
+    return { requiresTotp: false, hasPasskey: false };
   }, []);
 
   const verifyTotp = useCallback(async (code: string) => {
     const profile = await verifyLoginTotpAction({ code });
+    setUser(profile);
+  }, []);
+
+  const loginWithPasskey = useCallback(async () => {
+    const options = await startPasskeyLoginAction();
+    const response = await startAuthentication({ optionsJSON: options });
+    const profile = await finishPasskeyLoginAction(response);
     setUser(profile);
   }, []);
 
@@ -73,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signIn,
         verifyTotp,
+        loginWithPasskey,
         signOut,
         refreshUser,
         error,
@@ -94,8 +111,9 @@ export function useAuth(): AuthContextType {
         loading: true,
         error: undefined,
         signUp: async () => {},
-        signIn: async () => ({ requiresTotp: false }),
+        signIn: async () => ({ requiresTotp: false, hasPasskey: false }),
         verifyTotp: async () => {},
+        loginWithPasskey: async () => {},
         signOut: async () => {},
         refreshUser: async () => {},
       } as AuthContextType;

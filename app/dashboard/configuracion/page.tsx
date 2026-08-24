@@ -2,14 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, LogOut, Bell, Moon, Sun, Laptop, Wallet, RefreshCw, DollarSign, MessageSquareText, RotateCcw, UserCircle, KeyRound, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Settings, LogOut, Bell, Moon, Sun, Laptop, Wallet, RefreshCw, DollarSign, MessageSquareText, RotateCcw, UserCircle, KeyRound, ShieldCheck, ShieldOff, Fingerprint, Trash2 } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/providers/AuthProvider';
 import { useTheme } from '@/providers/ThemeProvider';
 import { authService } from '@/services/auth.service';
+import type { PasskeyInfo } from '@/lib/actions/auth.actions';
 import { fetchUsdToPenRateAction } from '@/lib/actions/exchange-rate.actions';
 import { TwoFactorSetupModal } from '@/components/modals/TwoFactorSetupModal';
 import { DisableTwoFactorModal } from '@/components/modals/DisableTwoFactorModal';
+import { AddPasskeyModal } from '@/components/modals/AddPasskeyModal';
 import {
   MESSAGE_PLACEHOLDERS,
   DEFAULT_DEBT_TEMPLATE,
@@ -73,6 +75,35 @@ export default function ConfiguracionPage() {
   // Verificación en dos pasos
   const [show2FASetup, setShow2FASetup] = useState(false);
   const [show2FADisable, setShow2FADisable] = useState(false);
+
+  // Llaves de acceso (passkeys)
+  const [passkeys, setPasskeys] = useState<PasskeyInfo[]>([]);
+  const [showAddPasskey, setShowAddPasskey] = useState(false);
+  const [deletingPasskeyId, setDeletingPasskeyId] = useState<string | null>(null);
+
+  const loadPasskeys = () => {
+    authService
+      .listPasskeys()
+      .then(setPasskeys)
+      .catch((err) => console.error('[CashLife] Error cargando llaves de acceso:', err));
+  };
+
+  useEffect(() => {
+    if (user) loadPasskeys();
+  }, [user]);
+
+  const handleDeletePasskey = async (id: string) => {
+    setDeletingPasskeyId(id);
+    try {
+      await authService.deletePasskey(id);
+      toast.success('Llave de acceso eliminada');
+      loadPasskeys();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar');
+    } finally {
+      setDeletingPasskeyId(null);
+    }
+  };
 
   useEffect(() => {
     if (!settings) return;
@@ -363,6 +394,56 @@ export default function ConfiguracionPage() {
         </div>
       </div>
 
+      {/* Llaves de acceso (Passkeys) */}
+      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-bold flex items-center gap-2">
+              <Fingerprint className="w-5 h-5" />
+              Llaves de acceso
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Entra con tu huella o Face ID en vez de escribir el código de verificación en dos pasos.
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddPasskey(true)}
+            className="px-3 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90 flex-shrink-0"
+          >
+            Agregar
+          </button>
+        </div>
+
+        {passkeys.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-2">Sin llaves de acceso registradas todavía.</p>
+        ) : (
+          <div className="space-y-2">
+            {passkeys.map((pk) => (
+              <div key={pk.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                <div className="flex items-center gap-3">
+                  <Fingerprint className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <p className="font-medium text-sm">{pk.name || 'Sin nombre'}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Agregada {formatRelativeDays(new Date(pk.createdAt))}
+                      {pk.lastUsedAt ? ` · usada ${formatRelativeDays(new Date(pk.lastUsedAt))}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleDeletePasskey(pk.id)}
+                  disabled={deletingPasskeyId === pk.id}
+                  title="Eliminar llave de acceso"
+                  className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Método de cobro */}
       <div className="bg-card border border-border rounded-lg p-4 space-y-4">
         <h2 className="font-bold flex items-center gap-2">
@@ -598,6 +679,11 @@ export default function ConfiguracionPage() {
         isOpen={show2FADisable}
         onClose={() => setShow2FADisable(false)}
         onSuccess={() => refreshUser()}
+      />
+      <AddPasskeyModal
+        isOpen={showAddPasskey}
+        onClose={() => setShowAddPasskey(false)}
+        onSuccess={() => loadPasskeys()}
       />
     </div>
   );

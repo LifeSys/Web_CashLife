@@ -10,8 +10,18 @@ import {
   createPending2FA,
   destroyPending2FA,
   getPending2FAUserId,
+  setWebauthnChallenge,
+  getWebauthnChallenge,
+  clearWebauthnChallenge,
 } from '@/lib/auth/session';
 import { generateTotpSecret, buildTotpEnrollment, verifyTotpToken, generateBackupCodes, findMatchingBackupCode } from '@/lib/auth/totp';
+import { buildRegistrationOptions, verifyRegistration, buildAuthenticationOptions, verifyAuthentication } from '@/lib/auth/webauthn';
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+  RegistrationResponseJSON,
+  AuthenticationResponseJSON,
+} from '@simplewebauthn/server';
 import { User } from '@/types';
 
 const repo = new UserRepository();
@@ -64,6 +74,8 @@ export async function signUpAction(input: { email: string; password: string; nom
 export interface SignInResult {
   /** Si es true, la contraseña era correcta pero falta el código de verificación en dos pasos. */
   requiresTotp: boolean;
+  /** Si además tiene alguna llave de acceso (passkey) registrada, para ofrecerla como atajo en vez del código. */
+  hasPasskey: boolean;
   user: User | null;
 }
 
@@ -77,13 +89,14 @@ export async function signInAction(input: { email: string; password: string }): 
 
   if (user.totpEnabled) {
     await createPending2FA(user.id);
-    return { requiresTotp: true, user: null };
+    const passkeyCount = await prisma.passkey.count({ where: { userId: user.id } });
+    return { requiresTotp: true, hasPasskey: passkeyCount > 0, user: null };
   }
 
   await createSession(user.id);
   const profile = await repo.getProfile(user.id);
   if (!profile) throw new Error('Error iniciando sesión');
-  return { requiresTotp: false, user: profile };
+  return { requiresTotp: false, hasPasskey: false, user: profile };
 }
 
 /** Segundo paso del login cuando la cuenta tiene verificación en dos pasos: código del app, o un código de respaldo. */
@@ -221,4 +234,118 @@ export async function disableTotpAction(input: { password: string }): Promise<vo
     where: { id: uid },
     data: { totpEnabled: false, totpSecret: null, totpBackupCodes: [] },
   });
+}
+
+// ---- Llaves de acceso (WebAuthn / passkeys) ----
+
+export interface PasskeyInfo {
+  id: string;
+  name: string | null;
+  createdAt: Date;
+  lastUsedAt: Date | null;
+}
+
+export async function listPasskeysAction(): Promise<PasskeyInfo[]> {
+  const uid = await getSessionUserId();
+  requireSessionUserId(uid);
+  const rows = await prisma.passkey.findMany({ where: { userId: uid }, orderBy: { createdAt: 'desc' } });
+  return rows.map((r) => ({ id: r.id, name: r.name, createdAt: r.createdAt, lastUsedAt: r.lastUsedAt }));
+}
+
+export async function deletePasskeyAction(id: string): Promise<void> {
+  const uid = await getSessionUserId();
+  requireSessionUserId(uid);
+  const existing = await prisma.passkey.findFirst({ where: { id, userId: uid } });
+  if (!existing) throw new Error('Llave de acceso no encontrada');
+  await prisma.passkey.delete({ where: { id } });
+}
+
+/** Paso 1 de registrar una llave de acceso: genera las opciones que el navegador necesita para pedir la huella/Face ID. */
+export async function startPasskeyRegistrationAction(): Promise<PublicKeyCredentialCreationOptionsJSON> {
+  const uid = await getSessionUserId();
+  requireSessionUserId(uid);
+
+  const user = await prisma.user.findUnique({ where: { id: uid }, include: { passkeys: true } });
+  if (!user) throw new Error('Usuario no encontrado');
+
+  const options = await buildRegistrationOptions(
+    uid,
+    user.email ?? uid,
+    user.nombre,
+    user.passkeys.map((p) => p.credentialId)
+  );
+  await setWebauthnChallenge(options.challenge);
+  return options;
+}
+
+/** Paso 2: verifica lo que devolvió el navegador y guarda la llave. */
+export async function finishPasskeyRegistrationAction(response: RegistrationResponseJSON, name?: string): Promise<void> {
+  const uid = await getSessionUserId();
+  requireSessionUserId(uid);
+
+  const challenge = await getWebauthnChallenge();
+  if (!challenge) throw new Error('El registro expiró — intenta de nuevo');
+
+  const verification = await verifyRegistration(response, challenge);
+  await clearWebauthnChallenge();
+  if (!verification.verified || !verification.registrationInfo) throw new Error('No se pudo verificar la llave de acceso');
+
+  const { credential, credentialDeviceType, credentialBackedUp } = verification.registrationInfo;
+  await prisma.passkey.create({
+    data: {
+      userId: uid,
+      credentialId: credential.id,
+      publicKey: Buffer.from(credential.publicKey),
+      counter: BigInt(credential.counter),
+      deviceType: credentialDeviceType,
+      backedUp: credentialBackedUp,
+      transports: response.response.transports ?? [],
+      name: name?.trim() || undefined,
+    },
+  });
+}
+
+/** Paso 1 del login con llave de acceso (segundo paso, en vez del código de 6 dígitos). */
+export async function startPasskeyLoginAction(): Promise<PublicKeyCredentialRequestOptionsJSON> {
+  const userId = await getPending2FAUserId();
+  if (!userId) throw new Error('La verificación expiró — inicia sesión de nuevo.');
+
+  const passkeys = await prisma.passkey.findMany({ where: { userId } });
+  if (passkeys.length === 0) throw new Error('No tienes ninguna llave de acceso registrada');
+
+  const options = await buildAuthenticationOptions(passkeys.map((p) => p.credentialId));
+  await setWebauthnChallenge(options.challenge);
+  return options;
+}
+
+/** Paso 2: verifica la huella/Face ID y completa el login. */
+export async function finishPasskeyLoginAction(response: AuthenticationResponseJSON): Promise<User> {
+  const userId = await getPending2FAUserId();
+  if (!userId) throw new Error('La verificación expiró — inicia sesión de nuevo.');
+
+  const challenge = await getWebauthnChallenge();
+  if (!challenge) throw new Error('La verificación expiró — inicia sesión de nuevo.');
+
+  const passkey = await prisma.passkey.findUnique({ where: { credentialId: response.id } });
+  if (!passkey || passkey.userId !== userId) throw new Error('Llave de acceso no reconocida');
+
+  const verification = await verifyAuthentication(response, challenge, {
+    id: passkey.credentialId,
+    publicKey: new Uint8Array(passkey.publicKey),
+    counter: Number(passkey.counter),
+    transports: passkey.transports,
+  });
+  await clearWebauthnChallenge();
+  if (!verification.verified) throw new Error('No se pudo verificar la llave de acceso');
+
+  await prisma.passkey.update({
+    where: { id: passkey.id },
+    data: { counter: BigInt(verification.authenticationInfo.newCounter), lastUsedAt: new Date() },
+  });
+
+  await destroyPending2FA();
+  await createSession(userId);
+  const profile = await repo.getProfile(userId);
+  if (!profile) throw new Error('Error iniciando sesión');
+  return profile;
 }
