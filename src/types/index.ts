@@ -10,6 +10,8 @@ export interface User {
   email: string;
   nombre: string;
   avatar?: string;
+  /** Si tiene verificación en dos pasos activada. Nunca se expone el secreto ni los códigos de respaldo al cliente. */
+  totpEnabled?: boolean;
   createdAt?: FireDate;
   updatedAt?: FireDate;
 }
@@ -199,7 +201,7 @@ export interface Subscription {
 export interface Settings {
   saldoInicial: number;
   moneda: string;
-  tema: 'oscuro' | 'claro';
+  tema: 'oscuro' | 'claro' | 'sistema';
   notificaciones: boolean;
   onboardingCompleted: boolean;
   // Método de cobro preferido (ej. "Yape" + "987654321") para incluir en
@@ -223,8 +225,13 @@ export interface AuthContextType {
   user: User | null;
   loading: boolean;
   signUp(email: string, password: string, nombre: string): Promise<void>;
-  signIn(email: string, password: string): Promise<void>;
+  /** Devuelve requiresTotp: true si la contraseña fue correcta pero falta el código de verificación en dos pasos (usar verifyTotp para completar el login). */
+  signIn(email: string, password: string): Promise<{ requiresTotp: boolean }>;
+  /** Segundo paso del login cuando signIn devolvió requiresTotp: true. */
+  verifyTotp(code: string): Promise<void>;
   signOut(): Promise<void>;
+  /** Vuelve a cargar el perfil desde el servidor (ej. tras editar nombre/email o activar 2FA). */
+  refreshUser(): Promise<void>;
   error?: Error;
 }
 

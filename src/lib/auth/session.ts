@@ -2,17 +2,25 @@
  * CashLife — sesiones de autenticación.
  * © Johann Sebastian Guevara Elias, Ingeniero de Sistemas. Autor original.
  *
- * Cookie httpOnly firmada con HMAC-SHA256: `<userId>.<firma>`. No es un
- * JWT completo (no hace falta para el tamaño de este proyecto), pero sí
- * evita que alguien pueda simplemente escribir `cashlife_session=otro-id`
- * en el navegador y hacerse pasar por otro usuario, porque no puede
- * calcular la firma sin el secreto del servidor.
+ * Cookies httpOnly firmadas con HMAC-SHA256. No es un JWT completo (no
+ * hace falta para el tamaño de este proyecto), pero sí evita que alguien
+ * pueda simplemente escribir `cashlife_session=otro-id` en el navegador y
+ * hacerse pasar por otro usuario, porque no puede calcular la firma sin
+ * el secreto del servidor.
+ *
+ * Hay dos cookies distintas:
+ * - `cashlife_session`: sesión real, ya autenticado del todo.
+ * - `cashlife_2fa_pending`: estado intermedio de login — la contraseña ya
+ *   se verificó correcta, pero falta el código de verificación en dos
+ *   pasos. Dura 5 minutos y no sirve para acceder a nada por sí sola.
  */
 import { cookies } from 'next/headers';
 import { createHmac, timingSafeEqual } from 'crypto';
 
 export const SESSION_COOKIE = 'cashlife_session';
+const PENDING_2FA_COOKIE = 'cashlife_2fa_pending';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 días
+const PENDING_2FA_MAX_AGE_SECONDS = 60 * 5; // 5 minutos
 
 function getSecret(): string {
   const secret = process.env.SESSION_SECRET;
@@ -29,8 +37,8 @@ function getSecret(): string {
   return secret;
 }
 
-function sign(userId: string): string {
-  return createHmac('sha256', getSecret()).update(userId).digest('hex');
+function sign(payload: string): string {
+  return createHmac('sha256', getSecret()).update(payload).digest('hex');
 }
 
 function safeEquals(a: string, b: string): boolean {
@@ -39,6 +47,18 @@ function safeEquals(a: string, b: string): boolean {
   if (bufA.length !== bufB.length) return false;
   return timingSafeEqual(bufA, bufB);
 }
+
+/** Separa `<payload>.<firma>` y valida la firma. Devuelve el payload si es válido. */
+function unsignToken(token: string): string | null {
+  const dotIndex = token.lastIndexOf('.');
+  if (dotIndex <= 0) return null;
+  const payload = token.slice(0, dotIndex);
+  const signature = token.slice(dotIndex + 1);
+  if (!safeEquals(signature, sign(payload))) return null;
+  return payload;
+}
+
+// ---- Sesión real ----
 
 export async function createSession(userId: string): Promise<void> {
   const token = `${userId}.${sign(userId)}`;
@@ -62,10 +82,41 @@ export async function getSessionUserId(): Promise<string | null> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  const dotIndex = token.lastIndexOf('.');
-  if (dotIndex <= 0) return null;
-  const userId = token.slice(0, dotIndex);
-  const signature = token.slice(dotIndex + 1);
-  if (!safeEquals(signature, sign(userId))) return null;
+  return unsignToken(token);
+}
+
+// ---- Login pendiente de verificación en dos pasos ----
+
+export async function createPending2FA(userId: string): Promise<void> {
+  const expiresAt = Date.now() + PENDING_2FA_MAX_AGE_SECONDS * 1000;
+  const payload = `${userId}.${expiresAt}`;
+  const token = `${payload}.${sign(payload)}`;
+  const store = await cookies();
+  store.set(PENDING_2FA_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: PENDING_2FA_MAX_AGE_SECONDS,
+  });
+}
+
+export async function destroyPending2FA(): Promise<void> {
+  const store = await cookies();
+  store.delete(PENDING_2FA_COOKIE);
+}
+
+/** Devuelve el userId del login pendiente si la cookie es válida y no expiró. */
+export async function getPending2FAUserId(): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(PENDING_2FA_COOKIE)?.value;
+  if (!token) return null;
+  const payload = unsignToken(token);
+  if (!payload) return null;
+  const separatorIndex = payload.lastIndexOf('.');
+  if (separatorIndex <= 0) return null;
+  const userId = payload.slice(0, separatorIndex);
+  const expiresAt = Number(payload.slice(separatorIndex + 1));
+  if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
   return userId;
 }

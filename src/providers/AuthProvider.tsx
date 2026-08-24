@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSessionUserAction, signInAction, signUpAction, signOutAction } from '@/lib/actions/auth.actions';
+import { getSessionUserAction, signInAction, signUpAction, signOutAction, verifyLoginTotpAction } from '@/lib/actions/auth.actions';
 import { User, AuthContextType } from '@/types';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +39,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const profile = await signInAction({ email, password });
+    const result = await signInAction({ email, password });
+    if (result.requiresTotp) return { requiresTotp: true };
+    setUser(result.user);
+    return { requiresTotp: false };
+  }, []);
+
+  const verifyTotp = useCallback(async (code: string) => {
+    const profile = await verifyLoginTotpAction({ code });
     setUser(profile);
   }, []);
 
@@ -53,6 +60,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    const profile = await getSessionUserAction();
+    setUser(profile);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -60,7 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         signUp,
         signIn,
+        verifyTotp,
         signOut,
+        refreshUser,
         error,
       }}
     >
@@ -80,8 +94,10 @@ export function useAuth(): AuthContextType {
         loading: true,
         error: undefined,
         signUp: async () => {},
-        signIn: async () => {},
+        signIn: async () => ({ requiresTotp: false }),
+        verifyTotp: async () => {},
         signOut: async () => {},
+        refreshUser: async () => {},
       } as AuthContextType;
     }
     throw new Error('useAuth debe estar dentro de AuthProvider');

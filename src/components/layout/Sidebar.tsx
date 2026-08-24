@@ -50,9 +50,11 @@ export function Sidebar() {
           href="/dashboard"
           className="flex items-center gap-3 group cursor-pointer"
         >
-          <div className="w-11 h-11 bg-gradient-to-br from-primary to-blue-600 rounded-lg flex items-center justify-center group-hover:shadow-lg transition-all duration-200">
-            <span className="text-primary-foreground font-bold text-lg">₡</span>
-          </div>
+          <img
+            src="/cashlife-mark.png"
+            alt="CashLife"
+            className="w-11 h-11 rounded-lg group-hover:shadow-lg transition-all duration-200"
+          />
           <div>
             <h1 className="font-bold text-lg leading-tight text-foreground">
               CashLife

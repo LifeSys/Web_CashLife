@@ -25,6 +25,14 @@ model User {
   passwordHash String?
   nombre       String
   avatar       String?
+  // Verificación en dos pasos (TOTP tipo Google Authenticator) — opcional,
+  // cada usuario decide si la activa. totpSecret solo debe existir cuando
+  // totpEnabled es true; se guarda en base32 tal como lo requiere TOTP.
+  totpEnabled     Boolean  @default(false)
+  totpSecret      String?
+  // Hashes bcrypt de los códigos de respaldo (un solo uso cada uno), por
+  // si el usuario pierde acceso a su app de autenticación.
+  totpBackupCodes String[] @default([])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

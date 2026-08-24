@@ -51,6 +51,7 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <div className="bg-card border border-border rounded-lg p-8 space-y-6">
           <div className="text-center">
+            <img src="/cashlife-mark.png" alt="CashLife" className="w-16 h-16 mx-auto rounded-xl mb-3" />
             <h1 className="text-3xl font-bold text-foreground">CashLife</h1>
             <p className="text-sm text-muted-foreground mt-2">Crea tu cuenta</p>
           </div>

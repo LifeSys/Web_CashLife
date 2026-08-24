@@ -2,13 +2,14 @@ import { prisma } from '@/lib/db/prisma';
 import { User } from '@/types';
 import { DEFAULT_ACCOUNTS, DEFAULT_CATEGORIES, DEFAULT_SETTINGS } from '@/firebase/constants';
 
-function toUser(row: { id: string; email: string | null; nombre: string; avatar: string | null; createdAt: Date; updatedAt: Date }): User {
+function toUser(row: { id: string; email: string | null; nombre: string; avatar: string | null; totpEnabled?: boolean; createdAt: Date; updatedAt: Date }): User {
   return {
     uid: row.id,
     id: row.id,
     email: row.email ?? '',
     nombre: row.nombre,
     avatar: row.avatar ?? undefined,
+    totpEnabled: row.totpEnabled ?? false,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

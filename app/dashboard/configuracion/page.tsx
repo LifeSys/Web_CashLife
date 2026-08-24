@@ -2,10 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Settings, LogOut, Bell, Moon, Wallet, RefreshCw, DollarSign, MessageSquareText, RotateCcw } from 'lucide-react';
+import { Settings, LogOut, Bell, Moon, Sun, Laptop, Wallet, RefreshCw, DollarSign, MessageSquareText, RotateCcw, UserCircle, KeyRound, ShieldCheck, ShieldOff } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/providers/AuthProvider';
+import { useTheme } from '@/providers/ThemeProvider';
+import { authService } from '@/services/auth.service';
 import { fetchUsdToPenRateAction } from '@/lib/actions/exchange-rate.actions';
+import { TwoFactorSetupModal } from '@/components/modals/TwoFactorSetupModal';
+import { DisableTwoFactorModal } from '@/components/modals/DisableTwoFactorModal';
 import {
   MESSAGE_PLACEHOLDERS,
   DEFAULT_DEBT_TEMPLATE,
@@ -41,7 +45,8 @@ const PAYMENT_METHODS = [
 export default function ConfiguracionPage() {
   const router = useRouter();
   const { settings, updateSettings } = useSettings();
-  const { signOut } = useAuth();
+  const { user, signOut, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [metodoPagoLabel, setMetodoPagoLabel] = useState('');
   const [metodoPagoValor, setMetodoPagoValor] = useState('');
   const [tipoCambio, setTipoCambio] = useState('');
@@ -54,6 +59,21 @@ export default function ConfiguracionPage() {
   const [msgRentalDueToday, setMsgRentalDueToday] = useState('');
   const [isSavingMessages, setIsSavingMessages] = useState(false);
 
+  // Perfil
+  const [nombrePerfil, setNombrePerfil] = useState('');
+  const [emailPerfil, setEmailPerfil] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Cambiar contraseña
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Verificación en dos pasos
+  const [show2FASetup, setShow2FASetup] = useState(false);
+  const [show2FADisable, setShow2FADisable] = useState(false);
+
   useEffect(() => {
     if (!settings) return;
     setMetodoPagoLabel(settings.metodoPagoLabel ?? '');
@@ -64,6 +84,12 @@ export default function ConfiguracionPage() {
     setMsgRentalDueTomorrow(settings.msgRentalDueTomorrowTemplate ?? DEFAULT_RENTAL_DUE_TOMORROW_TEMPLATE);
     setMsgRentalDueToday(settings.msgRentalDueTodayTemplate ?? DEFAULT_RENTAL_DUE_TODAY_TEMPLATE);
   }, [settings]);
+
+  useEffect(() => {
+    if (!user) return;
+    setNombrePerfil(user.nombre ?? '');
+    setEmailPerfil(user.email ?? '');
+  }, [user]);
 
   const notificaciones = settings?.notificaciones ?? true;
 
@@ -86,6 +112,52 @@ export default function ConfiguracionPage() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Error al cerrar sesión');
       console.error('[CashLife] Error cerrando sesión:', error);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!nombrePerfil.trim() || !emailPerfil.trim()) {
+      toast.error('Completa nombre y email');
+      return;
+    }
+    setIsSavingProfile(true);
+    try {
+      await authService.updateProfile({ nombre: nombrePerfil.trim(), email: emailPerfil.trim() });
+      await refreshUser();
+      toast.success('Perfil actualizado');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al guardar el perfil');
+      console.error('[CashLife] Error guardando perfil:', error);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      toast.error('Completa los 3 campos');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error('Las contraseñas nuevas no coinciden');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('La contraseña nueva debe tener al menos 6 caracteres');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      await authService.changePassword({ currentPassword, newPassword });
+      toast.success('Contraseña actualizada');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Error al cambiar la contraseña');
+      console.error('[CashLife] Error cambiando contraseña:', error);
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -161,6 +233,134 @@ export default function ConfiguracionPage() {
       <div>
         <h1 className="text-2xl md:text-3xl font-bold">Configuración</h1>
         <p className="text-muted-foreground">Personaliza tu experiencia</p>
+      </div>
+
+      {/* Mi Perfil */}
+      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <h2 className="font-bold flex items-center gap-2">
+          <UserCircle className="w-5 h-5" />
+          Mi Perfil
+        </h2>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium mb-2">Nombre completo</label>
+            <input
+              type="text"
+              value={nombrePerfil}
+              onChange={(e) => setNombrePerfil(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Email</label>
+            <input
+              type="email"
+              value={emailPerfil}
+              onChange={(e) => setEmailPerfil(e.target.value)}
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveProfile}
+          disabled={isSavingProfile}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm disabled:opacity-50"
+        >
+          {isSavingProfile ? 'Guardando...' : 'Guardar'}
+        </button>
+      </div>
+
+      {/* Cambiar contraseña */}
+      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <h2 className="font-bold flex items-center gap-2">
+          <KeyRound className="w-5 h-5" />
+          Cambiar contraseña
+        </h2>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="block text-sm font-medium mb-2">Contraseña actual</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Contraseña nueva</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Confirmar contraseña nueva</label>
+            <input
+              type="password"
+              value={confirmNewPassword}
+              onChange={(e) => setConfirmNewPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleChangePassword}
+          disabled={isChangingPassword}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm disabled:opacity-50"
+        >
+          {isChangingPassword ? 'Cambiando...' : 'Cambiar contraseña'}
+        </button>
+      </div>
+
+      {/* Verificación en dos pasos */}
+      <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <h2 className="font-bold flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5" />
+          Verificación en dos pasos
+        </h2>
+        <p className="text-xs text-muted-foreground -mt-2">
+          Protege tu cuenta con un código extra de una app tipo Google Authenticator, además de tu contraseña. Es opcional — actívala si quieres.
+        </p>
+
+        <div className="flex items-center justify-between py-2">
+          <div className="flex items-center gap-3">
+            {user?.totpEnabled ? (
+              <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            ) : (
+              <ShieldOff className="w-5 h-5 text-muted-foreground" />
+            )}
+            <div>
+              <p className="font-medium">{user?.totpEnabled ? 'Activada' : 'Desactivada'}</p>
+              <p className="text-xs text-muted-foreground">
+                {user?.totpEnabled ? 'Te va a pedir un código al iniciar sesión' : 'Solo tu contraseña protege la cuenta'}
+              </p>
+            </div>
+          </div>
+          {user?.totpEnabled ? (
+            <button
+              onClick={() => setShow2FADisable(true)}
+              className="px-4 py-2 bg-destructive/10 text-destructive rounded-lg font-medium text-sm hover:bg-destructive/20"
+            >
+              Desactivar
+            </button>
+          ) : (
+            <button
+              onClick={() => setShow2FASetup(true)}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium text-sm hover:bg-primary/90"
+            >
+              Activar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Método de cobro */}
@@ -339,17 +539,34 @@ export default function ConfiguracionPage() {
         </div>
 
         {/* Tema */}
-        <div className="flex items-center justify-between py-3 border-b border-border last:border-0">
-          <div className="flex items-center gap-3">
+        <div className="py-3">
+          <div className="flex items-center gap-3 mb-3">
             <Moon className="w-5 h-5 text-muted-foreground" />
             <div>
-              <p className="font-medium">Tema Oscuro</p>
-              <p className="text-xs text-muted-foreground">Tema actual: Oscuro</p>
+              <p className="font-medium">Tema</p>
+              <p className="text-xs text-muted-foreground">Elige cómo se ve CashLife</p>
             </div>
           </div>
-          <button className="px-4 py-2 bg-primary text-primary-foreground rounded-full font-medium text-sm">
-            Activo
-          </button>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: 'claro' as const, label: 'Claro', icon: Sun },
+              { value: 'oscuro' as const, label: 'Oscuro', icon: Moon },
+              { value: 'sistema' as const, label: 'Sistema', icon: Laptop },
+            ].map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setTheme(option.value)}
+                className={`flex flex-col items-center gap-1.5 rounded-lg border px-3 py-3 text-sm font-medium transition-colors ${
+                  theme === option.value
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-muted text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <option.icon className="w-4 h-4" />
+                {option.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -371,6 +588,17 @@ export default function ConfiguracionPage() {
         <LogOut className="w-5 h-5" />
         Cerrar Sesión
       </button>
+
+      <TwoFactorSetupModal
+        isOpen={show2FASetup}
+        onClose={() => setShow2FASetup(false)}
+        onSuccess={() => refreshUser()}
+      />
+      <DisableTwoFactorModal
+        isOpen={show2FADisable}
+        onClose={() => setShow2FADisable(false)}
+        onSuccess={() => refreshUser()}
+      />
     </div>
   );
 }
