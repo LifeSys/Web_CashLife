@@ -3,38 +3,7 @@
 import { useIsMobile } from '@/hooks/useIsMobile';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  Home,
-  Wallet,
-  Users,
-  BarChart3,
-  Settings,
-  ReceiptText,
-  CalendarClock,
-  TrendingUp,
-  Share2,
-} from 'lucide-react';
-
-const navItems = [
-  { href: '/dashboard', label: 'Inicio', icon: Home },
-  { href: '/dashboard/movimientos', label: 'Movimientos', icon: Wallet },
-  { href: '/dashboard/cuentas', label: 'Cuentas', icon: Wallet },
-  { href: '/dashboard/personas', label: 'Contactos', icon: Users },
-  {
-    href: '/dashboard/cuentas-por-cobrar',
-    label: 'Por Cobrar',
-    icon: ReceiptText,
-  },
-  {
-    href: '/dashboard/cuentas-por-pagar',
-    label: 'Por Pagar',
-    icon: ReceiptText,
-  },
-  { href: '/dashboard/pagos-programados', label: 'Pagos Programados', icon: CalendarClock },
-  { href: '/dashboard/reventas', label: 'Reventas', icon: Share2 },
-  { href: '/dashboard/reportes', label: 'Reportes', icon: BarChart3 },
-  { href: '/dashboard/configuracion', label: 'Configuración', icon: Settings },
-];
+import { NAV_ITEMS } from './nav-items';
 
 export function Sidebar() {
   const isMobile = useIsMobile();
@@ -69,7 +38,7 @@ export function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 p-4 overflow-y-auto">
         <ul className="space-y-1.5">
-          {navItems.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
 

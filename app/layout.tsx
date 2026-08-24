@@ -43,6 +43,16 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: '/apple-icon.png', type: 'image/png', sizes: '180x180' }],
   },
+  // Esto es lo que hace que, cuando agregas CashLife a tu pantalla de
+  // inicio en iPhone (Compartir → Agregar a pantalla de inicio), se abra
+  // como app propia — sin la barra de direcciones ni la barra de abajo de
+  // Safari. Solo aplica al ícono agregado a inicio, no a la pestaña normal
+  // del navegador (eso Safari no lo permite quitar).
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'CashLife',
+  },
 }
 
 export const viewport: Viewport = {
@@ -50,6 +60,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  // "cover" deja que el contenido use toda la pantalla (incluido detrás
+  // del notch/Dynamic Island) — junto con los paddings de env(safe-area-*)
+  // en globals.css, así el contenido no queda tapado por eso ni por la
+  // barrita de inicio de abajo.
+  viewportFit: 'cover',
   colorScheme: 'light dark',
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#FFFFFF' },

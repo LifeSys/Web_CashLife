@@ -227,3 +227,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Zonas seguras del celular (notch, isla dinámica, barra de inicio de
+   iPhone) — sin esto, contenido fijo (la barra inferior, por ejemplo)
+   puede quedar tapado o pegado al borde. Solo tiene efecto real cuando la
+   app corre con viewport-fit=cover (ver app/layout.tsx). */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
