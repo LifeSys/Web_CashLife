@@ -57,20 +57,23 @@ export function CreditCardsSection({
       {cards.length > 0 && (
         <div className="bg-card border border-border rounded-2xl p-6">
           <p className="text-sm text-muted-foreground mb-4">Resumen de crédito</p>
-          <div className="grid grid-cols-3 gap-4">
-            <div>
+          {/* grid-cols-1 en mobile: con montos grandes (ej. S/ 23,100.00) tres
+              columnas rígidas no dejaban espacio suficiente y el texto se
+              encimaba. min-w-0 en cada celda + truncate como respaldo. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="min-w-0">
               <p className="text-xs text-muted-foreground mb-1">Línea total</p>
-              <p className="text-xl font-bold text-foreground">{formatCurrency(totalLimit)}</p>
+              <p className="text-lg sm:text-xl font-bold text-foreground truncate">{formatCurrency(totalLimit)}</p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-muted-foreground mb-1">Utilizado</p>
-              <p className={`text-xl font-bold ${utilization > 80 ? 'text-red-500' : utilization > 50 ? 'text-amber-500' : 'text-emerald-500'}`}>
+              <p className={`text-lg sm:text-xl font-bold truncate ${utilization > 80 ? 'text-red-500' : utilization > 50 ? 'text-amber-500' : 'text-emerald-500'}`}>
                 {formatCurrency(totalUsed)}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs text-muted-foreground mb-1">Disponible</p>
-              <p className="text-xl font-bold text-green-500">{formatCurrency(totalAvailable)}</p>
+              <p className="text-lg sm:text-xl font-bold text-green-500 truncate">{formatCurrency(totalAvailable)}</p>
             </div>
           </div>
           
