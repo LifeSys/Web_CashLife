@@ -28,7 +28,11 @@ export default function DashboardLayout({
     <SessionProvider>
       <div className="flex min-h-screen">
         <Sidebar />
-        <main className="flex-1 pb-20 md:pb-0 md:overflow-auto">
+        {/* pt-safe: en el iPhone (instalado a pantalla completa) el
+            contenido puede nacer debajo de la isla dinámica/notch si no
+            se empuja explícitamente — esto lo corrige en todas las
+            páginas de una sola vez. */}
+        <main className="flex-1 pt-safe pb-20 md:pb-0 md:pt-0 md:overflow-auto">
           {children}
         </main>
         <BottomNav />

@@ -48,53 +48,54 @@ export function CreditCardDisplay({
   if (compact) {
     const actionClass = 'p-2 rounded-lg transition-colors flex-shrink-0';
     return (
-      <div className="rounded-xl border border-border bg-card p-3">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        {/* Fila 1: siempre ícono + nombre + monto usado — los botones van
+            aparte, así nunca se apretujan entre sí en pantallas angostas. */}
+        <div className="flex items-center gap-2">
           <div
             style={{ background: `linear-gradient(135deg, ${cardColor}cc 0%, ${cardColor} 100%)` }}
             className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
           >
             <CardIcon className="w-5 h-5 text-white" />
           </div>
-          <div className="flex-1 min-w-[140px]">
+          <div className="flex-1 min-w-0">
             <p className="font-bold text-sm truncate">{card.banco} •••• {card.lastDigits}</p>
             <p className="text-xs text-muted-foreground truncate">Corte {card.cutOffDay} · Vence {card.duePaymentDay}</p>
           </div>
           <div className="text-right flex-shrink-0">
-            <p className={`text-sm font-bold ${isNearLimit ? 'text-red-500' : 'text-amber-500'}`}>{formatCurrency(card.montoUtilizado || 0)}</p>
-            <p className="text-xs text-muted-foreground">de {formatCurrency(card.lineaCredito)}</p>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {onPay && (
-              <button onClick={onPay} title="Pagar" className={`${actionClass} bg-primary/10 text-primary hover:bg-primary/20`}>
-                <Banknote className="w-4 h-4" />
-              </button>
-            )}
-            {onRecordCharge && (
-              <button onClick={onRecordCharge} title="Registrar compra" className={`${actionClass} bg-muted text-muted-foreground hover:bg-muted/80`}>
-                <ShoppingCart className="w-4 h-4" />
-              </button>
-            )}
-            {onViewTransactions && (
-              <button onClick={onViewTransactions} title="Ver movimientos" className={`${actionClass} bg-muted text-muted-foreground hover:bg-muted/80`}>
-                <Eye className="w-4 h-4" />
-              </button>
-            )}
-            {onEdit && (
-              <button onClick={onEdit} title="Editar" className={`${actionClass} bg-blue-500/10 text-blue-500 hover:bg-blue-500/20`}>
-                <Edit2 className="w-4 h-4" />
-              </button>
-            )}
-            {onDelete && (
-              <button onClick={onDelete} title="Eliminar" className={`${actionClass} bg-red-500/10 text-red-500 hover:bg-red-500/20`}>
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
+            <p className={`text-sm font-bold whitespace-nowrap ${isNearLimit ? 'text-red-500' : 'text-amber-500'}`}>{formatCurrency(card.montoUtilizado || 0)}</p>
+            <p className="text-xs text-muted-foreground whitespace-nowrap">de {formatCurrency(card.lineaCredito)}</p>
           </div>
         </div>
-        <div className="mt-2">
-          <ProgressBar percentage={percentageUsed} color={percentageUsed > 80 ? 'red' : percentageUsed > 50 ? 'amber' : 'emerald'} />
+        {/* Fila 2: botones de acción, siempre aparte. */}
+        <div className="flex items-center justify-end gap-1 flex-wrap">
+          {onPay && (
+            <button onClick={onPay} title="Pagar" className={`${actionClass} bg-primary/10 text-primary hover:bg-primary/20`}>
+              <Banknote className="w-4 h-4" />
+            </button>
+          )}
+          {onRecordCharge && (
+            <button onClick={onRecordCharge} title="Registrar compra" className={`${actionClass} bg-muted text-muted-foreground hover:bg-muted/80`}>
+              <ShoppingCart className="w-4 h-4" />
+            </button>
+          )}
+          {onViewTransactions && (
+            <button onClick={onViewTransactions} title="Ver movimientos" className={`${actionClass} bg-muted text-muted-foreground hover:bg-muted/80`}>
+              <Eye className="w-4 h-4" />
+            </button>
+          )}
+          {onEdit && (
+            <button onClick={onEdit} title="Editar" className={`${actionClass} bg-blue-500/10 text-blue-500 hover:bg-blue-500/20`}>
+              <Edit2 className="w-4 h-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={onDelete} title="Eliminar" className={`${actionClass} bg-red-500/10 text-red-500 hover:bg-red-500/20`}>
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        <ProgressBar percentage={percentageUsed} color={percentageUsed > 80 ? 'red' : percentageUsed > 50 ? 'amber' : 'emerald'} />
       </div>
     );
   }

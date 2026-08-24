@@ -64,23 +64,28 @@ export function MoneyAccountCard({
 
   if (compact) {
     return (
-      <div style={bgStyle} className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow flex flex-wrap items-center gap-2`}>
-        <div className="p-2 bg-white/10 rounded-lg flex-shrink-0">
-          {isEfectivo ? <Banknote className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
-        </div>
-        <div className="flex-1 min-w-[120px]">
-          <p className="font-bold text-sm truncate flex items-center gap-1.5">
-            {account.nombre}
-            {isEfectivo && <Lock className="w-3 h-3 text-yellow-300 flex-shrink-0" />}
+      <div style={bgStyle} className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow space-y-2`}>
+        {/* Fila 1: siempre ícono + nombre + saldo — nunca se pelea con los
+            botones por espacio, así no se descuadra en pantallas angostas. */}
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-white/10 rounded-lg flex-shrink-0">
+            {isEfectivo ? <Banknote className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm truncate flex items-center gap-1.5">
+              <span className="truncate">{account.nombre}</span>
+              {isEfectivo && <Lock className="w-3 h-3 text-yellow-300 flex-shrink-0" />}
+            </p>
+            <p className={`text-xs ${textColor} truncate`}>
+              {getAccountTypeLabel()}{!isEfectivo && account.banco ? ` · ${account.banco}` : ''}
+            </p>
+          </div>
+          <p className="font-bold text-sm whitespace-nowrap flex-shrink-0">
+            {formatCurrency(account.saldo || 0, account.moneda || account.currency || 'PEN')}
           </p>
-          <p className={`text-xs ${textColor} truncate`}>
-            {getAccountTypeLabel()}{!isEfectivo && account.banco ? ` · ${account.banco}` : ''}
-          </p>
         </div>
-        <p className="font-bold text-sm whitespace-nowrap flex-shrink-0">
-          {formatCurrency(account.saldo || 0, account.moneda || account.currency || 'PEN')}
-        </p>
-        <div className="flex items-center gap-1 flex-shrink-0">
+        {/* Fila 2: botones de acción, siempre aparte. */}
+        <div className="flex items-center justify-end gap-1">
           <button onClick={onViewTransactions} title="Ver movimientos" className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
             <Eye className="w-4 h-4" />
           </button>
