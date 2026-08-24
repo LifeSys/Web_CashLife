@@ -31,8 +31,16 @@ export default function DashboardLayout({
         {/* pt-safe: en el iPhone (instalado a pantalla completa) el
             contenido puede nacer debajo de la isla dinámica/notch si no
             se empuja explícitamente — esto lo corrige en todas las
-            páginas de una sola vez. */}
-        <main className="flex-1 pt-safe pb-20 md:pb-0 md:pt-0 md:overflow-auto">
+            páginas de una sola vez.
+            min-w-0: sin esto, <main> (al ser hijo flex del div de abajo)
+            hereda min-width:auto y se niega a encogerse más allá del
+            contenido que tenga adentro — daba igual cuántos truncate le
+            pusiera a las tarjetas de las listas, toda la página se
+            desbordaba horizontalmente en celular apenas un texto largo
+            (nombre, descripción de movimiento, etc.) pedía más ancho del
+            que había disponible. Este es el fix real, de una sola vez
+            para todas las páginas del dashboard. */}
+        <main className="flex-1 min-w-0 pt-safe pb-20 md:pb-0 md:pt-0 md:overflow-auto">
           {children}
         </main>
         <BottomNav />
