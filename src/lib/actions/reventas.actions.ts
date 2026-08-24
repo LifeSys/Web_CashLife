@@ -187,6 +187,34 @@ export async function createProfileRentalAction(
   return created as unknown as ProfileRental;
 }
 
+/**
+ * Corrige los datos de un ciclo ya existente (fechas, cliente, precio) sin
+ * ningún efecto financiero: no crea ni borra transacciones, no toca saldos
+ * de cuentas ni el estado "pagado". Solo para arreglar un error de tipeo —
+ * para cobrar un ciclo nuevo real está el botón de renovar.
+ */
+export async function updateProfileRentalAction(
+  uid: string,
+  id: string,
+  data: { personId?: string; startDate?: Date; endDate?: Date; price?: number; notes?: string }
+): Promise<ProfileRental | null> {
+  const existing = await prisma.profileRental.findFirst({ where: { id, userId: uid } });
+  if (!existing) return null;
+
+  const updated = await prisma.profileRental.update({
+    where: { id },
+    data: {
+      ...(data.personId !== undefined ? { personId: data.personId } : {}),
+      ...(data.startDate !== undefined ? { startDate: data.startDate } : {}),
+      ...(data.endDate !== undefined ? { endDate: data.endDate } : {}),
+      ...(data.price !== undefined ? { price: data.price } : {}),
+      ...(data.notes !== undefined ? { notes: data.notes } : {}),
+      updatedBy: uid,
+    },
+  });
+  return updated as unknown as ProfileRental;
+}
+
 /** Borra un ciclo de alquiler y revierte el ingreso que había generado. */
 export async function deleteProfileRentalAction(uid: string, id: string): Promise<boolean> {
   const rental = await prisma.profileRental.findFirst({ where: { id, userId: uid } });

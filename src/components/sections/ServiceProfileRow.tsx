@@ -71,7 +71,11 @@ export function ServiceProfileRow({ profile, client, quickRenewing, onQuickRenew
         >
           <CalendarPlus className={`w-4 h-4 ${quickRenewing ? 'animate-pulse' : ''}`} />
         </button>
-        <button onClick={onRenew} title="Renovar con otras fechas / otro cliente / otro precio" className="p-2 rounded-lg hover:bg-muted text-primary">
+        <button
+          onClick={onRenew}
+          title={rental ? 'Corregir fechas, cliente o precio del ciclo actual (no genera ingresos ni mueve dinero)' : 'Asignar este perfil a un cliente'}
+          className="p-2 rounded-lg hover:bg-muted text-primary"
+        >
           <RefreshCw className="w-4 h-4" />
         </button>
         <button onClick={onEdit} title="Editar nombre/PIN del perfil" className="p-2 rounded-lg hover:bg-muted">

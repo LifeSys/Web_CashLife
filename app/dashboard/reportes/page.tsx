@@ -8,9 +8,9 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
 import { useCalculations, useExpensesByCategory } from '@/hooks/useCalculations';
 import { toPenEquivalent } from '@/lib/currency';
-import { generateFinancialReportPdf } from '@/lib/pdf/financial-report';
+import { generateFinancialReportPdf, previewFinancialReportPdf, printFinancialReportPdf, type FinancialReportInput } from '@/lib/pdf/financial-report';
 import { DashboardStats } from '@/features/dashboard/components/DashboardStats';
-import { BarChart3, Download, PieChart } from 'lucide-react';
+import { BarChart3, Download, Eye, Printer, PieChart } from 'lucide-react';
 import { toast } from 'sonner';
 
 const toDate = (value: unknown): Date =>
@@ -62,38 +62,44 @@ export default function ReportesPage() {
     return transacciones.filter((t) => !t.isDeleted && toDate(t.fecha) >= startOfMonth);
   }, [transacciones]);
 
-  const handleDownloadPdf = () => {
+  const buildReportInput = (): FinancialReportInput => ({
+    generatedAt: new Date(),
+    resumen: {
+      dineroDisponible: patrimonio.dineroDisponible,
+      patrimonioNeto: patrimonio.patrimonioNeto,
+      meDeben: patrimonio.meDeben,
+      totalDebo: patrimonio.totalDebo,
+    },
+    resumenMensual: {
+      ingresos: stats.ingresosDelMes,
+      gastos: stats.gastosDelMes,
+      balance: stats.balance,
+    },
+    gastosPorCategoria: Object.entries(expensesByCategory).map(([categoryId, data]) => ({
+      nombre: categoryName(categoryId),
+      monto: data.amount,
+      cantidad: data.count,
+    })),
+    movimientosDelMes,
+    categorias,
+  });
+
+  const withPdfAction = (action: (input: FinancialReportInput) => void, successMsg: string, errorMsg: string) => () => {
     setIsGenerating(true);
     try {
-      generateFinancialReportPdf({
-        generatedAt: new Date(),
-        resumen: {
-          dineroDisponible: patrimonio.dineroDisponible,
-          patrimonioNeto: patrimonio.patrimonioNeto,
-          meDeben: patrimonio.meDeben,
-          totalDebo: patrimonio.totalDebo,
-        },
-        resumenMensual: {
-          ingresos: stats.ingresosDelMes,
-          gastos: stats.gastosDelMes,
-          balance: stats.balance,
-        },
-        gastosPorCategoria: Object.entries(expensesByCategory).map(([categoryId, data]) => ({
-          nombre: categoryName(categoryId),
-          monto: data.amount,
-          cantidad: data.count,
-        })),
-        movimientosDelMes,
-        categorias,
-      });
-      toast.success('PDF descargado');
+      action(buildReportInput());
+      toast.success(successMsg);
     } catch (error) {
-      toast.error('Error al generar el PDF');
+      toast.error(errorMsg);
       console.error('[CashLife] Error generating PDF:', error);
     } finally {
       setIsGenerating(false);
     }
   };
+
+  const handleViewPdf = withPdfAction(previewFinancialReportPdf, 'PDF abierto en otra pestaña', 'Error al abrir el PDF');
+  const handlePrintPdf = withPdfAction(printFinancialReportPdf, 'Abriendo diálogo de impresión', 'Error al imprimir el PDF');
+  const handleDownloadPdf = withPdfAction(generateFinancialReportPdf, 'PDF descargado', 'Error al generar el PDF');
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -102,14 +108,34 @@ export default function ReportesPage() {
           <h1 className="text-2xl md:text-3xl font-bold">Reportes</h1>
           <p className="text-muted-foreground">Análisis de tu actividad financiera</p>
         </div>
-        <button
-          onClick={handleDownloadPdf}
-          disabled={isGenerating}
-          className="flex-shrink-0 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          {isGenerating ? 'Generando...' : 'Descargar PDF'}
-        </button>
+        <div className="flex flex-shrink-0 items-center gap-2">
+          <button
+            onClick={handleViewPdf}
+            disabled={isGenerating}
+            title="Ver el reporte en una pestaña nueva"
+            className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 font-medium hover:bg-muted transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Eye className="w-4 h-4" />
+            <span className="hidden sm:inline">Visualizar</span>
+          </button>
+          <button
+            onClick={handlePrintPdf}
+            disabled={isGenerating}
+            title="Imprimir el reporte"
+            className="flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 font-medium hover:bg-muted transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">Imprimir</span>
+          </button>
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isGenerating}
+            className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {isGenerating ? 'Generando...' : 'Descargar'}
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

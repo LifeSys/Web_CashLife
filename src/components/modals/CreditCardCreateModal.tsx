@@ -96,7 +96,7 @@ export function CreditCardCreateModal({ isOpen, onClose, onSuccess }: CreditCard
     }
   };
 
-  const banks = ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Inbursa', 'Banco Falabella', 'Banco Azteca', 'Banco de Crédito', 'Otro'];
+  const banks = ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Inbursa', 'Banco Falabella', 'Banco Azteca', 'Banco de Crédito'];
 
   const nextStep = () => {
     if (step === 1 && (!nombre.trim() || !banco.trim())) {
@@ -156,16 +156,19 @@ export function CreditCardCreateModal({ isOpen, onClose, onSuccess }: CreditCard
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Banco *</label>
-                <select
+                <input
+                  type="text"
+                  list="credit-card-create-bancos"
                   value={banco}
                   onChange={(e) => setBanco(e.target.value)}
+                  placeholder="BCP, Interbank, SIP, BCP Oro..."
                   className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="">Selecciona un banco</option>
+                />
+                <datalist id="credit-card-create-bancos">
                   {banks.map(b => (
-                    <option key={b} value={b}>{b}</option>
+                    <option key={b} value={b} />
                   ))}
-                </select>
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Marca *</label>

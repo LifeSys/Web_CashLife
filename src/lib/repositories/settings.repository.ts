@@ -11,6 +11,10 @@ function toSettings(row: {
   onboardingCompleted: boolean;
   metodoPagoLabel?: string | null;
   metodoPagoValor?: string | null;
+  msgDebtTemplate?: string | null;
+  msgRentalReminderTemplate?: string | null;
+  msgRentalDueTomorrowTemplate?: string | null;
+  msgRentalDueTodayTemplate?: string | null;
   tipoCambioUsdPen?: number | null;
   tipoCambioUpdatedAt?: Date | null;
   updatedAt: Date;
@@ -23,6 +27,10 @@ function toSettings(row: {
     onboardingCompleted: row.onboardingCompleted,
     metodoPagoLabel: row.metodoPagoLabel ?? undefined,
     metodoPagoValor: row.metodoPagoValor ?? undefined,
+    msgDebtTemplate: row.msgDebtTemplate ?? undefined,
+    msgRentalReminderTemplate: row.msgRentalReminderTemplate ?? undefined,
+    msgRentalDueTomorrowTemplate: row.msgRentalDueTomorrowTemplate ?? undefined,
+    msgRentalDueTodayTemplate: row.msgRentalDueTodayTemplate ?? undefined,
     tipoCambioUsdPen: row.tipoCambioUsdPen ?? undefined,
     tipoCambioUpdatedAt: row.tipoCambioUpdatedAt ?? undefined,
     updatedAt: row.updatedAt,

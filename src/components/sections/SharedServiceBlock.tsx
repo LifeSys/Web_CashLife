@@ -12,6 +12,7 @@ import { ServiceProfileRow } from './ServiceProfileRow';
 import { ServiceProfileModal } from '@/components/modals/ServiceProfileModal';
 import { ProfileRentalModal } from '@/components/modals/ProfileRentalModal';
 import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { buildProfileRentalReminderMessage } from '@/lib/whatsapp';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
@@ -36,6 +37,7 @@ export function SharedServiceBlock({ service, onEdit, onDelete }: SharedServiceB
   const [profileToEdit, setProfileToEdit] = useState<ServiceProfileWithCurrentRental | null | 'new'>(null);
   const [profileToRenew, setProfileToRenew] = useState<ServiceProfileWithCurrentRental | null>(null);
   const [profileToWhatsApp, setProfileToWhatsApp] = useState<ServiceProfileWithCurrentRental | null>(null);
+  const [profileToDelete, setProfileToDelete] = useState<ServiceProfileWithCurrentRental | null>(null);
   const [quickRenewingId, setQuickRenewingId] = useState<string | null>(null);
 
   const cost = scheduledPayments.find((p) => p.id === service.scheduledPaymentId)?.amount ?? 0;
@@ -44,14 +46,14 @@ export function SharedServiceBlock({ service, onEdit, onDelete }: SharedServiceB
   const income = profiles.reduce((sum, p) => sum + (p.currentRental?.paid !== false ? p.currentRental?.price ?? 0 : 0), 0);
   const margin = income - cost;
 
-  const handleDeleteProfile = async (profileId: string) => {
-    if (!user?.uid) return;
-    if (!confirm('¿Eliminar este perfil? También se borra su historial de alquiler.')) return;
+  const handleConfirmDeleteProfile = async () => {
+    if (!user?.uid || !profileToDelete) return;
     try {
-      await reventasService.deleteProfile(user.uid, profileId);
+      await reventasService.deleteProfile(user.uid, profileToDelete.id);
       toast.success('Perfil eliminado');
       mutate();
       invalidateAfterRental(user.uid);
+      setProfileToDelete(null);
     } catch (error) {
       toast.error('Error al eliminar el perfil');
       console.error('[CashLife] SharedServiceBlock error:', error);
@@ -154,7 +156,7 @@ export function SharedServiceBlock({ service, onEdit, onDelete }: SharedServiceB
           onRenew={() => setProfileToRenew(profile)}
           onWhatsApp={() => setProfileToWhatsApp(profile)}
           onEdit={() => setProfileToEdit(profile)}
-          onDelete={() => handleDeleteProfile(profile.id)}
+          onDelete={() => setProfileToDelete(profile)}
         />
       ))}
 
@@ -198,9 +200,19 @@ export function SharedServiceBlock({ service, onEdit, onDelete }: SharedServiceB
             price: profileToWhatsApp.currentRental.price,
             paymentMethodLabel: settings?.metodoPagoLabel,
             paymentMethodValue: settings?.metodoPagoValor,
+            template: settings?.msgRentalReminderTemplate,
           })}
         />
       )}
+
+      <ConfirmDeleteModal
+        isOpen={!!profileToDelete}
+        onClose={() => setProfileToDelete(null)}
+        title="Eliminar perfil"
+        itemName={profileToDelete?.label ?? 'este perfil'}
+        bullets={['Todo su historial de alquiler (renovaciones anteriores)', 'El ingreso ya cobrado de este ciclo se revierte de la cuenta']}
+        onConfirm={handleConfirmDeleteProfile}
+      />
     </div>
   );
 }

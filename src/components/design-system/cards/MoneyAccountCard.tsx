@@ -48,15 +48,23 @@ export function MoneyAccountCard({
     return <Landmark className="w-8 h-8" />;
   };
 
-  const bgGradient = isEfectivo
-    ? 'bg-gradient-to-br from-slate-600 to-slate-700'
-    : 'bg-gradient-to-br from-blue-600 to-blue-700';
+  // Si el usuario personalizó un color para esta cuenta, se arma un
+  // degradado a partir de ese color (en vez de las clases fijas azul/gris)
+  // para poder distinguir cuentas de un vistazo, igual que las tarjetas de
+  // crédito ya permiten.
+  const customColor = !isEfectivo ? account.color : undefined;
+  const bgGradient = customColor
+    ? ''
+    : isEfectivo
+      ? 'bg-gradient-to-br from-slate-600 to-slate-700'
+      : 'bg-gradient-to-br from-blue-600 to-blue-700';
+  const bgStyle = customColor ? { backgroundImage: `linear-gradient(to bottom right, ${customColor}, ${customColor}cc)` } : undefined;
 
-  const textColor = isEfectivo ? 'text-slate-300' : 'text-blue-100';
+  const textColor = isEfectivo ? 'text-slate-300' : customColor ? 'text-white/80' : 'text-blue-100';
 
   if (compact) {
     return (
-      <div className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow flex flex-wrap items-center gap-2`}>
+      <div style={bgStyle} className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow flex flex-wrap items-center gap-2`}>
         <div className="p-2 bg-white/10 rounded-lg flex-shrink-0">
           {isEfectivo ? <Banknote className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
         </div>
@@ -92,7 +100,7 @@ export function MoneyAccountCard({
   }
 
   return (
-    <div className={`${bgGradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}>
+    <div style={bgStyle} className={`${bgGradient} rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-shadow`}>
       {/* Header with icon and lock (if Efectivo) */}
       <div className="flex items-start justify-between mb-6">
         <div className="flex items-center gap-3">

@@ -30,6 +30,12 @@ export function ProfileRentalModal({ isOpen, onClose, profile, serviceName, onSu
   const { cuentas } = useAccounts();
   const { invalidateAfterRental } = useSWRInvalidation();
 
+  // Si el perfil ya tiene un ciclo activo, esta ventana solo corrige sus
+  // datos (fecha, cliente, precio) — no crea nada nuevo, no genera ingreso
+  // ni toca ningún saldo. Para cobrar un ciclo nuevo está el botón verde de
+  // "Renovar 1 mes" (o esta misma ventana cuando el perfil está sin asignar).
+  const isEditMode = !!profile?.currentRental;
+
   const [personId, setPersonId] = useState('');
   const [startDate, setStartDate] = useState(formatDateInput(new Date()));
   const [endDate, setEndDate] = useState('');
@@ -40,13 +46,20 @@ export function ProfileRentalModal({ isOpen, onClose, profile, serviceName, onSu
 
   useEffect(() => {
     if (!isOpen || !profile) return;
-    const today = formatDateInput(new Date());
-    setPersonId(profile.currentRental?.personId ?? '');
-    setStartDate(today);
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setEndDate(formatDateInput(d));
-    setPrice(profile.currentRental ? String(profile.currentRental.price) : '');
+    const rental = profile.currentRental;
+    if (rental) {
+      setPersonId(rental.personId ?? '');
+      setStartDate(formatDateInput(rental.startDate instanceof Date ? rental.startDate : new Date(rental.startDate)));
+      setEndDate(formatDateInput(rental.endDate instanceof Date ? rental.endDate : new Date(rental.endDate)));
+      setPrice(String(rental.price));
+    } else {
+      setPersonId('');
+      setStartDate(formatDateInput(new Date()));
+      const d = new Date();
+      d.setDate(d.getDate() + 30);
+      setEndDate(formatDateInput(d));
+      setPrice('');
+    }
     setAccountId('');
     setPaid(true);
   }, [isOpen, profile]);
@@ -78,28 +91,41 @@ export function ProfileRentalModal({ isOpen, onClose, profile, serviceName, onSu
       toast.error('El precio debe ser mayor a 0');
       return;
     }
-    if (paid && !accountId) {
-      toast.error('¿En qué cuenta te pagó el cliente?');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
-      await reventasService.createRental(user.uid, {
-        profileId: profile.id,
-        personId,
-        startDate: parseLocalDate(startDate),
-        endDate: parseLocalDate(endDate),
-        price: parsedPrice,
-        accountId: paid ? accountId : undefined,
-        paid,
-      });
-      toast.success(paid ? 'Perfil asignado' : 'Perfil asignado — queda como pendiente de cobro');
+      if (isEditMode && profile.currentRental) {
+        await reventasService.updateRental(user.uid, profile.currentRental.id, {
+          personId,
+          startDate: parseLocalDate(startDate),
+          endDate: parseLocalDate(endDate),
+          price: parsedPrice,
+        });
+        toast.success('Datos actualizados');
+      } else {
+        if (!paid) {
+          // sin cuenta: se crea como cuenta por cobrar, no hace falta accountId
+        } else if (!accountId) {
+          toast.error('¿En qué cuenta te pagó el cliente?');
+          setIsSubmitting(false);
+          return;
+        }
+        await reventasService.createRental(user.uid, {
+          profileId: profile.id,
+          personId,
+          startDate: parseLocalDate(startDate),
+          endDate: parseLocalDate(endDate),
+          price: parsedPrice,
+          accountId: paid ? accountId : undefined,
+          paid,
+        });
+        toast.success(paid ? 'Perfil asignado' : 'Perfil asignado — queda como pendiente de cobro');
+      }
       invalidateAfterRental(user.uid);
       onClose();
       onSuccess?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al registrar el alquiler');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar');
       console.error('[CashLife] ProfileRentalModal error:', error);
     } finally {
       setIsSubmitting(false);
@@ -110,12 +136,19 @@ export function ProfileRentalModal({ isOpen, onClose, profile, serviceName, onSu
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Renovar / asignar</h2>
+          <h2 className="text-xl font-bold">{isEditMode ? 'Editar datos del ciclo' : 'Asignar perfil'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X className="h-5 w-5" />
           </button>
         </div>
         <p className="text-sm text-muted-foreground mb-4">{serviceName} · {profile.label}</p>
+
+        {isEditMode && (
+          <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-muted-foreground">
+            Esto solo corrige la información del ciclo actual (cliente, fechas, precio) — no genera ingresos ni mueve dinero de ninguna cuenta.
+            Para cobrar un ciclo nuevo usa el botón verde de renovar.
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -176,36 +209,38 @@ export function ProfileRentalModal({ isOpen, onClose, profile, serviceName, onSu
             />
           </div>
 
-          <div className="border-t border-border pt-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="rounded" />
-              <span className="text-sm font-medium">¿Ya te pagó este ciclo?</span>
-            </label>
+          {!isEditMode && (
+            <div className="border-t border-border pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={paid} onChange={(e) => setPaid(e.target.checked)} className="rounded" />
+                <span className="text-sm font-medium">¿Ya te pagó este ciclo?</span>
+              </label>
 
-            {paid ? (
-              <div className="mt-3">
-                <label className="text-sm font-medium">Cuenta que recibe *</label>
-                <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2">
-                  <option value="">Elige una cuenta</option>
-                  {accountOptions.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
-                  ))}
-                </select>
-                <p className="text-xs text-muted-foreground mt-2">Esto registra el ingreso ya mismo en esa cuenta.</p>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground mt-2">
-                No se registra ningún ingreso todavía — se crea una cuenta por cobrar a este cliente, para que aparezca en Por Cobrar hasta que te pague.
-              </p>
-            )}
-          </div>
+              {paid ? (
+                <div className="mt-3">
+                  <label className="text-sm font-medium">Cuenta que recibe *</label>
+                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2">
+                    <option value="">Elige una cuenta</option>
+                    {accountOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-muted-foreground mt-2">Esto registra el ingreso ya mismo en esa cuenta.</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-2">
+                  No se registra ningún ingreso todavía — se crea una cuenta por cobrar a este cliente, para que aparezca en Por Cobrar hasta que te pague.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2 pt-2">
             <button type="button" onClick={onClose} className="flex-1 rounded-lg border border-border px-4 py-2 font-medium hover:bg-muted">
               Cancelar
             </button>
             <button type="submit" disabled={isSubmitting} className="flex-1 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground disabled:opacity-50">
-              {isSubmitting ? 'Guardando...' : 'Confirmar'}
+              {isSubmitting ? 'Guardando...' : isEditMode ? 'Guardar cambios' : 'Confirmar'}
             </button>
           </div>
         </form>

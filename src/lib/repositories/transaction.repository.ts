@@ -12,6 +12,17 @@ function toTransaction(row: Record<string, unknown>): Transaction {
 const NON_BALANCE_ACCOUNTS = ['accounts-receivable', 'accounts-payable'];
 
 /**
+ * JS suma decimales en punto flotante (0.1 + 0.2 !== 0.3), así que cada
+ * operación aritmética sobre saldos/montos acumulables se redondea a
+ * centavos antes de guardarse. Sin esto, después de suficientes sumas y
+ * restas los saldos "arrastran" errores de 1-3 céntimos que un sistema
+ * financiero real jamás debería mostrar.
+ */
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+/**
  * Delta de saldo para una cuenta "normal" (no tarjeta, no transferencia)
  * según el tipo de movimiento. Antes esto se pasaba como función callback
  * desde transaction.service.ts, pero los argumentos de una Server Action
@@ -172,27 +183,32 @@ export class TransactionRepository {
       if (!destination) throw new Error(`Cuenta destino ${transaction.destinationAccountId} no encontrada`);
       const sourceSaldo = source.saldo ?? source.balance ?? 0;
       const destinationSaldo = destination.saldo ?? destination.balance ?? 0;
-      await t.account.update({ where: { id: source.id }, data: { saldo: sourceSaldo - transaction.monto, balance: sourceSaldo - transaction.monto, updatedBy: uid } });
-      await t.account.update({ where: { id: destination.id }, data: { saldo: destinationSaldo + transaction.monto, balance: destinationSaldo + transaction.monto, updatedBy: uid } });
+      const nextSourceSaldo = roundMoney(sourceSaldo - transaction.monto);
+      const nextDestinationSaldo = roundMoney(destinationSaldo + transaction.monto);
+      await t.account.update({ where: { id: source.id }, data: { saldo: nextSourceSaldo, balance: nextSourceSaldo, updatedBy: uid } });
+      await t.account.update({ where: { id: destination.id }, data: { saldo: nextDestinationSaldo, balance: nextDestinationSaldo, updatedBy: uid } });
     } else if (transaction.creditCardId) {
       const card = await t.creditCard.findFirst({ where: { id: transaction.creditCardId, userId: uid } });
       if (!card) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
       const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
-      const nextUsed = isCardPaymentTipo(transaction.tipo)
-        ? Math.max(currentUsed - transaction.monto, 0)
-        : currentUsed + transaction.monto;
+      const nextUsed = roundMoney(
+        isCardPaymentTipo(transaction.tipo)
+          ? Math.max(currentUsed - transaction.monto, 0)
+          : currentUsed + transaction.monto
+      );
       const limit = card.creditLimit ?? card.lineaCredito ?? 0;
-      await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
+      await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: roundMoney(limit - nextUsed), updatedBy: uid } });
       if (isCardPaymentTipo(transaction.tipo) && transaction.cuenta) {
         const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
         if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
         const currentSaldo = account.saldo ?? account.balance ?? 0;
-        await t.account.update({ where: { id: account.id }, data: { saldo: currentSaldo - transaction.monto, balance: currentSaldo - transaction.monto, updatedBy: uid } });
+        const nextSaldo = roundMoney(currentSaldo - transaction.monto);
+        await t.account.update({ where: { id: account.id }, data: { saldo: nextSaldo, balance: nextSaldo, updatedBy: uid } });
       }
     } else if (transaction.cuenta && !NON_BALANCE_ACCOUNTS.includes(transaction.cuenta)) {
       const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
       if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
-      const newSaldo = account.saldo + calculateBalanceDelta(transaction.tipo, transaction.monto);
+      const newSaldo = roundMoney(account.saldo + calculateBalanceDelta(transaction.tipo, transaction.monto));
       await t.account.update({ where: { id: account.id }, data: { saldo: newSaldo, balance: newSaldo, updatedBy: uid } });
     }
   }
@@ -225,20 +241,23 @@ export class TransactionRepository {
         if (!source || !destination) throw new Error('Cuenta de transferencia no encontrada');
         const sourceSaldo = source.saldo ?? source.balance ?? 0;
         const destinationSaldo = destination.saldo ?? destination.balance ?? 0;
-        await t.account.update({ where: { id: source.id }, data: { saldo: sourceSaldo + tx.monto, balance: sourceSaldo + tx.monto, updatedBy: uid } });
-        await t.account.update({ where: { id: destination.id }, data: { saldo: destinationSaldo - tx.monto, balance: destinationSaldo - tx.monto, updatedBy: uid } });
+        const nextSourceSaldo = roundMoney(sourceSaldo + tx.monto);
+        const nextDestinationSaldo = roundMoney(destinationSaldo - tx.monto);
+        await t.account.update({ where: { id: source.id }, data: { saldo: nextSourceSaldo, balance: nextSourceSaldo, updatedBy: uid } });
+        await t.account.update({ where: { id: destination.id }, data: { saldo: nextDestinationSaldo, balance: nextDestinationSaldo, updatedBy: uid } });
       } else if (tx.creditCardId) {
         const card = await t.creditCard.findFirst({ where: { id: tx.creditCardId, userId: uid } });
         if (!card) throw new Error('Tarjeta no encontrada');
         const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
-        const nextUsed = isCardPaymentTipo(tx.tipo) ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0);
+        const nextUsed = roundMoney(isCardPaymentTipo(tx.tipo) ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0));
         const limit = card.creditLimit ?? card.lineaCredito ?? 0;
-        await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: limit - nextUsed, updatedBy: uid } });
+        await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: roundMoney(limit - nextUsed), updatedBy: uid } });
         if (isCardPaymentTipo(tx.tipo) && tx.cuenta) {
           const account = await t.account.findFirst({ where: { id: tx.cuenta, userId: uid } });
           if (!account) throw new Error('Cuenta no encontrada');
           const currentSaldo = account.saldo ?? account.balance ?? 0;
-          await t.account.update({ where: { id: account.id }, data: { saldo: currentSaldo + tx.monto, balance: currentSaldo + tx.monto, updatedBy: uid } });
+          const nextSaldo = roundMoney(currentSaldo + tx.monto);
+          await t.account.update({ where: { id: account.id }, data: { saldo: nextSaldo, balance: nextSaldo, updatedBy: uid } });
         }
       } else if (tx.cuenta && !NON_BALANCE_ACCOUNTS.includes(tx.cuenta)) {
         const account = await t.account.findFirst({ where: { id: tx.cuenta, userId: uid } });
@@ -258,6 +277,7 @@ export class TransactionRepository {
             revertedSaldo = currentSaldo - tx.monto;
             break;
         }
+        revertedSaldo = roundMoney(revertedSaldo);
         await t.account.update({ where: { id: account.id }, data: { saldo: revertedSaldo, balance: revertedSaldo, updatedBy: uid } });
       }
 

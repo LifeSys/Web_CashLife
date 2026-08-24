@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
+import { useCreditCards } from '@/hooks/useCreditCards';
 import { useCategories } from '@/hooks/useCategories';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
@@ -19,6 +20,7 @@ interface ExpenseModalProps {
 export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
+  const { creditCards } = useCreditCards();
   const { categorias } = useCategories();
   const { invalidateAfterMovement } = useSWRInvalidation();
   const [description, setDescription] = useState('');
@@ -44,15 +46,28 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
 
     setIsSubmitting(true);
     try {
-      await financialEngine.createExpense(user.uid, {
-        monto: parsedAmount,
-        descripcion: description,
-        fecha: parseLocalDate(date),
-        cuenta: accountId,
-        cuentaId: accountId,
-        categoriaId: categoryId || undefined,
-        notas: notes,
-      });
+      const isCard = accountId.startsWith('card:');
+      if (isCard) {
+        const creditCardId = accountId.slice('card:'.length);
+        await financialEngine.chargeCreditCard(user.uid, {
+          monto: parsedAmount,
+          descripcion: description,
+          fecha: parseLocalDate(date),
+          creditCardId,
+          categoriaId: categoryId || undefined,
+          notas: notes,
+        });
+      } else {
+        await financialEngine.createExpense(user.uid, {
+          monto: parsedAmount,
+          descripcion: description,
+          fecha: parseLocalDate(date),
+          cuenta: accountId,
+          cuentaId: accountId,
+          categoriaId: categoryId || undefined,
+          notas: notes,
+        });
+      }
       toast.success('Gasto registrado correctamente');
       invalidateAfterMovement(user.uid);
       setDescription('');
@@ -115,18 +130,29 @@ export function ExpenseModal({ isOpen, onClose, onSuccess }: ExpenseModalProps) 
           </div>
 
           <div>
-            <label className="text-sm font-medium">Cuenta *</label>
+            <label className="text-sm font-medium">Cuenta o tarjeta *</label>
             <select
               value={accountId}
               onChange={(e) => setAccountId(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border bg-muted px-3 py-2"
             >
-              <option value="">Selecciona una cuenta</option>
-              {accountOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
-                </option>
-              ))}
+              <option value="">Selecciona una cuenta o tarjeta</option>
+              <optgroup label="Cuentas">
+                {accountOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </optgroup>
+              {creditCards.length > 0 && (
+                <optgroup label="Tarjetas de crédito">
+                  {creditCards.map((c) => (
+                    <option key={c.id} value={`card:${c.id}`}>
+                      {c.nombre || c.name} •••• {c.lastDigits}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
 

@@ -331,6 +331,7 @@ export default function Page() {
             netBalance: quickCollection.find((row) => row.contact.id === whatsAppContact.id)?.netBalance ?? 0,
             paymentMethodLabel: settings?.metodoPagoLabel,
             paymentMethodValue: settings?.metodoPagoValor,
+            template: settings?.msgDebtTemplate,
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CheckCircle2, ClipboardList, Edit, History, PlusCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePayableObligations } from '@/hooks/useFinancial';
+import { useAccounts } from '@/hooks/useAccounts';
 import { payableService } from '@/services/financial.service';
 import { PayableObligationModal } from '@/components/modals/PayableObligationModal';
 import { PayableObligationEditModal } from '@/components/modals/PayableObligationEditModal';
@@ -15,9 +16,32 @@ import type { PayableObligation } from '@/types';
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
 
+const CREDITOR_TYPE_LABELS: Record<string, string> = {
+  person: 'Persona',
+  bank: 'Banco',
+  company: 'Empresa',
+  sunat: 'SUNAT',
+  other: 'Otro',
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: 'Pendiente',
+  partial: 'Pago parcial',
+  paid: 'Pagado',
+  overdue: 'Vencido',
+};
+
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  pending: 'bg-amber-500/15 text-amber-500',
+  partial: 'bg-blue-500/15 text-blue-500',
+  paid: 'bg-emerald-500/15 text-emerald-500',
+  overdue: 'bg-red-500/15 text-red-500',
+};
+
 export default function Page() {
   const { user } = useAuth();
   const { obligations, mutate } = usePayableObligations();
+  const { cuentas } = useAccounts();
   const [isNewObligationOpen, setIsNewObligationOpen] = useState(false);
   const [selectedObligationId, setSelectedObligationId] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -30,6 +54,14 @@ export default function Page() {
 
   const handleMarkAsPaid = async (obligationId: string) => {
     if (!user?.uid) return;
+    // Se paga con Efectivo por defecto — 'cash' no es un id de cuenta real,
+    // así que había que resolverlo a la cuenta "Efectivo" de verdad o esto
+    // fallaba siempre con "Cuenta cash no encontrada".
+    const efectivo = cuentas.find((a) => a.nombre === 'Efectivo');
+    if (!efectivo) {
+      toast.error('No se encontró la cuenta "Efectivo". Usa "Registrar pago" para elegir otra cuenta.');
+      return;
+    }
     try {
       const obligation = obligations.find((o) => o.id === obligationId);
       if (!obligation) return;
@@ -38,13 +70,13 @@ export default function Page() {
         personId: obligation.personId,
         contactId: obligation.contactId,
         amount: obligation.pendingBalance,
-        accountId: 'cash',
+        accountId: efectivo.id,
         date: new Date(),
       });
-      toast.success('Marcado como pagado');
+      toast.success('Marcado como pagado (desde Efectivo)');
       mutate();
     } catch (error) {
-      toast.error('Error al actualizar');
+      toast.error(error instanceof Error ? error.message : 'Error al actualizar');
       console.error('[v0] Error:', error);
     }
   };
@@ -98,9 +130,14 @@ export default function Page() {
             <article key={item.id} className="rounded-xl border border-border bg-card p-4">
               <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h2 className="font-bold">{item.description}</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="font-bold">{item.description}</h2>
+                    <span className={`px-2 py-0.5 rounded-md text-xs font-semibold ${STATUS_BADGE_CLASSES[item.status] ?? 'bg-muted text-muted-foreground'}`}>
+                      {STATUS_LABELS[item.status] ?? item.status}
+                    </span>
+                  </div>
                   <p className="text-sm text-muted-foreground">
-                    {item.creditorName} · {item.creditorType} · Estado: {item.status}
+                    {item.creditorName} · {CREDITOR_TYPE_LABELS[item.creditorType] ?? item.creditorType}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Vencimiento: {toDate(item.dueDate).toLocaleDateString('es-PE')}

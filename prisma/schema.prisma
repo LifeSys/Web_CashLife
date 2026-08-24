@@ -56,6 +56,13 @@ model Settings {
   // mensajes de cobranza por WhatsApp.
   metodoPagoLabel     String?
   metodoPagoValor     String?
+  // Plantillas personalizables de mensajes de WhatsApp (Configuración →
+  // Personalizar mensajes). Si vienen vacías, cada mensaje usa su propio
+  // texto por defecto (ver src/lib/whatsapp.ts).
+  msgDebtTemplate            String?
+  msgRentalReminderTemplate  String?
+  msgRentalDueTomorrowTemplate String?
+  msgRentalDueTodayTemplate  String?
   // Tipo de cambio USD -> PEN usado por defecto al registrar deudas en
   // dólares (se puede pisar por transacción). tipoCambioUpdatedAt indica
   // si vino de la API automática o de un guardado manual.

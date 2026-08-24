@@ -26,8 +26,10 @@ export function RentalRemindersPanel() {
         serviceName: whatsAppTarget.profile.serviceName,
         profileLabel: whatsAppTarget.profile.label,
         price: rental.price,
+        dueDate: rental.endDate instanceof Date ? rental.endDate : new Date(rental.endDate),
         paymentMethodLabel: settings?.metodoPagoLabel,
         paymentMethodValue: settings?.metodoPagoValor,
+        template: whatsAppTarget.urgency === 'today' ? settings?.msgRentalDueTodayTemplate : settings?.msgRentalDueTomorrowTemplate,
       })
     : '';
 

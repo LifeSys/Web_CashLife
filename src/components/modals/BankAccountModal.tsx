@@ -20,6 +20,10 @@ const ACCOUNT_TYPES: { value: AccountType; label: string; hint: string }[] = [
   { value: 'safe_box', label: 'Caja fuerte', hint: 'Dinero guardado, no en un banco' },
 ];
 
+const BANK_SUGGESTIONS = ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco de la Nación', 'Banco Falabella', 'Banco Pichincha'];
+
+const ACCOUNT_COLOR_PRESETS = ['#2563EB', '#059669', '#7C3AED', '#DC2626', '#D97706', '#0891B2', '#DB2777', '#4B5563'];
+
 export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModalProps) {
   const { user } = useAuth();
   const { mutate } = useAccounts();
@@ -30,6 +34,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
   const [moneda, setMoneda] = useState('PEN');
   const [tieneDebito, setTieneDebito] = useState(false);
   const [vinculacion, setVinculacion] = useState<string[]>([]);
+  const [color, setColor] = useState(ACCOUNT_COLOR_PRESETS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -44,6 +49,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
     setMoneda('PEN');
     setTieneDebito(false);
     setVinculacion([]);
+    setColor(ACCOUNT_COLOR_PRESETS[0]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -81,6 +87,7 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
         hasDebitCard: isBank ? tieneDebito : undefined,
         hasYape: isBank ? vinculacion.includes('yape') : undefined,
         hasPlin: isBank ? vinculacion.includes('plin') : undefined,
+        color,
       });
       toast.success('Cuenta creada exitosamente');
       mutate();
@@ -144,17 +151,44 @@ export function BankAccountModal({ isOpen, onClose, onSuccess }: BankAccountModa
           {isBank && (
             <div>
               <label className="block text-sm font-medium mb-2">Banco</label>
-              <select value={banco} onChange={(e) => setBanco(e.target.value)} className="w-full rounded-lg border border-border bg-muted px-3 py-2">
-                <option value="">Selecciona un banco</option>
-                <option value="BCP">BCP</option>
-                <option value="Interbank">Interbank</option>
-                <option value="BBVA">BBVA</option>
-                <option value="Scotiabank">Scotiabank</option>
-                <option value="Banco de Crédito">Banco de Crédito</option>
-                <option value="Otro">Otro</option>
-              </select>
+              <input
+                type="text"
+                list="bank-account-modal-bancos"
+                value={banco}
+                onChange={(e) => setBanco(e.target.value)}
+                placeholder="BCP, Interbank, SIP..."
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+              />
+              <datalist id="bank-account-modal-bancos">
+                {BANK_SUGGESTIONS.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Color de la tarjeta</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ACCOUNT_COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  title={c}
+                  className={`w-8 h-8 rounded-full border-2 transition-transform ${color === c ? 'border-foreground scale-110' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-9 h-9 rounded-lg cursor-pointer border border-border"
+                title="Color personalizado"
+              />
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Saldo Inicial</label>

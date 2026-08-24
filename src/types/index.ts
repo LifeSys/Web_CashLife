@@ -206,6 +206,12 @@ export interface Settings {
   // los mensajes de cobranza por WhatsApp.
   metodoPagoLabel?: string;
   metodoPagoValor?: string;
+  // Plantillas personalizables de mensajes de WhatsApp (Configuración →
+  // Personalizar mensajes). Vacías = se usa el texto por defecto de cada una.
+  msgDebtTemplate?: string;
+  msgRentalReminderTemplate?: string;
+  msgRentalDueTomorrowTemplate?: string;
+  msgRentalDueTodayTemplate?: string;
   // Tipo de cambio USD -> PEN por defecto (manual o de la última
   // actualización automática) y cuándo se fijó.
   tipoCambioUsdPen?: number;

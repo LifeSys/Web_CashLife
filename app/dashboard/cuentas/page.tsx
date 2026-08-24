@@ -17,6 +17,7 @@ import { CreditCardEditModal } from '@/components/modals/CreditCardEditModal';
 import { CreditCardChargeModal } from '@/components/modals/CreditCardChargeModal';
 import { AccountEditModal } from '@/components/modals/AccountEditModal';
 import { PayCreditCardModal } from '@/components/modals/PayCreditCardModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { Account, CreditCard } from '@/types';
 import { AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -37,6 +38,8 @@ export default function CuentasPage() {
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [cardForCharge, setCardForCharge] = useState<CreditCard | null>(null);
+  const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
+  const [cardToDelete, setCardToDelete] = useState<CreditCard | null>(null);
 
   // Ensure Efectivo exists on mount
   useEffect(() => {
@@ -56,7 +59,7 @@ export default function CuentasPage() {
   const totalCreditLimit = cards.reduce((sum, c) => sum + c.lineaCredito, 0);
 
   // Handlers
-  const handleDeleteAccount = async (accountId: string) => {
+  const handleDeleteAccount = (accountId: string) => {
     const account = accounts.find(a => a.id === accountId);
     if (!account) return;
 
@@ -65,17 +68,19 @@ export default function CuentasPage() {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de que deseas eliminar la cuenta "${account.nombre}"?`)) {
-      return;
-    }
+    setAccountToDelete(account);
+  };
 
+  const handleConfirmDeleteAccount = async () => {
+    if (!accountToDelete) return;
     setIsDeleting(true);
     try {
       if (user?.uid) {
-        await accountService.delete(user.uid, accountId);
+        await accountService.delete(user.uid, accountToDelete.id);
         await mutateAccounts();
         toast.success('Cuenta eliminada');
       }
+      setAccountToDelete(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al eliminar cuenta';
       toast.error(message);
@@ -85,21 +90,22 @@ export default function CuentasPage() {
     }
   };
 
-  const handleDeleteCard = async (cardId: string) => {
+  const handleDeleteCard = (cardId: string) => {
     const card = cards.find(c => c.id === cardId);
     if (!card) return;
+    setCardToDelete(card);
+  };
 
-    if (!confirm(`¿Estás seguro de que deseas eliminar la tarjeta "${card.nombre}"?`)) {
-      return;
-    }
-
+  const handleConfirmDeleteCard = async () => {
+    if (!cardToDelete) return;
     setIsDeleting(true);
     try {
       if (user?.uid) {
-        await creditCardService.delete(user.uid, cardId);
+        await creditCardService.delete(user.uid, cardToDelete.id);
         await mutateCreditCards();
         toast.success('Tarjeta eliminada');
       }
+      setCardToDelete(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al eliminar tarjeta';
       toast.error(message);
@@ -252,6 +258,26 @@ export default function CuentasPage() {
           mutateCreditCards();
           mutateAccounts();
         }}
+      />
+
+      {/* Delete Account Confirm */}
+      <ConfirmDeleteModal
+        isOpen={!!accountToDelete}
+        onClose={() => setAccountToDelete(null)}
+        title="Eliminar cuenta"
+        itemName={accountToDelete?.nombre ?? 'esta cuenta'}
+        bullets={['Su historial de movimientos queda huérfano de esta cuenta']}
+        onConfirm={handleConfirmDeleteAccount}
+      />
+
+      {/* Delete Card Confirm */}
+      <ConfirmDeleteModal
+        isOpen={!!cardToDelete}
+        onClose={() => setCardToDelete(null)}
+        title="Eliminar tarjeta"
+        itemName={cardToDelete?.nombre ?? 'esta tarjeta'}
+        bullets={['Su historial de consumos y pagos queda huérfano de esta tarjeta']}
+        onConfirm={handleConfirmDeleteCard}
       />
     </div>
   );

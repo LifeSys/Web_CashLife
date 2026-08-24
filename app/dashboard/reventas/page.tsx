@@ -8,6 +8,7 @@ import { reventasService } from '@/services/reventas.service';
 import { SharedServiceBlock } from '@/components/sections/SharedServiceBlock';
 import { RentalRemindersPanel } from '@/components/sections/RentalRemindersPanel';
 import { SharedServiceModal } from '@/components/modals/SharedServiceModal';
+import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { EmptyState } from '@/components/design-system/feedback/EmptyState';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
@@ -19,15 +20,16 @@ export default function ReventasPage() {
   const { invalidateAfterRental } = useSWRInvalidation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [serviceToEdit, setServiceToEdit] = useState<SharedService | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<SharedService | null>(null);
 
-  const handleDeleteService = async (service: SharedService) => {
-    if (!user?.uid) return;
-    if (!confirm(`¿Eliminar "${service.name}"? Se borran también sus perfiles y su historial de alquiler.`)) return;
+  const handleConfirmDeleteService = async () => {
+    if (!user?.uid || !serviceToDelete) return;
     try {
-      await reventasService.deleteService(user.uid, service.id);
+      await reventasService.deleteService(user.uid, serviceToDelete.id);
       toast.success('Servicio eliminado');
       mutate();
       invalidateAfterRental(user.uid);
+      setServiceToDelete(null);
     } catch (error) {
       toast.error('Error al eliminar el servicio');
       console.error('[CashLife] ReventasPage error:', error);
@@ -69,7 +71,7 @@ export default function ReventasPage() {
             key={service.id}
             service={service}
             onEdit={() => setServiceToEdit(service)}
-            onDelete={() => handleDeleteService(service)}
+            onDelete={() => setServiceToDelete(service)}
           />
         ))}
       </div>
@@ -85,6 +87,15 @@ export default function ReventasPage() {
         service={serviceToEdit}
         onClose={() => setServiceToEdit(null)}
         onSuccess={() => mutate()}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={!!serviceToDelete}
+        onClose={() => setServiceToDelete(null)}
+        title="Eliminar servicio"
+        itemName={serviceToDelete?.name ?? 'este servicio'}
+        bullets={['Todos sus perfiles', 'Todo el historial de alquiler de cada perfil']}
+        onConfirm={handleConfirmDeleteService}
       />
     </div>
   );

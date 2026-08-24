@@ -11,6 +11,7 @@ import {
   deleteServiceProfileAction,
   getProfileRentalsAction,
   createProfileRentalAction,
+  updateProfileRentalAction,
   deleteProfileRentalAction,
   type ServiceProfileWithCurrentRental,
   type ServiceProfileWithService,
@@ -56,6 +57,13 @@ class ReventasService {
     data: { profileId: string; personId?: string; startDate: Date; endDate: Date; price: number; accountId?: string; paid?: boolean; notes?: string }
   ): Promise<ProfileRental> {
     return createProfileRentalAction(uid, data);
+  }
+  updateRental(
+    uid: string,
+    id: string,
+    data: { personId?: string; startDate?: Date; endDate?: Date; price?: number; notes?: string }
+  ): Promise<ProfileRental | null> {
+    return updateProfileRentalAction(uid, id, data);
   }
   deleteRental(uid: string, id: string): Promise<boolean> {
     return deleteProfileRentalAction(uid, id);

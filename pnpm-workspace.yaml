@@ -1,7 +1,7 @@
 allowBuilds:
   '@firebase/util': true
   '@prisma/engines': true
-  core-js: set this to true or false
+  core-js: true
   msw: true
   prisma: true
   protobufjs: true

@@ -17,6 +17,7 @@ interface ScheduledPaymentRowProps {
   onManageSplit: (payment: ScheduledPayment) => void;
   onEdit: (payment: ScheduledPayment) => void;
   onDelete: (payment: ScheduledPayment) => void;
+  onToggleAutoPay: (payment: ScheduledPayment) => void;
 }
 
 const money = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n || 0);
@@ -28,7 +29,7 @@ const STATUS_MAP: Record<ScheduledPaymentPeriodStatus, 'pending' | 'overdue' | '
   skipped: 'cancelled',
 };
 
-export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onEdit, onDelete }: ScheduledPaymentRowProps) {
+export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onEdit, onDelete, onToggleAutoPay }: ScheduledPaymentRowProps) {
   const { user } = useAuth();
   const { periods, isLoading, mutate } = useScheduledPaymentPeriods(payment.id);
   const { splits } = useScheduledPaymentSplits(payment.id);
@@ -41,12 +42,27 @@ export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onE
   // (con estado pending/overdue calculado según la fecha) la primera vez.
   useEffect(() => {
     if (!user?.uid || isLoading || currentPeriod || ensuring) return;
+    let cancelled = false;
     setEnsuring(true);
     scheduledPaymentService
       .ensurePeriod(user.uid, payment.id, period)
-      .then(() => mutate())
-      .catch((err) => console.error('[CashLife] Error asegurando periodo:', err))
-      .finally(() => setEnsuring(false));
+      .then(() => {
+        if (!cancelled) mutate();
+      })
+      .catch((err) => {
+        // Si el pago programado se borró justo mientras esta petición estaba
+        // en vuelo (ej. lo eliminaste en el instante en que esta fila
+        // intentaba crear su periodo del mes), es una carrera esperada, no
+        // un error real — no hace falta ensuciarla en consola.
+        const isDeletedRace = err instanceof Error && err.message === 'Pago programado no encontrado';
+        if (!cancelled && !isDeletedRace) console.error('[CashLife] Error asegurando periodo:', err);
+      })
+      .finally(() => {
+        if (!cancelled) setEnsuring(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.uid, payment.id, period, isLoading, currentPeriod, ensuring, mutate]);
 
   if (isLoading || (!currentPeriod && ensuring)) {
@@ -68,11 +84,21 @@ export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onE
         onEdit={() => onEdit(payment)}
         onDelete={() => onDelete(payment)}
         icon={
-          payment.autoPay ? (
-            <Zap className="w-5 h-5 text-blue-500" />
-          ) : (
-            <Repeat className="w-5 h-5 text-muted-foreground" />
-          )
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleAutoPay(payment);
+            }}
+            title={payment.autoPay ? 'Cobro automático activado — clic para desactivarlo' : 'Pago manual — clic para activar cobro automático'}
+            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+          >
+            {payment.autoPay ? (
+              <Zap className="w-5 h-5 text-blue-500" />
+            ) : (
+              <Repeat className="w-5 h-5 text-muted-foreground" />
+            )}
+          </button>
         }
         action={
           !payment.autoPay && (status === 'pending' || status === 'overdue')

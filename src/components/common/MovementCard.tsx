@@ -1,32 +1,21 @@
 import { ArrowDownRight, ArrowUpLeft, CreditCard, Send } from 'lucide-react';
 import type { FireDate, Transaction } from '@/types';
+import { getTransactionTypeLabel } from '@/lib/transaction-labels';
 
 interface MovementCardProps { transaction: Transaction; categoryName?: string; accountName?: string; personName?: string; }
 const toDate = (date: FireDate) => date instanceof Date ? date : date.toDate();
 
-const getTransactionTypeLabel = (tipo: string): string => {
-  const typeMap: Record<string, string> = {
-    'expense': 'Gasto',
-    'income': 'Ingreso',
-    'transfer': 'Transferencia',
-    'card_purchase': 'Compra Tarjeta',
-    'card_payment': 'Pago Tarjeta',
-    'loan': 'Préstamo',
-    'loan_payment': 'Pago Préstamo',
-    'receivable_created': 'Por Cobrar',
-    'receivable_paid': 'Cobrado',
-    'payable_created': 'Por Pagar',
-    'payable_paid': 'Pagado',
-    'scheduled_execution': 'Pago Programado',
-  };
-  return typeMap[tipo] || tipo;
-};
+// Mismas categorías usadas en useCalculations.ts para que "Movimientos" y
+// los totales del Dashboard/Reportes coincidan visualmente con lo que
+// realmente suma o resta cada tipo de movimiento.
+const INCOME_TYPES = ['income', 'ingreso', 'loan_payment', 'receivable_payment', 'receivable_paid'];
+const EXPENSE_TYPES = ['expense', 'gasto', 'loan', 'credit_card_charge', 'card_purchase', 'payable_payment', 'payable_paid', 'scheduled_payment', 'card_payment', 'credit_card_payment'];
 
 export function MovementCard({ transaction, categoryName = 'Sin categoría' }: MovementCardProps) {
   const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
-  const isIncome = ['income', 'loan_payment', 'receivable_payment'].includes(transaction.tipo);
-  const isExpense = ['expense', 'loan', 'payable_payment', 'scheduled_payment', 'credit_card_payment'].includes(transaction.tipo);
-  const icon = transaction.tipo.includes('credit_card') ? <CreditCard className="w-5 h-5 text-purple-500" /> : isIncome ? <ArrowUpLeft className="w-5 h-5 text-green-500" /> : isExpense ? <ArrowDownRight className="w-5 h-5 text-red-500" /> : <Send className="w-5 h-5 text-blue-500" />;
+  const isIncome = INCOME_TYPES.includes(transaction.tipo);
+  const isExpense = EXPENSE_TYPES.includes(transaction.tipo);
+  const icon = transaction.tipo.includes('credit_card') || transaction.tipo === 'card_payment' || transaction.tipo === 'card_purchase' ? <CreditCard className="w-5 h-5 text-purple-500" /> : isIncome ? <ArrowUpLeft className="w-5 h-5 text-green-500" /> : isExpense ? <ArrowDownRight className="w-5 h-5 text-red-500" /> : <Send className="w-5 h-5 text-blue-500" />;
   const color = isIncome ? 'text-green-500' : isExpense ? 'text-red-500' : 'text-foreground';
   const prefix = isIncome ? '+' : isExpense ? '-' : '';
   const date = toDate(transaction.fecha);

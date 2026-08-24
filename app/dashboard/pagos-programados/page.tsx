@@ -2,13 +2,17 @@
 
 import { useState } from 'react';
 import { PlusCircle, CalendarClock } from 'lucide-react';
+import { useAuth } from '@/providers/AuthProvider';
 import { useScheduledPayments } from '@/hooks/useFinancial';
+import { scheduledPaymentService } from '@/services/financial.service';
 import { ScheduledPaymentRow } from '@/components/sections/ScheduledPaymentRow';
 import { ScheduledPaymentModal } from '@/components/modals/ScheduledPaymentModal';
 import { ScheduledPaymentPayModal } from '@/components/modals/ScheduledPaymentPayModal';
 import { ScheduledPaymentSplitsModal } from '@/components/modals/ScheduledPaymentSplitsModal';
 import { DeleteScheduledPaymentModal } from '@/components/modals/DeleteScheduledPaymentModal';
+import { AutoPayQuickModal } from '@/components/modals/AutoPayQuickModal';
 import { EmptyState } from '@/components/design-system/feedback/EmptyState';
+import { toast } from 'sonner';
 import type { ScheduledPayment } from '@/types';
 
 const currentPeriod = () => {
@@ -17,6 +21,7 @@ const currentPeriod = () => {
 };
 
 export default function PagosProgramadosPage() {
+  const { user } = useAuth();
   const { scheduledPayments, isLoading, mutate } = useScheduledPayments();
   const [period] = useState(currentPeriod());
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -24,6 +29,37 @@ export default function PagosProgramadosPage() {
   const [paymentToSplit, setPaymentToSplit] = useState<ScheduledPayment | null>(null);
   const [paymentToEdit, setPaymentToEdit] = useState<ScheduledPayment | null>(null);
   const [paymentToDelete, setPaymentToDelete] = useState<ScheduledPayment | null>(null);
+  const [autoPayChooserPayment, setAutoPayChooserPayment] = useState<ScheduledPayment | null>(null);
+
+  // Clic en el ícono de rayo/repeat de cada tarjeta: apaga directo si ya
+  // estaba en automático; si lo prende y ya recuerda una cuenta/tarjeta de
+  // una vez anterior la reutiliza; si nunca tuvo una, pide elegirla.
+  const handleToggleAutoPay = async (payment: ScheduledPayment) => {
+    if (!user?.uid) return;
+    if (payment.autoPay) {
+      try {
+        await scheduledPaymentService.update(user.uid, payment.id, { autoPay: false });
+        toast.success('Cobro automático desactivado');
+        mutate();
+      } catch (error) {
+        toast.error('Error al desactivar el cobro automático');
+        console.error('[CashLife] Error toggling autoPay:', error);
+      }
+      return;
+    }
+    if (payment.suggestedAccountId) {
+      try {
+        await scheduledPaymentService.update(user.uid, payment.id, { autoPay: true });
+        toast.success('Cobro automático activado');
+        mutate();
+      } catch (error) {
+        toast.error('Error al activar el cobro automático');
+        console.error('[CashLife] Error toggling autoPay:', error);
+      }
+      return;
+    }
+    setAutoPayChooserPayment(payment);
+  };
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -62,6 +98,7 @@ export default function PagosProgramadosPage() {
             onManageSplit={setPaymentToSplit}
             onEdit={setPaymentToEdit}
             onDelete={setPaymentToDelete}
+            onToggleAutoPay={handleToggleAutoPay}
           />
         ))}
       </div>
@@ -97,6 +134,13 @@ export default function PagosProgramadosPage() {
         isOpen={!!paymentToDelete}
         payment={paymentToDelete}
         onClose={() => setPaymentToDelete(null)}
+        onSuccess={() => mutate()}
+      />
+
+      <AutoPayQuickModal
+        isOpen={!!autoPayChooserPayment}
+        payment={autoPayChooserPayment}
+        onClose={() => setAutoPayChooserPayment(null)}
         onSuccess={() => mutate()}
       />
     </div>

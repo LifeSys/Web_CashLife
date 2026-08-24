@@ -8,6 +8,9 @@ import { accountService } from '@/services/account.service';
 import { toast } from 'sonner';
 import type { Account } from '@/types';
 
+const BANK_SUGGESTIONS = ['BCP', 'Interbank', 'BBVA', 'Scotiabank', 'Banco de la Nación', 'Banco Falabella', 'Banco Pichincha'];
+const ACCOUNT_COLOR_PRESETS = ['#2563EB', '#059669', '#7C3AED', '#DC2626', '#D97706', '#0891B2', '#DB2777', '#4B5563'];
+
 interface AccountEditModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +27,7 @@ export function AccountEditModal({ isOpen, onClose, account, onSuccess }: Accoun
   const [tieneDebito, setTieneDebito] = useState(false);
   const [hasYape, setHasYape] = useState(false);
   const [hasPlin, setHasPlin] = useState(false);
+  const [color, setColor] = useState(ACCOUNT_COLOR_PRESETS[0]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isBank = account?.tipo === 'bank';
@@ -36,6 +40,7 @@ export function AccountEditModal({ isOpen, onClose, account, onSuccess }: Accoun
       setTieneDebito(!!account.hasDebitCard);
       setHasYape(!!account.hasYape);
       setHasPlin(!!account.hasPlin);
+      setColor(account.color || ACCOUNT_COLOR_PRESETS[0]);
     }
   }, [isOpen, account]);
 
@@ -57,6 +62,7 @@ export function AccountEditModal({ isOpen, onClose, account, onSuccess }: Accoun
         hasDebitCard: isBank ? tieneDebito : undefined,
         hasYape: isBank ? hasYape : undefined,
         hasPlin: isBank ? hasPlin : undefined,
+        color,
       });
       toast.success('Cuenta actualizada');
       mutate();
@@ -97,17 +103,44 @@ export function AccountEditModal({ isOpen, onClose, account, onSuccess }: Accoun
           {isBank && (
             <div>
               <label className="block text-sm font-medium mb-2">Banco</label>
-              <select value={banco} onChange={(e) => setBanco(e.target.value)} className="w-full rounded-lg border border-border bg-muted px-3 py-2">
-                <option value="">Selecciona un banco</option>
-                <option value="BCP">BCP</option>
-                <option value="Interbank">Interbank</option>
-                <option value="BBVA">BBVA</option>
-                <option value="Scotiabank">Scotiabank</option>
-                <option value="Banco de Crédito">Banco de Crédito</option>
-                <option value="Otro">Otro</option>
-              </select>
+              <input
+                type="text"
+                list="account-edit-modal-bancos"
+                value={banco}
+                onChange={(e) => setBanco(e.target.value)}
+                placeholder="BCP, Interbank, SIP..."
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2"
+              />
+              <datalist id="account-edit-modal-bancos">
+                {BANK_SUGGESTIONS.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Color de la tarjeta</label>
+            <div className="flex items-center gap-2 flex-wrap">
+              {ACCOUNT_COLOR_PRESETS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  title={c}
+                  className={`w-8 h-8 rounded-full border-2 transition-transform ${color === c ? 'border-foreground scale-110' : 'border-transparent'}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+              <input
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="w-9 h-9 rounded-lg cursor-pointer border border-border"
+                title="Color personalizado"
+              />
+            </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Moneda</label>

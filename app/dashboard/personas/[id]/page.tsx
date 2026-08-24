@@ -38,6 +38,7 @@ export default function ContactDetailPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<TimelineEvent | null>(null);
+  const [isDeleteContactModalOpen, setIsDeleteContactModalOpen] = useState(false);
 
   const contact = contacts.find((c) => c.id === id);
 
@@ -94,6 +95,7 @@ export default function ContactDetailPage() {
     netBalance: financialSummary?.netBalance ?? 0,
     paymentMethodLabel: settings?.metodoPagoLabel,
     paymentMethodValue: settings?.metodoPagoValor,
+    template: settings?.msgDebtTemplate,
   });
 
   const handleReminderSent = async () => {
@@ -118,8 +120,11 @@ export default function ContactDetailPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleDelete = async () => {
-    if (!confirm('¿Estás seguro de que deseas eliminar este contacto? Esta acción no se puede deshacer.')) return;
+  const handleDelete = () => {
+    setIsDeleteContactModalOpen(true);
+  };
+
+  const handleConfirmDeleteContact = async () => {
     try {
       if (!user?.uid || !id) return;
       setIsLoadingActions(true);
@@ -303,6 +308,15 @@ export default function ContactDetailPage() {
         ]}
         warningNote="Si ya habías registrado cobros o pagos contra esto, ese dinero se revierte del saldo de la cuenta donde se había movido."
         onConfirm={handleConfirmDeleteEvent}
+      />
+
+      <ConfirmDeleteModal
+        isOpen={isDeleteContactModalOpen}
+        onClose={() => setIsDeleteContactModalOpen(false)}
+        title="Eliminar contacto"
+        itemName={contact?.nombre ?? 'este contacto'}
+        bullets={['Su historial financiero (cuentas por cobrar/pagar) queda huérfano de este contacto']}
+        onConfirm={handleConfirmDeleteContact}
       />
     </div>
   );

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Landmark,
   Users,
@@ -54,6 +55,7 @@ const toDate = (value: unknown) =>
       : new Date(String(value));
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isIncomeModalOpen, setIsIncomeModalOpen] = useState(false);
@@ -118,6 +120,7 @@ export default function DashboardPage() {
             netBalance: followUpRows.find((row) => row.contact.id === whatsAppContact.id)?.netBalance ?? 0,
             paymentMethodLabel: settings?.metodoPagoLabel,
             paymentMethodValue: settings?.metodoPagoValor,
+            template: settings?.msgDebtTemplate,
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />
@@ -254,7 +257,7 @@ export default function DashboardPage() {
             icon="📊"
             title="Sin movimientos aún"
             description="Registra tu primer movimiento para comenzar"
-            action={{ label: 'Crear movimiento', onClick: () => {} }}
+            action={{ label: 'Crear movimiento', onClick: () => setIsExpenseModalOpen(true) }}
             size="md"
           />
         )}
@@ -288,7 +291,10 @@ export default function DashboardPage() {
                     <CalendarClock className="w-5 h-5 text-amber-500" />
                   </div>
                 </div>
-                <button className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 text-sm active:scale-95">
+                <button
+                  onClick={() => router.push('/dashboard/pagos-programados')}
+                  className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 text-sm active:scale-95"
+                >
                   Pagar ahora
                 </button>
               </ContainerCard>
