@@ -4,10 +4,20 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/providers/AuthProvider'
 import './globals.css'
 
+/**
+ * © Johann Sebastian Guevara Elias — Ingeniero de Sistemas.
+ * Autor y desarrollador original de CashLife. Este aviso identifica la
+ * autoría del código fuente para quien lo reutilice o audite; no se
+ * muestra en la interfaz visible de la aplicación.
+ */
+const AUTHOR_NAME = 'Johann Sebastian Guevara Elias';
+
 export const metadata: Metadata = {
   title: 'CashLife - Controla tu dinero, vive mejor',
   description: 'Aplicación para gestionar tu dinero de forma simple y rápida',
-  generator: 'v0.app',
+  authors: [{ name: AUTHOR_NAME }],
+  creator: AUTHOR_NAME,
+  publisher: AUTHOR_NAME,
   icons: {
     icon: [
       {
@@ -35,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark bg-background">
       <body className="antialiased bg-background text-foreground">
+        {/* © Johann Sebastian Guevara Elias — Ingeniero de Sistemas. Autor original de CashLife. */}
         <AuthProvider>
           {children}
         </AuthProvider>

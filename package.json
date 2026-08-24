@@ -2,6 +2,10 @@
   "name": "my-project",
   "version": "0.1.0",
   "private": true,
+  "author": {
+    "name": "Johann Sebastian Guevara Elias",
+    "title": "Ingeniero de Sistemas"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

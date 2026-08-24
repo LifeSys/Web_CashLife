@@ -3,6 +3,8 @@
 // Mantiene el mismo modelo "todo cuelga de userId" que tenía Firestore
 // (users/{uid}/...), para que migrar después sea solo cambiar la
 // connection string.
+//
+// © Johann Sebastian Guevara Elias, Ingeniero de Sistemas. Autor original.
 
 generator client {
   provider = "prisma-client-js"

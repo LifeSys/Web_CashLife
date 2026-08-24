@@ -1,3 +1,7 @@
+/**
+ * CashLife — capa de acceso a datos.
+ * © Johann Sebastian Guevara Elias, Ingeniero de Sistemas. Autor original.
+ */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 
