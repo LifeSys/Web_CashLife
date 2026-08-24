@@ -8,7 +8,7 @@ import { usePeople } from '@/hooks/usePeople';
 import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
 import { useSettings } from '@/hooks/useSettings';
 import { personService, PersonFinancialSummary } from '@/services/person.service';
-import { buildDebtMessage } from '@/lib/whatsapp';
+import { buildDebtMessage, debtsToMessageItems } from '@/lib/whatsapp';
 import { ContactPersonalInfo } from '@/components/design-system/ContactPersonalInfo';
 import { ContactFinancialSummary } from '@/components/design-system/ContactFinancialSummary';
 import { ContactHistoryTimeline, type TimelineEvent } from '@/components/design-system/ContactHistoryTimeline';
@@ -96,6 +96,7 @@ export default function ContactDetailPage() {
     paymentMethodLabel: settings?.metodoPagoLabel,
     paymentMethodValue: settings?.metodoPagoValor,
     template: settings?.msgDebtTemplate,
+    items: id ? debtsToMessageItems(debts, id) : undefined,
   });
 
   const handleReminderSent = async () => {

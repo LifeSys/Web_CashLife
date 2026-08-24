@@ -9,7 +9,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useCollectionReminders } from '@/hooks/useCollectionReminders';
 import { personService } from '@/services/person.service';
 import { receivableService } from '@/services/financial.service';
-import { buildDebtMessage } from '@/lib/whatsapp';
+import { buildDebtMessage, debtsToMessageItems } from '@/lib/whatsapp';
 import { toPenEquivalent } from '@/lib/currency';
 import { ReceivableDebtModal } from '@/components/modals/ReceivableDebtModal';
 import { ReceivableDebtEditModal } from '@/components/modals/ReceivableDebtEditModal';
@@ -332,6 +332,7 @@ export default function Page() {
             paymentMethodLabel: settings?.metodoPagoLabel,
             paymentMethodValue: settings?.metodoPagoValor,
             template: settings?.msgDebtTemplate,
+            items: debtsToMessageItems(debts, whatsAppContact.id),
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />

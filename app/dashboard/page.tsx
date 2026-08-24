@@ -24,7 +24,7 @@ import { useCreditCards } from '@/hooks/useCreditCards';
 import { useCollectionReminders, FOLLOW_UP_DAYS } from '@/hooks/useCollectionReminders';
 import { useSettings } from '@/hooks/useSettings';
 import { personService } from '@/services/person.service';
-import { buildDebtMessage } from '@/lib/whatsapp';
+import { buildDebtMessage, debtsToMessageItems } from '@/lib/whatsapp';
 import { toPenEquivalent } from '@/lib/currency';
 import {
   DashboardMetric,
@@ -121,6 +121,7 @@ export default function DashboardPage() {
             paymentMethodLabel: settings?.metodoPagoLabel,
             paymentMethodValue: settings?.metodoPagoValor,
             template: settings?.msgDebtTemplate,
+            items: debtsToMessageItems(debts, whatsAppContact.id),
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />
