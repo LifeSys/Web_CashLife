@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Settings, LogOut, Bell, Moon, Wallet, RefreshCw, DollarSign, MessageSquareText, RotateCcw } from 'lucide-react';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/providers/AuthProvider';
@@ -38,6 +39,7 @@ const PAYMENT_METHODS = [
 ] as const;
 
 export default function ConfiguracionPage() {
+  const router = useRouter();
   const { settings, updateSettings } = useSettings();
   const { signOut } = useAuth();
   const [metodoPagoLabel, setMetodoPagoLabel] = useState('');
@@ -80,8 +82,10 @@ export default function ConfiguracionPage() {
   const handleSignOut = async () => {
     try {
       await signOut();
+      router.push('/login');
     } catch (error) {
-      toast.info(error instanceof Error ? error.message : 'El login está deshabilitado mientras CashLife corre en modo local.');
+      toast.error(error instanceof Error ? error.message : 'Error al cerrar sesión');
+      console.error('[CashLife] Error cerrando sesión:', error);
     }
   };
 

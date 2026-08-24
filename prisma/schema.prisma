@@ -18,12 +18,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String?  @unique
-  nombre    String
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String?  @unique
+  // Hash bcrypt de la contraseña. Nulo = cuenta heredada del modo local
+  // (ej. "local-user") que todavía no fue reclamada con un signup real.
+  passwordHash String?
+  nombre       String
+  avatar       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   settings           Settings?
   accounts           Account[]
