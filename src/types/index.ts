@@ -52,6 +52,9 @@ export type TransactionType =
   | 'transfer'          // Transferencia entre cuentas
   | 'card_purchase'     // Compra con tarjeta de crédito
   | 'card_payment'      // Pago de tarjeta de crédito
+  | 'credit_card_charge'  // Compra/cargo con tarjeta (nombre usado en el motor de saldos)
+  | 'credit_card_payment' // Pago de tarjeta (nombre usado en el motor de saldos)
+  | 'credit_card_refund'  // Devolución/reembolso de un comercio abonado a la tarjeta (reduce la deuda, no toca ninguna cuenta)
   | 'loan'              // Préstamo otorgado
   | 'loan_payment'      // Pago de préstamo recibido
   | 'receivable_created' // Deuda creada (por cobrar)

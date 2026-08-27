@@ -4,13 +4,13 @@ import { useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useAccounts } from '@/hooks/useAccounts';
-import { useReceivableDebts } from '@/hooks/useFinancial';
+import { usePayableObligations } from '@/hooks/useFinancial';
 import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 import { parseLocalDate, formatDateInput } from '@/lib/date';
 
-interface ReceivablePaymentContextModalProps {
+interface PayablePaymentContextModalProps {
   isOpen: boolean;
   onClose: () => void;
   contactId: string;
@@ -18,74 +18,77 @@ interface ReceivablePaymentContextModalProps {
   onSuccess?: () => void;
 }
 
-export function ReceivablePaymentContextModal({
+/**
+ * Abono parcial contra una obligación existente (lo que YO le debo a un
+ * contacto). Análogo a ReceivablePaymentContextModal pero del lado "Le
+ * Debo": permite pagar solo una parte (ej. debo 150, pago 100 a cuenta) sin
+ * cerrar la obligación completa.
+ */
+export function PayablePaymentContextModal({
   isOpen,
   onClose,
   contactId,
   contactName,
   onSuccess,
-}: ReceivablePaymentContextModalProps) {
+}: PayablePaymentContextModalProps) {
   const { user } = useAuth();
   const { cuentas } = useAccounts();
-  const { debts } = useReceivableDebts();
-  const { invalidateAfterReceivable } = useSWRInvalidation();
-  
-  const [selectedDebtId, setSelectedDebtId] = useState('');
+  const { obligations } = usePayableObligations();
+  const { invalidateAfterPayable } = useSWRInvalidation();
+
+  const [selectedObligationId, setSelectedObligationId] = useState('');
   const [amount, setAmount] = useState('');
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(formatDateInput(new Date()));
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Filter debts for this contact
-  const contactDebts = useMemo(
-    () => debts.filter((d) => (d.contactId ?? d.personId) === contactId && d.status !== 'paid'),
-    [debts, contactId]
+  const contactObligations = useMemo(
+    () => obligations.filter((o) => (o.contactId ?? o.personId) === contactId && o.status !== 'paid'),
+    [obligations, contactId]
   );
 
-  // Get selected debt details
-  const selectedDebt = useMemo(
-    () => contactDebts.find((d) => d.id === selectedDebtId),
-    [contactDebts, selectedDebtId]
+  const selectedObligation = useMemo(
+    () => contactObligations.find((o) => o.id === selectedObligationId),
+    [contactObligations, selectedObligationId]
   );
-
-  // Auto-fill amount when debt is selected
-  const handleDebtChange = (debtId: string) => {
-    setSelectedDebtId(debtId);
-    const debt = contactDebts.find((d) => d.id === debtId);
-    if (debt) {
-      setAmount(debt.pendingBalance.toString());
-    }
-  };
 
   const accountOptions = useMemo(
     () => cuentas.filter((c) => c.tipo !== 'credit_card'),
     [cuentas]
   );
 
+  const handleObligationChange = (obligationId: string) => {
+    setSelectedObligationId(obligationId);
+    const obligation = contactObligations.find((o) => o.id === obligationId);
+    if (obligation) {
+      setAmount(obligation.pendingBalance.toString());
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!user?.uid || !selectedDebtId || !amount || !accountId) {
+
+    if (!user?.uid || !selectedObligationId || !amount || !accountId) {
       toast.error('Por favor completa todos los campos');
       return;
     }
 
-    if (!selectedDebt) {
-      toast.error('Deuda no encontrada');
+    if (!selectedObligation) {
+      toast.error('Obligación no encontrada');
       return;
     }
 
     const parsedAmount = Number(amount);
-    if (parsedAmount <= 0 || parsedAmount > selectedDebt.pendingBalance) {
-      toast.error(`El monto debe ser entre 0 y ${selectedDebt.pendingBalance.toFixed(2)}`);
+    if (parsedAmount <= 0 || parsedAmount > selectedObligation.pendingBalance) {
+      toast.error(`El monto debe ser entre 0 y ${selectedObligation.pendingBalance.toFixed(2)}`);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await financialEngine.collectReceivable(user.uid, {
-        debtId: selectedDebtId,
+      await financialEngine.payObligation(user.uid, {
+        obligationId: selectedObligationId,
         personId: contactId,
         contactId: contactId,
         amount: parsedAmount,
@@ -96,21 +99,19 @@ export function ReceivablePaymentContextModal({
 
       toast.success('Pago registrado correctamente');
 
-      // Invalidate relevant SWR caches (includes person/people data)
-      invalidateAfterReceivable(user.uid);
+      invalidateAfterPayable(user.uid);
 
-      // Reset form
-      setSelectedDebtId('');
+      setSelectedObligationId('');
       setAmount('');
       setAccountId('');
       setDate(formatDateInput(new Date()));
       setNotes('');
-      
+
       onClose();
       onSuccess?.();
     } catch (error) {
       toast.error('Error al registrar el pago');
-      console.error('[v0] Error:', error);
+      console.error('[CashLife] Error:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -121,11 +122,10 @@ export function ReceivablePaymentContextModal({
   return (
     <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-background/80 backdrop-blur-sm p-0 md:p-4">
       <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl bg-card shadow-2xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-card border-b border-border p-4 md:p-6 flex items-center justify-between z-10">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold">Registrar Pago Recibido</h2>
-            <p className="text-sm text-muted-foreground mt-1">De {contactName} (Cobro)</p>
+            <h2 className="text-xl md:text-2xl font-bold">Registrar Pago Realizado</h2>
+            <p className="text-sm text-muted-foreground mt-1">A {contactName} (Abono a lo que le debo)</p>
           </div>
           <button
             onClick={onClose}
@@ -135,42 +135,38 @@ export function ReceivablePaymentContextModal({
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
-          {/* Pending Debts Info */}
-          {contactDebts.length === 0 ? (
+          {contactObligations.length === 0 ? (
             <div className="rounded-lg bg-muted/50 border border-border p-4 text-center">
-              <p className="text-sm text-muted-foreground">No hay deudas pendientes para este contacto</p>
+              <p className="text-sm text-muted-foreground">No hay obligaciones pendientes con este contacto</p>
             </div>
           ) : (
             <>
-              {/* Deuda Selection */}
               <div>
-                <label className="block text-sm font-medium mb-2">Selecciona Deuda *</label>
+                <label className="block text-sm font-medium mb-2">Selecciona Obligación *</label>
                 <select
-                  value={selectedDebtId}
-                  onChange={(e) => handleDebtChange(e.target.value)}
+                  value={selectedObligationId}
+                  onChange={(e) => handleObligationChange(e.target.value)}
                   className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 >
-                  <option value="">Elige una deuda pendiente</option>
-                  {contactDebts.map((debt) => (
-                    <option key={debt.id} value={debt.id}>
-                      {debt.description} - Pendiente: S/{debt.pendingBalance.toFixed(2)}
+                  <option value="">Elige una obligación pendiente</option>
+                  {contactObligations.map((obligation) => (
+                    <option key={obligation.id} value={obligation.id}>
+                      {obligation.description} - Pendiente: S/{obligation.pendingBalance.toFixed(2)}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Amount */}
               <div>
-                <label className="block text-sm font-medium mb-2">Monto a Cobrar *</label>
+                <label className="block text-sm font-medium mb-2">Monto a Pagar *</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">S/</span>
                   <input
                     type="number"
                     step="0.01"
-                    max={selectedDebt?.pendingBalance}
+                    max={selectedObligation?.pendingBalance}
                     min="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -179,21 +175,20 @@ export function ReceivablePaymentContextModal({
                     required
                   />
                 </div>
-                {selectedDebt && (
-                  <p className="mt-1 text-xs text-muted-foreground">Pendiente: S/{selectedDebt.pendingBalance.toFixed(2)}</p>
+                {selectedObligation && (
+                  <p className="mt-1 text-xs text-muted-foreground">Pendiente: S/{selectedObligation.pendingBalance.toFixed(2)}</p>
                 )}
               </div>
 
-              {/* Account */}
               <div>
-                <label className="block text-sm font-medium mb-2">Cuenta de Destino *</label>
+                <label className="block text-sm font-medium mb-2">Cuenta de Origen *</label>
                 <select
                   value={accountId}
                   onChange={(e) => setAccountId(e.target.value)}
                   className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 >
-                  <option value="">Selecciona en qué cuenta entra el dinero</option>
+                  <option value="">Selecciona la cuenta desde donde pagas</option>
                   {accountOptions.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.nombre}
@@ -202,7 +197,6 @@ export function ReceivablePaymentContextModal({
                 </select>
               </div>
 
-              {/* Date */}
               <div>
                 <label className="block text-sm font-medium mb-2">Fecha del Pago</label>
                 <input
@@ -213,7 +207,6 @@ export function ReceivablePaymentContextModal({
                 />
               </div>
 
-              {/* Notes */}
               <div>
                 <label className="block text-sm font-medium mb-2">Notas (Opcional)</label>
                 <textarea
@@ -225,7 +218,6 @@ export function ReceivablePaymentContextModal({
                 />
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t border-border">
                 <button
                   type="button"
@@ -236,10 +228,10 @@ export function ReceivablePaymentContextModal({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !selectedDebtId || !accountId}
+                  disabled={isSubmitting || !selectedObligationId}
                   className="flex-1 bg-primary text-primary-foreground font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? 'Guardando...' : 'Registrar Cobro'}
+                  {isSubmitting ? 'Guardando...' : 'Registrar Pago'}
                 </button>
               </div>
             </>

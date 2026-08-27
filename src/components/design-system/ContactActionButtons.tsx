@@ -1,10 +1,12 @@
 'use client';
 
-import { Plus } from 'lucide-react';
+import { Plus, HandCoins, Wallet } from 'lucide-react';
 
 interface ContactActionButtonsProps {
   onAddCollection?: () => void;
   onAddPayment?: () => void;
+  onRegisterCollectionPayment?: () => void;
+  onRegisterObligationPayment?: () => void;
   onAddNote?: () => void;
   isLoading?: boolean;
 }
@@ -12,11 +14,13 @@ interface ContactActionButtonsProps {
 export function ContactActionButtons({
   onAddCollection,
   onAddPayment,
+  onRegisterCollectionPayment,
+  onRegisterObligationPayment,
   onAddNote,
   isLoading,
 }: ContactActionButtonsProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {onAddCollection && (
         <button
           onClick={onAddCollection}
@@ -38,6 +42,30 @@ export function ContactActionButtons({
         >
           <Plus className="w-4 h-4" />
           🔴 Le Debo
+        </button>
+      )}
+
+      {onRegisterCollectionPayment && (
+        <button
+          onClick={onRegisterCollectionPayment}
+          disabled={isLoading}
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30 transition-all disabled:opacity-50 font-medium"
+          title="Registrar un cobro (total o parcial) contra una deuda pendiente. Ej: me debe 150 y me da 100 a cuenta"
+        >
+          <HandCoins className="w-4 h-4" />
+          Registrar Cobro
+        </button>
+      )}
+
+      {onRegisterObligationPayment && (
+        <button
+          onClick={onRegisterObligationPayment}
+          disabled={isLoading}
+          className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 border border-orange-500/30 transition-all disabled:opacity-50 font-medium"
+          title="Registrar un pago (total o parcial) de lo que le debo"
+        >
+          <Wallet className="w-4 h-4" />
+          Registrar Pago
         </button>
       )}
 

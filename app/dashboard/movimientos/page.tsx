@@ -7,7 +7,8 @@ import { useCategories } from '@/hooks/useCategories';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreditCards } from '@/hooks/useCreditCards';
 import { MovementCard } from '@/components/common/MovementCard';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
+import { formatDateInput, parseLocalDate } from '@/lib/date';
 
 function MovimientosContent() {
   const router = useRouter();
@@ -20,6 +21,9 @@ function MovimientosContent() {
   const { cuentas } = useAccounts();
   const { creditCards } = useCreditCards();
   const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes' | 'año'>('todos');
+  const [busqueda, setBusqueda] = useState('');
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   const getCategoryName = (categoryId: string) => {
     return categorias.find(c => c.id === categoryId)?.nombre || 'Categoría';
@@ -32,12 +36,22 @@ function MovimientosContent() {
     const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
     const yearAgo = new Date(now.getFullYear(), 0, 1);
 
+    const desde = fechaDesde ? parseLocalDate(fechaDesde) : null;
+    // "Hasta" es inclusivo del día completo: sin esto, un movimiento del
+    // mismo día "hasta" quedaba afuera porque su hora ya pasaba medianoche.
+    const hasta = fechaHasta ? new Date(parseLocalDate(fechaHasta).getTime() + 24 * 60 * 60 * 1000 - 1) : null;
+    const busquedaLower = busqueda.trim().toLowerCase();
+
     return transacciones.filter(t => {
       if (cuentaFiltro && t.cuentaId !== cuentaFiltro && t.destinationAccountId !== cuentaFiltro) return false;
       if (tarjetaFiltro && t.creditCardId !== tarjetaFiltro) return false;
 
       const tDate = t.fecha instanceof Date ? t.fecha : t.fecha.toDate();
       const tDateOnly = new Date(tDate.getFullYear(), tDate.getMonth(), tDate.getDate());
+
+      if (desde && tDate < desde) return false;
+      if (hasta && tDate > hasta) return false;
+      if (busquedaLower && !t.descripcion?.toLowerCase().includes(busquedaLower)) return false;
 
       if (filtro === 'hoy') return tDateOnly.getTime() === today.getTime();
       if (filtro === 'semana') return tDate >= weekAgo;
@@ -81,6 +95,48 @@ function MovimientosContent() {
           </button>
         </div>
       )}
+
+      {/* Búsqueda */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por descripción..."
+          className="w-full pl-10 pr-3 py-2 rounded-lg border border-border bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      {/* Rango de fechas */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+        <div className="flex-1 min-w-0">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+          <input
+            type="date"
+            value={fechaDesde}
+            onChange={(e) => setFechaDesde(e.target.value)}
+            className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
+          <input
+            type="date"
+            value={fechaHasta}
+            onChange={(e) => setFechaHasta(e.target.value)}
+            className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        {(fechaDesde || fechaHasta) && (
+          <button
+            onClick={() => { setFechaDesde(''); setFechaHasta(''); }}
+            className="inline-flex items-center justify-center gap-1 rounded-lg bg-muted px-3 py-2 text-sm font-medium hover:bg-muted/80 shrink-0"
+          >
+            <X className="h-3 w-3" /> Quitar fechas
+          </button>
+        )}
+      </div>
 
       {/* Filtros */}
       <div className="flex gap-2 overflow-x-auto pb-2">

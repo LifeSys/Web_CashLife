@@ -12,9 +12,19 @@ const getStatus = (pendingBalance: number, originalAmount: number, dueDate?: Dat
   if (date && date < new Date()) return 'overdue' as const;
   return pendingBalance < originalAmount ? ('partial' as const) : ('pending' as const);
 };
+// El servidor (Vercel) corre en UTC, no en hora de Perú (UTC-5, sin horario
+// de verano). `new Date(year, month-1, day)` sin hora usa medianoche en la
+// zona horaria del PROCESO — en producción eso es medianoche UTC, que en
+// Lima son recién las 7pm del día ANTERIOR. Resultado: un pago programado
+// se marcaba como pagado/gasto desde las 7pm de un día antes de lo que el
+// usuario esperaba, sin ningún horario predecible.
+// Ahora el corte es explícito: mediodía (12pm) hora de Perú del día de
+// vencimiento, calculado directamente como el instante UTC equivalente
+// (17:00 UTC = 12:00 Lima), sin depender de la zona horaria del servidor.
+const PERU_UTC_OFFSET_HOURS = 5;
 const periodToDate = (period: string, dueDay: number) => {
   const [year, month] = period.split('-').map(Number);
-  return new Date(year, month - 1, Math.min(dueDay, 28));
+  return new Date(Date.UTC(year, month - 1, Math.min(dueDay, 28), 12 + PERU_UTC_OFFSET_HOURS, 0, 0));
 };
 const nextMonthlyPeriod = (period: string) => {
   const [year, month] = period.split('-').map(Number);

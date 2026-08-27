@@ -140,12 +140,22 @@ class FinancialEngineService {
   async payCreditCard(uid: string, input: Omit<TransactionInput, 'tipo'> & { creditCardId: string; cardDebtReduction?: number }) {
     // Create transaction for account debit
     const transaction = await transactionService.create(uid, { ...input, tipo: 'card_payment' });
-    
+
     // If cardDebtReduction specified, update card debt in metadata
     // This allows tracking the reduction separately from the payment amount
     // (useful when paying only part of balance)
-    
+
     return transaction;
+  }
+
+  /**
+   * Reembolso de un comercio (ej. devolución de una compra) abonado
+   * directamente a la tarjeta. Reduce la deuda de la tarjeta igual que un
+   * pago, pero sin `cuenta` — el dinero no sale de ninguna cuenta del
+   * usuario porque nunca entró a una, solo se descuenta de lo que se debe.
+   */
+  async refundCreditCard(uid: string, input: Omit<TransactionInput, 'tipo' | 'cuenta'> & { creditCardId: string }) {
+    return transactionService.create(uid, { ...input, cuenta: 'credit-card', tipo: 'credit_card_refund' });
   }
 
   payScheduledPayment(uid: string, input: { paymentId: string; period: string; accountId: string; paidAt?: Date }) {

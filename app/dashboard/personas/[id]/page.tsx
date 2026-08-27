@@ -15,6 +15,8 @@ import { ContactHistoryTimeline, type TimelineEvent } from '@/components/design-
 import { ContactActionButtons } from '@/components/design-system/ContactActionButtons';
 import { ReceivableDebtContextModal } from '@/components/modals/ReceivableDebtContextModal';
 import { PayableObligationContextModal } from '@/components/modals/PayableObligationContextModal';
+import { ReceivablePaymentContextModal } from '@/components/modals/ReceivablePaymentContextModal';
+import { PayablePaymentContextModal } from '@/components/modals/PayablePaymentContextModal';
 import { PersonEditModal } from '@/components/modals/PersonEditModal';
 import { WhatsAppMessageModal } from '@/components/modals/WhatsAppMessageModal';
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
@@ -36,6 +38,8 @@ export default function ContactDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCollectionModalOpen, setIsCollectionModalOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isCollectionPaymentModalOpen, setIsCollectionPaymentModalOpen] = useState(false);
+  const [isObligationPaymentModalOpen, setIsObligationPaymentModalOpen] = useState(false);
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<TimelineEvent | null>(null);
   const [isDeleteContactModalOpen, setIsDeleteContactModalOpen] = useState(false);
@@ -165,6 +169,14 @@ export default function ContactDetailPage() {
     setIsPaymentModalOpen(true);
   };
 
+  const handleRegisterCollectionPayment = () => {
+    setIsCollectionPaymentModalOpen(true);
+  };
+
+  const handleRegisterObligationPayment = () => {
+    setIsObligationPaymentModalOpen(true);
+  };
+
   // Auto-refresh function to update all related data
   const handleRefreshAfterOperation = async () => {
     try {
@@ -229,6 +241,8 @@ export default function ContactDetailPage() {
         <ContactActionButtons
           onAddCollection={handleAddCollection}
           onAddPayment={handleAddPayment}
+          onRegisterCollectionPayment={handleRegisterCollectionPayment}
+          onRegisterObligationPayment={handleRegisterObligationPayment}
           isLoading={isLoadingActions}
         />
       </div>
@@ -284,6 +298,20 @@ export default function ContactDetailPage() {
           <PayableObligationContextModal
             isOpen={isPaymentModalOpen}
             onClose={() => setIsPaymentModalOpen(false)}
+            contactId={id}
+            contactName={contact.nombre}
+            onSuccess={handleRefreshAfterOperation}
+          />
+          <ReceivablePaymentContextModal
+            isOpen={isCollectionPaymentModalOpen}
+            onClose={() => setIsCollectionPaymentModalOpen(false)}
+            contactId={id}
+            contactName={contact.nombre}
+            onSuccess={handleRefreshAfterOperation}
+          />
+          <PayablePaymentContextModal
+            isOpen={isObligationPaymentModalOpen}
+            onClose={() => setIsObligationPaymentModalOpen(false)}
             contactId={id}
             contactName={contact.nombre}
             onSuccess={handleRefreshAfterOperation}

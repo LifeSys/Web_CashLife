@@ -35,6 +35,14 @@ function roundMoney(value: number): number {
 // cualquiera de los dos nombres.
 const isCardPaymentTipo = (tipo: string) => tipo === 'card_payment' || tipo === 'credit_card_payment';
 
+/**
+ * Reembolso de un comercio abonado directamente a la tarjeta (ej. una
+ * devolución de una compra). A diferencia de un pago, reduce la deuda de
+ * la tarjeta pero NO sale dinero de ninguna cuenta — el dinero nunca pasó
+ * por una cuenta del usuario, solo se descontó del saldo que se debe.
+ */
+const isCardRefundTipo = (tipo: string) => tipo === 'credit_card_refund';
+
 function calculateBalanceDelta(tipo: string, monto: number): number {
   switch (tipo) {
     case 'expense':
@@ -65,9 +73,19 @@ export class TransactionRepository {
     const orderDirection = options?.orderDirection || 'desc';
     const cursor = options?.startAfter as { id: string } | undefined;
 
+    // Desempate por createdAt: dos movimientos pueden compartir la misma
+    // `fecha` (el usuario solo elige el día, no la hora) — sin un segundo
+    // criterio de orden, Postgres no garantiza que el que se registró más
+    // recientemente quede arriba. createdAt sí tiene resolución de milisegundos
+    // y refleja el orden real de llegada.
+    const orderBy: Prisma.TransactionOrderByWithRelationInput[] =
+      orderField === 'createdAt'
+        ? [{ createdAt: orderDirection }]
+        : [{ [orderField]: orderDirection }, { createdAt: orderDirection }];
+
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false },
-      orderBy: { [orderField]: orderDirection },
+      orderBy,
       take: pageSize + 1,
       ...(cursor?.id ? { cursor: { id: cursor.id }, skip: 1 } : {}),
     });
@@ -96,7 +114,7 @@ export class TransactionRepository {
   async getByDateRange(uid: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, fecha: { gte: startDate, lte: endDate } },
-      orderBy: { fecha: 'desc' },
+      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -107,7 +125,7 @@ export class TransactionRepository {
   async getByAccount(uid: string, accountId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, cuenta: accountId },
-      orderBy: { fecha: 'desc' },
+      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -118,7 +136,7 @@ export class TransactionRepository {
   async getByCategory(uid: string, categoryId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, categoria: categoryId },
-      orderBy: { fecha: 'desc' },
+      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -129,7 +147,7 @@ export class TransactionRepository {
   async getByPerson(uid: string, personId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, persona: personId },
-      orderBy: { fecha: 'desc' },
+      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -191,13 +209,15 @@ export class TransactionRepository {
       const card = await t.creditCard.findFirst({ where: { id: transaction.creditCardId, userId: uid } });
       if (!card) throw new Error(`Tarjeta ${transaction.creditCardId} no encontrada`);
       const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
+      const reducesDebt = isCardPaymentTipo(transaction.tipo) || isCardRefundTipo(transaction.tipo);
       const nextUsed = roundMoney(
-        isCardPaymentTipo(transaction.tipo)
+        reducesDebt
           ? Math.max(currentUsed - transaction.monto, 0)
           : currentUsed + transaction.monto
       );
       const limit = card.creditLimit ?? card.lineaCredito ?? 0;
       await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: roundMoney(limit - nextUsed), updatedBy: uid } });
+      // El reembolso NO mueve dinero de ninguna cuenta — solo el pago sí.
       if (isCardPaymentTipo(transaction.tipo) && transaction.cuenta) {
         const account = await t.account.findFirst({ where: { id: transaction.cuenta, userId: uid } });
         if (!account) throw new Error(`Cuenta ${transaction.cuenta} no encontrada`);
@@ -249,7 +269,8 @@ export class TransactionRepository {
         const card = await t.creditCard.findFirst({ where: { id: tx.creditCardId, userId: uid } });
         if (!card) throw new Error('Tarjeta no encontrada');
         const currentUsed = card.usedAmount ?? card.montoUtilizado ?? 0;
-        const nextUsed = roundMoney(isCardPaymentTipo(tx.tipo) ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0));
+        const reducedDebt = isCardPaymentTipo(tx.tipo) || isCardRefundTipo(tx.tipo);
+        const nextUsed = roundMoney(reducedDebt ? currentUsed + tx.monto : Math.max(currentUsed - tx.monto, 0));
         const limit = card.creditLimit ?? card.lineaCredito ?? 0;
         await t.creditCard.update({ where: { id: card.id }, data: { usedAmount: nextUsed, montoUtilizado: nextUsed, availableAmount: roundMoney(limit - nextUsed), updatedBy: uid } });
         if (isCardPaymentTipo(tx.tipo) && tx.cuenta) {

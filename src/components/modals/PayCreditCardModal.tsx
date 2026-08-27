@@ -27,6 +27,7 @@ export function PayCreditCardModal({
   onSuccess,
 }: PayCreditCardModalProps) {
   const { user } = useAuth();
+  const [mode, setMode] = useState<'pago' | 'reembolso'>('pago');
   const [amount, setAmount] = useState(String(card.montoUtilizado || 0));
   const [selectedAccountId, setSelectedAccountId] = useState(card.linkedAccountId || '');
   const [notes, setNotes] = useState('');
@@ -37,42 +38,56 @@ export function PayCreditCardModal({
   const selectedAccount = userAccounts.find(a => a.id === selectedAccountId);
   const paymentAmount = parseFloat(amount) || 0;
   const debtAmount = card.montoUtilizado || 0;
-  const insufficientFunds = selectedAccount && paymentAmount > (selectedAccount.saldo || 0);
+  const isRefund = mode === 'reembolso';
+  const insufficientFunds = !isRefund && selectedAccount && paymentAmount > (selectedAccount.saldo || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.uid || !selectedAccountId) return;
+    if (!user?.uid) return;
+    if (!isRefund && !selectedAccountId) return;
 
     if (paymentAmount <= 0) {
       toast.error('El monto debe ser mayor a 0');
       return;
     }
 
-    if (!selectedAccount || paymentAmount > (selectedAccount.saldo || 0)) {
+    if (!isRefund && (!selectedAccount || paymentAmount > (selectedAccount.saldo || 0))) {
       toast.error('Saldo insuficiente en la cuenta seleccionada');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Record the payment transaction
-      await financialEngine.payCreditCard(user.uid, {
-        monto: paymentAmount,
-        descripcion: `Pago de ${card.nombre}`,
-        fecha: new Date(),
-        cuenta: selectedAccountId,
-        cuentaId: selectedAccountId,
-        creditCardId: card.id,
-        notas: notes.trim() || undefined,
-      });
-
-      toast.success(`Pago de ${formatCurrency(paymentAmount)} registrado`);
+      if (isRefund) {
+        // Devolución de un comercio: reduce la deuda de la tarjeta sin
+        // tocar ninguna cuenta — el dinero nunca pasó por una cuenta.
+        await financialEngine.refundCreditCard(user.uid, {
+          monto: paymentAmount,
+          descripcion: notes.trim() ? `Devolución en ${card.nombre}: ${notes.trim()}` : `Devolución en ${card.nombre}`,
+          fecha: new Date(),
+          creditCardId: card.id,
+          notas: notes.trim() || undefined,
+        });
+        toast.success(`Devolución de ${formatCurrency(paymentAmount)} registrada`);
+      } else {
+        // Record the payment transaction
+        await financialEngine.payCreditCard(user.uid, {
+          monto: paymentAmount,
+          descripcion: `Pago de ${card.nombre}`,
+          fecha: new Date(),
+          cuenta: selectedAccountId,
+          cuentaId: selectedAccountId,
+          creditCardId: card.id,
+          notas: notes.trim() || undefined,
+        });
+        toast.success(`Pago de ${formatCurrency(paymentAmount)} registrado`);
+      }
       setAmount(String(debtAmount));
       setNotes('');
       onClose();
       onSuccess?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al registrar pago');
+      toast.error(error instanceof Error ? error.message : `Error al registrar ${isRefund ? 'la devolución' : 'el pago'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +99,7 @@ export function PayCreditCardModal({
         {/* Header */}
         <div className="border-b border-border p-4 md:p-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl md:text-2xl font-bold">Pagar {card.nombre}</h2>
+            <h2 className="text-xl md:text-2xl font-bold">{isRefund ? 'Devolución en ' : 'Pagar '}{card.nombre}</h2>
             <p className="text-sm text-muted-foreground mt-1">Deuda actual: {formatCurrency(debtAmount)}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-all">
@@ -92,11 +107,40 @@ export function PayCreditCardModal({
           </button>
         </div>
 
+        {/* Mode toggle: Pago vs Reembolso */}
+        <div className="flex gap-2 p-4 md:px-6 md:pt-6 md:pb-0">
+          <button
+            type="button"
+            onClick={() => setMode('pago')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              mode === 'pago' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/80'
+            }`}
+          >
+            Pagar
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode('reembolso')}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
+              mode === 'reembolso' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/80'
+            }`}
+            title="Un comercio te está devolviendo dinero de una compra hecha con esta tarjeta"
+          >
+            Me devolvieron dinero
+          </button>
+        </div>
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4">
+          {isRefund && (
+            <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-3 py-2 text-sm text-emerald-400">
+              Esto reduce la deuda de la tarjeta directamente. No sale dinero de ninguna cuenta tuya — el reembolso lo hizo el comercio.
+            </div>
+          )}
+
           {/* Payment Amount */}
           <div>
-            <label className="block text-sm font-medium mb-2">Monto a pagar *</label>
+            <label className="block text-sm font-medium mb-2">{isRefund ? 'Monto devuelto *' : 'Monto a pagar *'}</label>
             <div className="relative">
               <span className="absolute left-3 top-3 text-muted-foreground">S/</span>
               <input
@@ -120,43 +164,49 @@ export function PayCreditCardModal({
               onClick={() => setAmount(String(debtAmount))}
               className="flex-1 text-xs bg-muted hover:bg-muted/80 rounded px-2 py-1.5 transition-colors"
             >
-              Pagar todo
+              {isRefund ? 'Todo lo que debo' : 'Pagar todo'}
             </button>
-            <button
-              type="button"
-              onClick={() => setAmount(String(card.minimumPayment || 0))}
-              className="flex-1 text-xs bg-muted hover:bg-muted/80 rounded px-2 py-1.5 transition-colors"
-            >
-              Pago mínimo
-            </button>
-            <button
-              type="button"
-              onClick={() => setAmount(String(debtAmount * 0.5))}
-              className="flex-1 text-xs bg-muted hover:bg-muted/80 rounded px-2 py-1.5 transition-colors"
-            >
-              50%
-            </button>
+            {!isRefund && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setAmount(String(card.minimumPayment || 0))}
+                  className="flex-1 text-xs bg-muted hover:bg-muted/80 rounded px-2 py-1.5 transition-colors"
+                >
+                  Pago mínimo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAmount(String(debtAmount * 0.5))}
+                  className="flex-1 text-xs bg-muted hover:bg-muted/80 rounded px-2 py-1.5 transition-colors"
+                >
+                  50%
+                </button>
+              </>
+            )}
           </div>
 
-          {/* Account Selection */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Cuenta para pagar *</label>
-            <select
-              value={selectedAccountId}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="">Selecciona una cuenta</option>
-              {userAccounts.map(acc => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.nombre} - {formatCurrency(acc.saldo || 0)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Account Selection (solo pagos: el reembolso no sale de ninguna cuenta) */}
+          {!isRefund && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Cuenta para pagar *</label>
+              <select
+                value={selectedAccountId}
+                onChange={(e) => setSelectedAccountId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-muted px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Selecciona una cuenta</option>
+                {userAccounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.nombre} - {formatCurrency(acc.saldo || 0)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Account Info */}
-          {selectedAccount && (
+          {!isRefund && selectedAccount && (
             <div className="bg-muted rounded-lg p-3 space-y-1">
               <p className="text-sm">
                 <span className="text-muted-foreground">Cuenta:</span> <span className="font-semibold">{selectedAccount.nombre}</span>
@@ -184,16 +234,18 @@ export function PayCreditCardModal({
 
           {/* Payment Summary */}
           <div className="bg-card border border-border rounded-lg p-4 space-y-2">
-            <p className="font-semibold text-sm">Resumen del pago</p>
+            <p className="font-semibold text-sm">{isRefund ? 'Resumen de la devolución' : 'Resumen del pago'}</p>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between text-muted-foreground">
                 <span>Monto:</span>
                 <span className="font-semibold">{formatCurrency(paymentAmount)}</span>
               </div>
-              <div className="flex justify-between text-muted-foreground">
-                <span>Desde:</span>
-                <span className="font-semibold">{selectedAccount?.nombre || '--'}</span>
-              </div>
+              {!isRefund && (
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Desde:</span>
+                  <span className="font-semibold">{selectedAccount?.nombre || '--'}</span>
+                </div>
+              )}
               <div className="border-t border-border pt-2 flex justify-between">
                 <span>Nueva deuda:</span>
                 <span className={`font-bold ${Math.max(0, debtAmount - paymentAmount) === 0 ? 'text-green-500' : 'text-foreground'}`}>
@@ -214,10 +266,10 @@ export function PayCreditCardModal({
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || insufficientFunds || paymentAmount <= 0}
+              disabled={isSubmitting || insufficientFunds || paymentAmount <= 0 || (!isRefund && !selectedAccountId)}
               className="flex-1 bg-primary text-primary-foreground font-semibold py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              {isSubmitting ? 'Procesando...' : 'Confirmar pago'}
+              {isSubmitting ? 'Procesando...' : isRefund ? 'Confirmar devolución' : 'Confirmar pago'}
             </button>
           </div>
         </form>
