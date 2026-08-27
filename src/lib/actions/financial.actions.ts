@@ -277,16 +277,24 @@ export async function ensureScheduledPaymentPeriodAction(uid: string, paymentId:
   const payment = await scheduledRepo.getById(uid, paymentId);
   if (!payment) throw new Error('Pago programado no encontrado');
   const existing = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId, period } } });
-  if (existing) return existing as unknown as ScheduledPaymentPeriod;
   const dueDate = periodToDate(period, payment.dueDay);
 
   // Pagos con cargo/débito automático: si ya llegó (o pasó) la fecha de cobro,
   // se registran solos como pagados — el usuario no tiene que marcarlos.
-  if (payment.autoPay && payment.suggestedAccountId && dueDate <= new Date()) {
+  // OJO: esto se evalúa SIEMPRE que aún no esté pagado, no solo la primera
+  // vez que se crea el registro. Antes, si abrías esta pantalla ANTES del
+  // corte de mediodía, el periodo quedaba creado como 'pending' y, al
+  // devolverse tal cual en cada visita posterior (`if (existing) return
+  // existing`), nunca se volvía a revisar si ya había pasado la hora —
+  // se quedaba "Pendiente" para siempre aunque ya fuera de noche.
+  const stillNeedsAutoPay = !existing || existing.status === 'pending' || existing.status === 'overdue';
+  if (payment.autoPay && payment.suggestedAccountId && dueDate <= new Date() && stillNeedsAutoPay) {
     await markScheduledPaymentPeriodAsPaidAction(uid, paymentId, period, payment.suggestedAccountId, dueDate);
     const created = await prisma.scheduledPaymentPeriod.findUnique({ where: { paymentId_period: { paymentId, period } } });
     return created as unknown as ScheduledPaymentPeriod;
   }
+
+  if (existing) return existing as unknown as ScheduledPaymentPeriod;
 
   const status = dueDate < new Date() ? 'overdue' : 'pending';
   const created = await prisma.scheduledPaymentPeriod.create({

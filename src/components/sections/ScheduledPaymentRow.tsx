@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Repeat, Users, Zap } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useScheduledPaymentPeriods, useScheduledPaymentSplits } from '@/hooks/useFinancial';
@@ -37,11 +37,26 @@ export function ScheduledPaymentRow({ payment, period, onPay, onManageSplit, onE
   const [ensuring, setEnsuring] = useState(false);
 
   const currentPeriod = periods.find((p) => p.period === period);
+  // Evita volver a llamar ensurePeriod en cada render de este mount una vez
+  // que ya lo intentamos — sin esto, re-chequear un periodo "pending" de
+  // cobro automático en cada render sería un loop de peticiones.
+  const hasCheckedRef = useRef(false);
+
+  // Si es de cargo automático y el periodo ya existe pero sigue
+  // pending/overdue, puede que se haya creado ANTES del corte de mediodía
+  // (ej. abriste esta pantalla en la mañana) — sin este re-chequeo se
+  // quedaba "Pendiente" para siempre aunque ya pasara la hora, porque una
+  // vez que `currentPeriod` existía la fila nunca volvía a llamar a
+  // ensurePeriod. Ahora se re-evalúa una vez por visita a la pantalla.
+  const needsAutoPayRecheck =
+    payment.autoPay && !!currentPeriod && (currentPeriod.status === 'pending' || currentPeriod.status === 'overdue');
 
   // La fila de este periodo no existe hasta que alguien la mira: la creamos
   // (con estado pending/overdue calculado según la fecha) la primera vez.
   useEffect(() => {
-    if (!user?.uid || isLoading || currentPeriod || ensuring) return;
+    if (!user?.uid || isLoading || ensuring || hasCheckedRef.current) return;
+    if (currentPeriod && !needsAutoPayRecheck) return;
+    hasCheckedRef.current = true;
     let cancelled = false;
     setEnsuring(true);
     scheduledPaymentService
