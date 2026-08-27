@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db/prisma';
 import { FinancialRepository } from '@/lib/repositories/financial.repository';
 import { transactionService } from '@/services/transaction.service';
+import { clampDueDay } from '@/lib/date';
 import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 
 const toDate = (value?: Date | { toDate(): Date }) => (value && 'toDate' in value ? value.toDate() : value);
@@ -24,7 +25,12 @@ const getStatus = (pendingBalance: number, originalAmount: number, dueDate?: Dat
 const PERU_UTC_OFFSET_HOURS = 5;
 const periodToDate = (period: string, dueDay: number) => {
   const [year, month] = period.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, Math.min(dueDay, 28), 12 + PERU_UTC_OFFSET_HOURS, 0, 0));
+  // clampDueDay recorta al último día REAL de ese mes (28/29/30/31 según
+  // corresponda) — antes esto usaba un 28 fijo, así que un pago con "día
+  // 31" (ej. IPC360 Home) se marcaba como vencido/pagado 3 días antes de
+  // lo real en cualquier mes.
+  const day = clampDueDay(year, month, dueDay);
+  return new Date(Date.UTC(year, month - 1, day, 12 + PERU_UTC_OFFSET_HOURS, 0, 0));
 };
 const nextMonthlyPeriod = (period: string) => {
   const [year, month] = period.split('-').map(Number);

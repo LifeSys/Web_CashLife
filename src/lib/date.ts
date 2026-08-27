@@ -25,3 +25,24 @@ export function formatDateInput(value: unknown): string {
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
+
+/**
+ * Día de vencimiento de un pago programado, "recortado" al último día real
+ * de ESE mes en particular — no un 28 fijo. Un pago con "día 31" (ej.
+ * IPC360 Home) antes se calculaba con `Math.min(dueDay, 28)`, así que en
+ * CUALQUIER mes aparecía como si venciera el 28, tres días antes de lo
+ * real. `new Date(year, month1Indexed, 0)` es el truco estándar de JS para
+ * "último día del mes anterior al indicado" — pasar el mes 1-indexado tal
+ * cual da el último día de ESE mes (ej. month=8 → día 0 de septiembre =
+ * 31 de agosto).
+ */
+export function clampDueDay(year: number, month1Indexed: number, dueDay: number): number {
+  const lastDayOfMonth = new Date(year, month1Indexed, 0).getDate();
+  return Math.min(dueDay, lastDayOfMonth);
+}
+
+/** Fecha real de vencimiento de un periodo "YYYY-MM" dado el día configurado. */
+export function periodToDueDate(period: string, dueDay: number): Date {
+  const [year, month] = period.split('-').map(Number);
+  return new Date(year, month - 1, clampDueDay(year, month, dueDay));
+}

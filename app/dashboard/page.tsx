@@ -26,6 +26,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { personService } from '@/services/person.service';
 import { buildDebtMessage, debtsToMessageItems } from '@/lib/whatsapp';
 import { toPenEquivalent } from '@/lib/currency';
+import { periodToDueDate } from '@/lib/date';
 import {
   DashboardMetric,
   SectionHeader,
@@ -53,6 +54,32 @@ const toDate = (value: unknown) =>
         'toDate' in value
       ? (value as { toDate(): Date }).toDate()
       : new Date(String(value));
+
+// "Próximos Pagos" mostraba los primeros 5 pagos programados activos sin
+// importar si vencían mañana o en 3 semanas — no servía como recordatorio
+// real. Esto calcula cuántos días faltan (o pasaron) para el próximo cobro
+// de cada uno, para poder ordenarlos por urgencia y marcar los vencidos.
+const currentPeriodStr = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+};
+function daysUntilNextDue(payment: { dueDay: number; nextDuePeriod?: string }): number {
+  const now = currentPeriodStr();
+  // Si el último pago dejó agendado un periodo futuro (ya pagó este mes),
+  // usamos ese; si no hay registro o quedó atrás, el periodo vigente es el
+  // actual (nunca se pagó o ya tocó vencer de nuevo).
+  const period = payment.nextDuePeriod && payment.nextDuePeriod >= now ? payment.nextDuePeriod : now;
+  const dueDate = periodToDueDate(period, payment.dueDay);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+function dueLabel(days: number): string {
+  if (days < 0) return `Vencido hace ${Math.abs(days)} día${Math.abs(days) === 1 ? '' : 's'}`;
+  if (days === 0) return 'Vence hoy';
+  if (days === 1) return 'Vence mañana';
+  return `Vence en ${days} días`;
+}
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -96,7 +123,11 @@ export default function DashboardPage() {
     // solo 'receivable_payment'/'payable_payment' cuando de verdad se cobra/paga.
     const monthIncome = monthTransactions.filter((tx) => ['income', 'receivable_payment'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
     const monthExpenses = monthTransactions.filter((tx) => ['expense', 'credit_card_charge', 'payable_payment', 'scheduled_payment'].includes(tx.tipo)).reduce((sum, tx) => sum + tx.monto, 0);
-    const upcoming = scheduledPayments.filter((p) => p.active).slice(0, 5);
+    const upcoming = scheduledPayments
+      .filter((p) => p.active)
+      .map((p) => ({ payment: p, daysUntil: daysUntilNextDue(p) }))
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+      .slice(0, 5);
     return { availableMoney, receivableTotal, personDebt, bankDebt, otherDebt, creditUsed, totalDebt, monthIncome, monthExpenses, monthTransactionsCount: monthTransactions.length, netWorth: availableMoney + receivableTotal - totalDebt, upcoming };
   }, [cuentas, debts, obligations, creditCards, scheduledPayments, transacciones]);
 
@@ -272,34 +303,41 @@ export default function DashboardPage() {
         />
         {data.upcoming.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.upcoming.map((payment) => (
-              <ContainerCard
-                key={payment.id}
-                padding="lg"
-                shadow="md"
-                className="hover:shadow-lg transition-all duration-200"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                      {payment.name}
-                    </p>
-                    <p className="text-2xl font-bold mt-3">
-                      {formatCurrency(payment.amount)}
-                    </p>
-                  </div>
-                  <div className="p-3 bg-amber-500/10 rounded-lg">
-                    <CalendarClock className="w-5 h-5 text-amber-500" />
-                  </div>
-                </div>
-                <button
-                  onClick={() => router.push('/dashboard/pagos-programados')}
-                  className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 text-sm active:scale-95"
+            {data.upcoming.map(({ payment, daysUntil }) => {
+              const isUrgent = daysUntil <= 1;
+              const isSoon = daysUntil > 1 && daysUntil <= 3;
+              return (
+                <ContainerCard
+                  key={payment.id}
+                  padding="lg"
+                  shadow="md"
+                  className="hover:shadow-lg transition-all duration-200"
                 >
-                  Pagar ahora
-                </button>
-              </ContainerCard>
-            ))}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide truncate">
+                        {payment.name}
+                      </p>
+                      <p className="text-2xl font-bold mt-3">
+                        {formatCurrency(payment.amount)}
+                      </p>
+                      <p className={`text-xs mt-1 font-medium ${isUrgent ? 'text-red-500' : isSoon ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                        {dueLabel(daysUntil)}{payment.autoPay ? ' · Cobro automático' : ''}
+                      </p>
+                    </div>
+                    <div className={`p-3 rounded-lg flex-shrink-0 ${isUrgent ? 'bg-red-500/10' : 'bg-amber-500/10'}`}>
+                      <CalendarClock className={`w-5 h-5 ${isUrgent ? 'text-red-500' : 'text-amber-500'}`} />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => router.push('/dashboard/pagos-programados')}
+                    className="w-full bg-primary text-primary-foreground font-semibold py-3 rounded-lg hover:bg-primary/90 transition-all duration-200 text-sm active:scale-95"
+                  >
+                    Pagar ahora
+                  </button>
+                </ContainerCard>
+              );
+            })}
           </div>
         ) : (
           <EmptyState
