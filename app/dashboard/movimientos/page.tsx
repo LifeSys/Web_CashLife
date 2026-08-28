@@ -6,6 +6,7 @@ import { useTransactions } from '@/hooks/useTransactions';
 import { useCategories } from '@/hooks/useCategories';
 import { useAccounts } from '@/hooks/useAccounts';
 import { useCreditCards } from '@/hooks/useCreditCards';
+import { usePeople } from '@/hooks/usePeople';
 import { MovementCard } from '@/components/common/MovementCard';
 import { X, Search } from 'lucide-react';
 import { formatDateInput, parseLocalDate } from '@/lib/date';
@@ -20,6 +21,7 @@ function MovimientosContent() {
   const { categorias } = useCategories();
   const { cuentas } = useAccounts();
   const { creditCards } = useCreditCards();
+  const { contacts } = usePeople();
   const [filtro, setFiltro] = useState<'todos' | 'hoy' | 'semana' | 'mes' | 'año'>('todos');
   const [busqueda, setBusqueda] = useState('');
   const [fechaDesde, setFechaDesde] = useState('');
@@ -27,6 +29,16 @@ function MovimientosContent() {
 
   const getCategoryName = (categoryId: string) => {
     return categorias.find(c => c.id === categoryId)?.nombre || 'Categoría';
+  };
+
+  // El nombre de la persona ligada al movimiento (cobros, pagos, préstamos
+  // con alguien) — el campo viene con distintos nombres según por dónde se
+  // creó el movimiento (persona/personaId/personId/contactId, arrastre de
+  // versiones anteriores del código), así que se prueban todos.
+  const getPersonName = (t: (typeof transacciones)[number]) => {
+    const personId = t.contactId ?? t.persona ?? t.personaId ?? t.personId;
+    if (!personId) return undefined;
+    return contacts.find((c) => c.id === personId)?.nombre;
   };
 
   const getFilteredTransactions = () => {
@@ -164,6 +176,7 @@ function MovimientosContent() {
                 key={tx.id}
                 transaction={tx}
                 categoryName={getCategoryName(tx.categoria ?? tx.categoriaId ?? '')}
+                personName={getPersonName(tx)}
               />
             ))}
           </div>

@@ -11,7 +11,7 @@ const toDate = (date: FireDate) => date instanceof Date ? date : date.toDate();
 const INCOME_TYPES = ['income', 'ingreso', 'loan_payment', 'receivable_payment', 'receivable_paid'];
 const EXPENSE_TYPES = ['expense', 'gasto', 'loan', 'credit_card_charge', 'card_purchase', 'payable_payment', 'payable_paid', 'scheduled_payment', 'card_payment', 'credit_card_payment'];
 
-export function MovementCard({ transaction, categoryName = 'Sin categoría' }: MovementCardProps) {
+export function MovementCard({ transaction, categoryName = 'Sin categoría', personName }: MovementCardProps) {
   const formatCurrency = (value: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value || 0);
   const isIncome = INCOME_TYPES.includes(transaction.tipo);
   const isExpense = EXPENSE_TYPES.includes(transaction.tipo);
@@ -25,7 +25,10 @@ export function MovementCard({ transaction, categoryName = 'Sin categoría' }: M
         <div className="p-2 bg-muted rounded-full flex-shrink-0">{icon}</div>
         <div className="min-w-0">
           <p className="font-medium truncate">{transaction.descripcion}</p>
-          <p className="text-xs text-muted-foreground truncate">{getTransactionTypeLabel(transaction.tipo)}</p>
+          <p className="text-xs text-muted-foreground truncate">
+            {getTransactionTypeLabel(transaction.tipo)}
+            {personName ? ` · ${personName}` : ''}
+          </p>
         </div>
       </div>
       <div className="text-right flex-shrink-0">

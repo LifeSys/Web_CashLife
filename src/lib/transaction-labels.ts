@@ -20,6 +20,7 @@ const TRANSACTION_TYPE_LABELS: Record<string, string> = {
   credit_card_charge: 'Compra con tarjeta',
   card_payment: 'Pago de tarjeta',
   credit_card_payment: 'Pago de tarjeta',
+  credit_card_refund: 'Devolución de tarjeta',
   loan: 'Préstamo otorgado',
   loan_payment: 'Cobro de préstamo',
   receivable_created: 'Cuenta por cobrar creada',
