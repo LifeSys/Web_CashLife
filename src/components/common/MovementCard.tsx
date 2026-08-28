@@ -19,6 +19,13 @@ export function MovementCard({ transaction, categoryName = 'Sin categoría', per
   const color = isIncome ? 'text-green-500' : isExpense ? 'text-red-500' : 'text-foreground';
   const prefix = isIncome ? '+' : isExpense ? '-' : '';
   const date = toDate(transaction.fecha);
+  // `fecha` es la fecha del movimiento (editable, a veces sin hora real si
+  // se cargó desde un formulario que solo pide el día) — para saber A QUÉ
+  // HORA quedó registrado de verdad (y así poder verificar el orden a
+  // simple vista cuando varios movimientos caen el mismo día) se muestra
+  // aparte la hora de `createdAt`, que siempre la pone la base de datos al
+  // crearlo y nunca es editable.
+  const registeredAt = transaction.createdAt ? toDate(transaction.createdAt) : null;
   return (
     <div className="flex items-center justify-between gap-2 p-4 border-b border-border last:border-0 hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -33,7 +40,10 @@ export function MovementCard({ transaction, categoryName = 'Sin categoría', per
       </div>
       <div className="text-right flex-shrink-0">
         <p className={`font-bold whitespace-nowrap ${color}`}>{prefix}{formatCurrency(transaction.monto)}</p>
-        <p className="text-xs text-muted-foreground whitespace-nowrap">{new Intl.DateTimeFormat('es-PE', { month: 'short', day: 'numeric' }).format(date)}</p>
+        <p className="text-xs text-muted-foreground whitespace-nowrap">
+          {new Intl.DateTimeFormat('es-PE', { month: 'short', day: 'numeric' }).format(date)}
+          {registeredAt && ` · ${new Intl.DateTimeFormat('es-PE', { hour: 'numeric', minute: '2-digit' }).format(registeredAt)}`}
+        </p>
       </div>
     </div>
   );
