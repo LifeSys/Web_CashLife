@@ -19,9 +19,9 @@ const getStatus = (pendingBalance: number, originalAmount: number, dueDate?: Dat
 // Lima son recién las 7pm del día ANTERIOR. Resultado: un pago programado
 // se marcaba como pagado/gasto desde las 7pm de un día antes de lo que el
 // usuario esperaba, sin ningún horario predecible.
-// Ahora el corte es explícito: mediodía (12pm) hora de Perú del día de
-// vencimiento, calculado directamente como el instante UTC equivalente
-// (17:00 UTC = 12:00 Lima), sin depender de la zona horaria del servidor.
+// El corte es explícito: 00:01am hora de Perú del día de vencimiento (apenas
+// arranca el día), calculado directamente como el instante UTC equivalente
+// (05:01 UTC = 00:01 Lima), sin depender de la zona horaria del servidor.
 const PERU_UTC_OFFSET_HOURS = 5;
 const periodToDate = (period: string, dueDay: number) => {
   const [year, month] = period.split('-').map(Number);
@@ -30,7 +30,7 @@ const periodToDate = (period: string, dueDay: number) => {
   // 31" (ej. IPC360 Home) se marcaba como vencido/pagado 3 días antes de
   // lo real en cualquier mes.
   const day = clampDueDay(year, month, dueDay);
-  return new Date(Date.UTC(year, month - 1, day, 12 + PERU_UTC_OFFSET_HOURS, 0, 0));
+  return new Date(Date.UTC(year, month - 1, day, PERU_UTC_OFFSET_HOURS, 1, 0));
 };
 const nextMonthlyPeriod = (period: string) => {
   const [year, month] = period.split('-').map(Number);
