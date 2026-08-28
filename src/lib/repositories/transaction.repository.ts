@@ -69,18 +69,25 @@ export class TransactionRepository {
    */
   async getAll(uid: string, options?: PaginationOptions): Promise<PaginatedResult<Transaction>> {
     const pageSize = options?.limit || 20;
-    const orderField = options?.orderBy || 'fecha';
+    const orderField = options?.orderBy || 'createdAt';
     const orderDirection = options?.orderDirection || 'desc';
     const cursor = options?.startAfter as { id: string } | undefined;
 
-    // Desempate por createdAt: dos movimientos pueden compartir la misma
-    // `fecha` (el usuario solo elige el día, no la hora) — sin un segundo
-    // criterio de orden, Postgres no garantiza que el que se registró más
-    // recientemente quede arriba. createdAt sí tiene resolución de milisegundos
-    // y refleja el orden real de llegada.
+    // Orden real de llegada: `fecha` es editable por el usuario y, según
+    // por dónde se creó la transacción, a veces trae hora exacta
+    // (new Date() al pagar una tarjeta) y a veces queda en medianoche
+    // (un formulario que solo pide el día) — dos movimientos del MISMO día
+    // calendario casi nunca terminan con `fecha` idéntica, así que un
+    // desempate por createdAt sobre `fecha` casi nunca llegaba a activarse:
+    // esa diferencia accidental de hora decidía el orden en vez del orden
+    // real en que se registraron. `createdAt` sí es siempre el momento
+    // real de creación (con resolución de milisegundos, puesto por la
+    // base de datos), así que ahora es el criterio principal — arriba
+    // siempre el último movimiento que se registró, sin importar la fecha
+    // que se le haya puesto.
     const orderBy: Prisma.TransactionOrderByWithRelationInput[] =
       orderField === 'createdAt'
-        ? [{ createdAt: orderDirection }]
+        ? [{ createdAt: orderDirection }, { fecha: orderDirection }]
         : [{ [orderField]: orderDirection }, { createdAt: orderDirection }];
 
     const rows = await prisma.transaction.findMany({
@@ -125,7 +132,7 @@ export class TransactionRepository {
   async getByAccount(uid: string, accountId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, cuenta: accountId },
-      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { fecha: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -136,7 +143,7 @@ export class TransactionRepository {
   async getByCategory(uid: string, categoryId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, categoria: categoryId },
-      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { fecha: 'desc' }],
     });
     return rows.map(toTransaction);
   }
@@ -147,7 +154,7 @@ export class TransactionRepository {
   async getByPerson(uid: string, personId: string): Promise<Transaction[]> {
     const rows = await prisma.transaction.findMany({
       where: { userId: uid, isDeleted: false, persona: personId },
-      orderBy: [{ fecha: 'desc' }, { createdAt: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { fecha: 'desc' }],
     });
     return rows.map(toTransaction);
   }
