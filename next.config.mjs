@@ -1,7 +1,14 @@
+import { fileURLToPath } from 'node:url'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
+  },
+  // Hay un package-lock.json suelto en la carpeta padre; sin esto Turbopack
+  // la toma como raíz y no encuentra tailwindcss.
+  turbopack: {
+    root: fileURLToPath(new URL('.', import.meta.url)),
   },
   images: {
     unoptimized: true,

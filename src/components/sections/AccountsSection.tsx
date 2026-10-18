@@ -11,6 +11,7 @@ interface AccountsSectionProps {
   onEditAccount: (account: Account) => void;
   onDeleteAccount: (accountId: string) => void;
   onViewTransactions: (accountId: string) => void;
+  onAdjustAccount?: (account: Account) => void;
 }
 
 export function AccountsSection({
@@ -20,6 +21,7 @@ export function AccountsSection({
   onEditAccount,
   onDeleteAccount,
   onViewTransactions,
+  onAdjustAccount,
 }: AccountsSectionProps) {
   // Separate Efectivo from other accounts
   const efectivo = accounts.find(a => a.nombre === 'Efectivo');
@@ -29,24 +31,25 @@ export function AccountsSection({
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">Tus Cuentas</h2>
+      <div className="flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <h2 className="text-2xl font-bold tracking-tight">Tus cuentas</h2>
           <p className="text-sm text-muted-foreground mt-1">Dinero real en tus cuentas y efectivo</p>
         </div>
         <button
           onClick={onAddAccount}
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
         >
-          <Plus className="w-5 h-5" />
-          Nueva cuenta
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Nueva cuenta</span>
+          <span className="sm:hidden">Nueva</span>
         </button>
       </div>
 
       {loading ? (
-        <div className="grid gap-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-xl animate-pulse" />
+            <div key={i} className="h-[136px] rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
       ) : accounts.length === 0 ? (
@@ -55,7 +58,7 @@ export function AccountsSection({
           <p className="text-sm text-muted-foreground mt-1">Crea tu primera cuenta bancaria</p>
         </div>
       ) : (
-        <div className="grid gap-2">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {sortedAccounts.map(account => (
             <MoneyAccountCard
               key={account.id}
@@ -64,6 +67,7 @@ export function AccountsSection({
               onViewTransactions={() => onViewTransactions(account.id)}
               onEdit={account.nombre !== 'Efectivo' ? () => onEditAccount(account) : undefined}
               onDelete={account.nombre !== 'Efectivo' ? () => onDeleteAccount(account.id) : undefined}
+              onAdjust={onAdjustAccount ? () => onAdjustAccount(account) : undefined}
               compact
             />
           ))}

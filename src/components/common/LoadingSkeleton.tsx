@@ -1,9 +1,13 @@
 export function LoadingSkeleton() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="space-y-4">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
-        <p className="text-center text-sm text-muted-foreground">Cargando...</p>
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex min-h-dvh w-full items-center justify-center bg-background"
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-11 w-11 animate-spin rounded-full border-[3px] border-muted border-t-primary [animation-duration:700ms]" />
+        <p className="text-sm text-muted-foreground">Cargando…</p>
       </div>
     </div>
   );

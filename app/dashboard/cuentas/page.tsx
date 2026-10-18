@@ -16,6 +16,7 @@ import { CreditCardCreateModal } from '@/components/modals/CreditCardCreateModal
 import { CreditCardEditModal } from '@/components/modals/CreditCardEditModal';
 import { CreditCardChargeModal } from '@/components/modals/CreditCardChargeModal';
 import { AccountEditModal } from '@/components/modals/AccountEditModal';
+import { AdjustBalanceModal } from '@/components/modals/AdjustBalanceModal';
 import { PayCreditCardModal } from '@/components/modals/PayCreditCardModal';
 import { ConfirmDeleteModal } from '@/components/modals/ConfirmDeleteModal';
 import { Account, CreditCard } from '@/types';
@@ -35,6 +36,7 @@ export default function CuentasPage() {
   const [selectedCardForPayment, setSelectedCardForPayment] = useState<CreditCard | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
+  const [accountToAdjust, setAccountToAdjust] = useState<Account | null>(null);
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [cardForCharge, setCardForCharge] = useState<CreditCard | null>(null);
@@ -185,6 +187,7 @@ export default function CuentasPage() {
         onEditAccount={handleEditAccount}
         onDeleteAccount={handleDeleteAccount}
         onViewTransactions={handleViewAccountTransactions}
+        onAdjustAccount={setAccountToAdjust}
       />
 
       {/* Credit Cards Section */}
@@ -235,6 +238,14 @@ export default function CuentasPage() {
         isOpen={!!accountToEdit}
         account={accountToEdit}
         onClose={() => setAccountToEdit(null)}
+        onSuccess={() => mutateAccounts()}
+      />
+
+      {/* Adjust Balance Modal */}
+      <AdjustBalanceModal
+        isOpen={!!accountToAdjust}
+        account={accountToAdjust}
+        onClose={() => setAccountToAdjust(null)}
         onSuccess={() => mutateAccounts()}
       />
 

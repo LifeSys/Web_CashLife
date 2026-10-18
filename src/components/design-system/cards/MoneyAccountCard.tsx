@@ -1,7 +1,7 @@
 'use client';
 
 import { Account } from '@/types';
-import { Landmark, Lock, Eye, Edit2, Trash2, Banknote } from 'lucide-react';
+import { Landmark, Lock, Eye, Edit2, Trash2, Banknote, Scale } from 'lucide-react';
 
 interface MoneyAccountCardProps {
   account: Account;
@@ -9,6 +9,8 @@ interface MoneyAccountCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onViewTransactions?: () => void;
+  /** Abre la regularización de saldo (cuadrar con el banco o el efectivo contado). */
+  onAdjust?: () => void;
   /** Fila angosta tipo lista en vez de la tarjeta grande. */
   compact?: boolean;
 }
@@ -28,6 +30,7 @@ export function MoneyAccountCard({
   onEdit,
   onDelete,
   onViewTransactions,
+  onAdjust,
   compact = false,
 }: MoneyAccountCardProps) {
   const getAccountTypeLabel = () => {
@@ -56,51 +59,78 @@ export function MoneyAccountCard({
   const bgGradient = customColor
     ? ''
     : isEfectivo
-      ? 'bg-gradient-to-br from-slate-600 to-slate-700'
-      : 'bg-gradient-to-br from-blue-600 to-blue-700';
-  const bgStyle = customColor ? { backgroundImage: `linear-gradient(to bottom right, ${customColor}, ${customColor}cc)` } : undefined;
+      ? 'bg-gradient-to-br from-slate-600 to-slate-800'
+      : 'bg-gradient-to-br from-blue-600 to-blue-800';
+  const bgStyle = customColor ? { backgroundImage: `linear-gradient(135deg, ${customColor}, color-mix(in oklab, ${customColor} 70%, black))` } : undefined;
 
   const textColor = isEfectivo ? 'text-slate-300' : customColor ? 'text-white/80' : 'text-blue-100';
 
   if (compact) {
+    const iconBtn =
+      'grid h-9 w-9 place-items-center rounded-lg bg-white/10 text-white/90 transition-[background-color,transform] duration-150 ease-out hover:bg-white/20 hover:text-white active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70';
     return (
-      <div style={bgStyle} className={`${bgGradient} rounded-xl p-3 text-white shadow-md hover:shadow-lg transition-shadow space-y-2`}>
-        {/* Fila 1: siempre ícono + nombre + saldo — nunca se pelea con los
-            botones por espacio, así no se descuadra en pantallas angostas. */}
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-white/10 rounded-lg flex-shrink-0">
-            {isEfectivo ? <Banknote className="w-5 h-5" /> : <Landmark className="w-5 h-5" />}
+      <article
+        style={bgStyle}
+        className={`${bgGradient} group relative isolate flex flex-col overflow-clip rounded-2xl p-4 text-white shadow-[0_1px_2px_rgb(0_0_0/0.25),0_8px_24px_-12px_rgb(0_0_0/0.5)] ring-1 ring-inset ring-white/10 transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-[0_2px_4px_rgb(0_0_0/0.25),0_16px_32px_-12px_rgb(0_0_0/0.55)]`}
+      >
+        {/* Brillo suave arriba-derecha: da profundidad sin cambiar el color elegido. */}
+        <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 -z-10 h-48 w-48 rounded-full bg-white/15 blur-3xl" />
+
+        <div className="flex items-start gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-inset ring-white/15">
+            {isEfectivo ? <Banknote className="h-5 w-5" /> : <Landmark className="h-5 w-5" />}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-sm truncate flex items-center gap-1.5">
+          <div className="min-w-0 flex-1">
+            <h3 className="flex items-center gap-1.5 text-[15px] font-semibold leading-tight tracking-tight">
               <span className="truncate">{account.nombre}</span>
-              {isEfectivo && <Lock className="w-3 h-3 text-yellow-300 flex-shrink-0" />}
-            </p>
-            <p className={`text-xs ${textColor} truncate`}>
+              {isEfectivo && <Lock className="h-3.5 w-3.5 shrink-0 text-amber-300" aria-label="Cuenta protegida" />}
+            </h3>
+            <p className={`mt-0.5 truncate text-xs ${textColor}`}>
               {getAccountTypeLabel()}{!isEfectivo && account.banco ? ` · ${account.banco}` : ''}
             </p>
           </div>
-          <p className="font-bold text-sm whitespace-nowrap flex-shrink-0">
-            {formatCurrency(account.saldo || 0, account.moneda || account.currency || 'PEN')}
-          </p>
         </div>
-        {/* Fila 2: botones de acción, siempre aparte. */}
-        <div className="flex items-center justify-end gap-1">
-          <button onClick={onViewTransactions} title="Ver movimientos" className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
-            <Eye className="w-4 h-4" />
-          </button>
-          {!isEfectivo && onEdit && (
-            <button onClick={onEdit} title="Editar cuenta" className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
-              <Edit2 className="w-4 h-4" />
+
+        <div className="mt-5 flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className={`text-[11px] font-medium uppercase tracking-wider ${textColor}`}>Saldo</p>
+            <p className="truncate text-2xl font-semibold tabular-nums tracking-tight">
+              {formatCurrency(account.saldo || 0, account.moneda || account.currency || 'PEN')}
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {onAdjust && (
+              <button
+                onClick={onAdjust}
+                title="Regularizar saldo"
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-white/90 px-3 text-xs font-semibold text-slate-900 transition-[background-color,transform] duration-150 ease-out hover:bg-white active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+              >
+                <Scale className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Regularizar</span>
+              </button>
+            )}
+            <button onClick={onViewTransactions} title="Ver movimientos" aria-label="Ver movimientos" className={iconBtn}>
+              <Eye className="h-4 w-4" />
             </button>
-          )}
-          {!isEfectivo && onDelete && (
-            <button onClick={onDelete} title="Eliminar cuenta" className="p-2 bg-red-500/30 hover:bg-red-500/50 rounded-lg transition-colors">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
+            {!isEfectivo && onEdit && (
+              <button onClick={onEdit} title="Editar cuenta" aria-label="Editar cuenta" className={iconBtn}>
+                <Edit2 className="h-4 w-4" />
+              </button>
+            )}
+            {!isEfectivo && onDelete && (
+              <button
+                onClick={onDelete}
+                title="Eliminar cuenta"
+                aria-label="Eliminar cuenta"
+                className={`${iconBtn} hover:bg-red-500/70`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      </article>
     );
   }
 

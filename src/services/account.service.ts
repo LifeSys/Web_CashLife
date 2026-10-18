@@ -6,6 +6,7 @@ import {
   updateAccountRecordAction,
   deleteAccountRecordAction,
   getTotalBalanceAction,
+  adjustAccountBalanceAction,
 } from '@/lib/actions/account.actions';
 
 class AccountService {
@@ -79,6 +80,11 @@ class AccountService {
       throw new Error('No se puede eliminar la cuenta "Efectivo"');
     }
     return deleteAccountRecordAction(uid, id);
+  }
+
+  /** Regulariza el saldo a un monto real, dejando un ajuste trazable en Movimientos. */
+  async adjustBalance(uid: string, id: string, newBalance: number, reason?: string): Promise<Account | null> {
+    return adjustAccountBalanceAction(uid, id, newBalance, reason);
   }
 
   /**
