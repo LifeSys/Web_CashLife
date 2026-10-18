@@ -1,7 +1,7 @@
 'use client';
 
 import { CreditCard, Account } from '@/types';
-import { Zap, Eye, CreditCard as CardIcon, Edit2, Trash2, TrendingDown, Banknote, ShoppingCart } from 'lucide-react';
+import { Zap, Eye, CreditCard as CardIcon, Edit2, Trash2, TrendingDown, Banknote, ShoppingCart, Scale } from 'lucide-react';
 import { ProgressBar } from '../feedback/ProgressBar';
 
 interface CreditCardDisplayProps {
@@ -12,6 +12,8 @@ interface CreditCardDisplayProps {
   onViewTransactions?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** Abre la regularización de la deuda (cuadrar con el estado de cuenta). */
+  onAdjust?: () => void;
   /** Fila angosta tipo lista en vez de la tarjeta visual grande. */
   compact?: boolean;
 }
@@ -36,6 +38,7 @@ export function CreditCardDisplay({
   onViewTransactions,
   onEdit,
   onDelete,
+  onAdjust,
   compact = false,
 }: CreditCardDisplayProps) {
   const available = card.lineaCredito - (card.montoUtilizado || 0);
@@ -69,6 +72,16 @@ export function CreditCardDisplay({
         </div>
         {/* Fila 2: botones de acción, siempre aparte. */}
         <div className="flex items-center justify-end gap-1 flex-wrap">
+          {onAdjust && (
+            <button
+              onClick={onAdjust}
+              title="Regularizar deuda"
+              className="flex h-9 items-center gap-1.5 rounded-lg bg-muted px-3 text-xs font-semibold text-foreground transition-[background-color,transform] duration-150 ease-out hover:bg-muted/70 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+            >
+              <Scale className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Regularizar</span>
+            </button>
+          )}
           {onPay && (
             <button onClick={onPay} title="Pagar" className={`${actionClass} bg-primary/10 text-primary hover:bg-primary/20`}>
               <Banknote className="w-4 h-4" />

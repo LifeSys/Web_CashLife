@@ -1,6 +1,6 @@
 import { PremiumCard } from './PremiumCard';
 import { ProgressBar } from '../feedback/ProgressBar';
-import { Edit, Trash2, ClipboardList, Eye, MessageCircle, Repeat } from 'lucide-react';
+import { Edit, Trash2, ClipboardList, Eye, MessageCircle, Repeat, Plus } from 'lucide-react';
 
 interface DebtCardProps {
   personName: string;
@@ -121,9 +121,14 @@ export function DebtCard({
           </p>
 
           <div className="flex items-center gap-1 flex-shrink-0">
-            {onRegisterPayment && (
-              <button onClick={onRegisterPayment} title="Registrar cobro" className={`${actionButtonClass} bg-green-500/20 text-green-600 hover:bg-green-500/30`}>
-                <ClipboardList className="w-4 h-4" />
+            {onRegisterPayment && pendingAmount > 0.009 && (
+              <button
+                onClick={onRegisterPayment}
+                title="Registrar cobro total o a cuenta"
+                className="flex h-8 items-center gap-1 rounded-lg bg-emerald-500 px-2.5 text-xs font-semibold text-white transition-[background-color,transform] duration-150 ease-out hover:bg-emerald-600 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 flex-shrink-0"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Abono
               </button>
             )}
             {onViewDetail && (

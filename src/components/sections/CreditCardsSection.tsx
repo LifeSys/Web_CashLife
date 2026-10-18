@@ -16,6 +16,7 @@ interface CreditCardsSectionProps {
   onViewTransactions: (cardId: string) => void;
   onEditCard: (card: CreditCard) => void;
   onDeleteCard: (cardId: string) => void;
+  onAdjustCard?: (card: CreditCard) => void;
 }
 
 const formatCurrency = (value: number) =>
@@ -33,6 +34,7 @@ export function CreditCardsSection({
   onViewTransactions,
   onEditCard,
   onDeleteCard,
+  onAdjustCard,
 }: CreditCardsSectionProps) {
   const totalAvailable = totalLimit - totalUsed;
   const utilization = totalLimit > 0 ? (totalUsed / totalLimit) * 100 : 0;
@@ -120,6 +122,7 @@ export function CreditCardsSection({
                 onViewTransactions={() => onViewTransactions(card.id)}
                 onEdit={() => onEditCard(card)}
                 onDelete={() => onDeleteCard(card.id)}
+                onAdjust={onAdjustCard ? () => onAdjustCard(card) : undefined}
                 compact
               />
             );

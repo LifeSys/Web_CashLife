@@ -37,6 +37,7 @@ export default function CuentasPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [accountToEdit, setAccountToEdit] = useState<Account | null>(null);
   const [accountToAdjust, setAccountToAdjust] = useState<Account | null>(null);
+  const [cardToAdjust, setCardToAdjust] = useState<CreditCard | null>(null);
   const [cardToEdit, setCardToEdit] = useState<CreditCard | null>(null);
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [cardForCharge, setCardForCharge] = useState<CreditCard | null>(null);
@@ -203,6 +204,7 @@ export default function CuentasPage() {
         onViewTransactions={handleViewCardTransactions}
         onEditCard={handleEditCard}
         onDeleteCard={handleDeleteCard}
+        onAdjustCard={setCardToAdjust}
       />
 
       {/* Bank Account Modal */}
@@ -247,6 +249,12 @@ export default function CuentasPage() {
         account={accountToAdjust}
         onClose={() => setAccountToAdjust(null)}
         onSuccess={() => mutateAccounts()}
+      />
+      <AdjustBalanceModal
+        isOpen={!!cardToAdjust}
+        card={cardToAdjust}
+        onClose={() => setCardToAdjust(null)}
+        onSuccess={() => mutateCreditCards()}
       />
 
       {/* Credit Card Edit Modal */}

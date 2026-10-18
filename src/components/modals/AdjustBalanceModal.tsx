@@ -4,29 +4,36 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, Scale, X } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { accountService } from '@/services/account.service';
+import { creditCardService } from '@/services/credit-card.service';
 import { toast } from 'sonner';
-import type { Account } from '@/types';
+import type { Account, CreditCard } from '@/types';
 
 interface AdjustBalanceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  account: Account | null;
+  account?: Account | null;
+  /** Para tarjetas se regulariza la deuda (monto utilizado), no un saldo. */
+  card?: CreditCard | null;
   onSuccess?: () => void;
 }
 
 const formatCurrency = (value: number, currency: string = 'PEN') =>
   new Intl.NumberFormat('es-PE', { style: 'currency', currency }).format(value);
 
-export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: AdjustBalanceModalProps) {
+export function AdjustBalanceModal({ isOpen, onClose, account, card, onSuccess }: AdjustBalanceModalProps) {
   const { user } = useAuth();
   const [realBalance, setRealBalance] = useState('');
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const isCard = !account && !!card;
+  const targetName = account?.nombre ?? card?.nombre ?? card?.banco ?? '';
+  const currentBalance = account ? account.saldo ?? 0 : card?.montoUtilizado ?? card?.usedAmount ?? 0;
+
   useEffect(() => {
-    if (isOpen && account) {
-      setRealBalance((account.saldo ?? 0).toFixed(2));
+    if (isOpen && (account || card)) {
+      setRealBalance(currentBalance.toFixed(2));
       setReason('');
       // Tras el re-render con el saldo inicial, así escribir reemplaza el monto.
       const t = setTimeout(() => {
@@ -35,7 +42,8 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
       }, 30);
       return () => clearTimeout(t);
     }
-  }, [isOpen, account]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, account, card]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -46,12 +54,13 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, isSubmitting, onClose]);
 
-  if (!isOpen || !account) return null;
+  if (!isOpen || (!account && !card)) return null;
 
-  const currency = account.moneda || account.currency || 'PEN';
-  const currentBalance = account.saldo ?? 0;
+  const currency = account ? account.moneda || account.currency || 'PEN' : card?.currency || 'PEN';
   const parsed = parseFloat(realBalance.replace(',', '.'));
-  const isValid = /^-?\d+([.,]\d{1,2})?$/.test(realBalance.trim()) && Number.isFinite(parsed);
+  // Una deuda de tarjeta no puede ser negativa; un saldo de cuenta sí (sobregiro).
+  const amountPattern = isCard ? /^\d+([.,]\d{1,2})?$/ : /^-?\d+([.,]\d{1,2})?$/;
+  const isValid = amountPattern.test(realBalance.trim()) && Number.isFinite(parsed);
   const delta = isValid ? Math.round((parsed - currentBalance) * 100) / 100 : 0;
   const hasChange = isValid && Math.abs(delta) >= 0.01;
 
@@ -59,7 +68,7 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
     e.preventDefault();
     if (!user?.uid) return;
     if (!isValid) {
-      toast.error('Ingresa el saldo real de la cuenta');
+      toast.error(isCard ? 'Ingresa la deuda real de la tarjeta' : 'Ingresa el saldo real de la cuenta');
       return;
     }
     if (!hasChange) {
@@ -69,8 +78,13 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
 
     setIsSubmitting(true);
     try {
-      await accountService.adjustBalance(user.uid, account.id, parsed, reason.trim());
-      toast.success(`Saldo regularizado a ${formatCurrency(parsed, currency)}`);
+      if (account) {
+        await accountService.adjustBalance(user.uid, account.id, parsed, reason.trim());
+        toast.success(`Saldo regularizado a ${formatCurrency(parsed, currency)}`);
+      } else if (card) {
+        await creditCardService.adjustUsage(user.uid, card.id, parsed, reason.trim());
+        toast.success(`Deuda regularizada a ${formatCurrency(parsed, currency)}`);
+      }
       onSuccess?.();
       onClose();
     } catch (error) {
@@ -100,8 +114,8 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
               <Scale className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h2 id="adjust-balance-title" className="text-lg font-semibold tracking-tight">Regularizar saldo</h2>
-              <p className="text-sm text-muted-foreground truncate">{account.nombre}</p>
+              <h2 id="adjust-balance-title" className="text-lg font-semibold tracking-tight">{isCard ? 'Regularizar deuda' : 'Regularizar saldo'}</h2>
+              <p className="text-sm text-muted-foreground truncate">{targetName}</p>
             </div>
           </div>
           <button
@@ -116,13 +130,13 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
 
         <form onSubmit={handleSubmit} className="space-y-5 p-5 md:p-6">
           <div className="flex items-baseline justify-between rounded-xl bg-muted/60 px-4 py-3">
-            <span className="text-sm text-muted-foreground">Saldo en CashLife</span>
+            <span className="text-sm text-muted-foreground">{isCard ? 'Deuda en CashLife' : 'Saldo en CashLife'}</span>
             <span className="font-semibold tabular-nums">{formatCurrency(currentBalance, currency)}</span>
           </div>
 
           <div>
             <label htmlFor="adjust-real-balance" className="mb-2 block text-sm font-medium">
-              Saldo real
+              {isCard ? 'Deuda real' : 'Saldo real'}
             </label>
             <input
               ref={inputRef}
@@ -134,7 +148,9 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
               className="w-full rounded-xl border border-border bg-muted px-4 py-3 text-2xl font-semibold tabular-nums tracking-tight outline-none transition-[border-color,box-shadow] focus:border-primary focus:ring-2 focus:ring-primary/30"
             />
             <p className="mt-2 text-xs text-muted-foreground">
-              Lo que ves en tu app del banco o lo que contaste en efectivo.
+              {isCard
+                ? 'El monto utilizado que muestra tu banco o tu estado de cuenta.'
+                : 'Lo que ves en tu app del banco o lo que contaste en efectivo.'}
             </p>
           </div>
 
@@ -143,14 +159,18 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
             className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm transition-colors ${
               !hasChange
                 ? 'border-border text-muted-foreground'
-                : delta > 0
+                : (delta > 0) !== isCard
                   ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                   : 'border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400'
             }`}
           >
             <span className="flex items-center gap-2">
               {hasChange && (delta > 0 ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />)}
-              {!hasChange ? 'Sin diferencia' : delta > 0 ? 'Se registrará un ingreso' : 'Se registrará un gasto'}
+              {!hasChange
+                ? 'Sin diferencia'
+                : isCard
+                  ? delta > 0 ? 'Se registrará un consumo' : 'Se reducirá la deuda'
+                  : delta > 0 ? 'Se registrará un ingreso' : 'Se registrará un gasto'}
             </span>
             {hasChange && (
               <span className="font-semibold tabular-nums">
@@ -176,7 +196,7 @@ export function AdjustBalanceModal({ isOpen, onClose, account, onSuccess }: Adju
           </div>
 
           <p className="text-xs text-muted-foreground">
-            La diferencia queda como movimiento de categoría <span className="font-medium text-foreground">Ajuste</span>, así siempre sabrás por qué cambió el saldo.
+            La diferencia queda como movimiento de categoría <span className="font-medium text-foreground">Ajuste</span>, así siempre sabrás por qué cambió {isCard ? 'la deuda' : 'el saldo'}.
           </p>
 
           <div className="flex gap-2">

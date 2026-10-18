@@ -316,6 +316,8 @@ export default function Page() {
           debtId={selectedDebt.id}
           maxAmount={selectedDebt.pendingBalance}
           personId={selectedDebt.personId}
+          personName={resolveContact(selectedDebt)?.nombre || selectedDebt.description}
+          currency={selectedDebt.moneda}
           onSuccess={() => mutate()}
         />
       )}
