@@ -9,6 +9,9 @@ const toTime = (value: DateLike) => {
   return Number.isNaN(time) ? Number.POSITIVE_INFINITY : time;
 };
 
+/** Prefijo de la observación de cada cobro creado por un abono general. */
+export const BULK_PAYMENT_MARKER = 'Abono general';
+
 export interface ReceivableAllocation {
   debt: ReceivableDebt;
   amount: number;

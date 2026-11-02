@@ -17,6 +17,18 @@ export function useReceivableDebts() {
   const { data, isLoading, error, mutate } = useSWR<ReceivableDebt[]>(user?.uid ? ['receivable-debts', user.uid] : null, () => receivableService.getAllDebts(user!.uid as string), { revalidateOnFocus: false, dedupingInterval: 60000 });
   return { debts: data ?? EMPTY_ARRAY, isLoading, error, mutate };
 }
+const EMPTY_RECORD: Record<string, never> = {};
+
+/**
+ * Último abono general (30 días) por contacto. La key empieza con
+ * 'receivable-debts' + uid a propósito: así invalidateAfterReceivable la
+ * refresca junto con las deudas después de cada cobro.
+ */
+export function useRecentBulkReceivablePayments() {
+  const { user } = useAuth();
+  const { data } = useSWR(user?.uid ? ['receivable-debts', user.uid, 'bulk-payments'] : null, () => receivableService.getRecentBulkPayments(user!.uid as string), { revalidateOnFocus: false, dedupingInterval: 60000 });
+  return { bulkPayments: data ?? EMPTY_RECORD };
+}
 export function usePayableObligations() {
   const { user } = useAuth();
   const { data, isLoading, error, mutate } = useSWR<PayableObligation[]>(user?.uid ? ['payable-obligations', user.uid] : null, () => payableService.getAllObligations(user!.uid as string), { revalidateOnFocus: false, dedupingInterval: 60000 });

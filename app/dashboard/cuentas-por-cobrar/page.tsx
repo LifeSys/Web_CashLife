@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { PlusCircle, Search, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
-import { useReceivableDebts } from '@/hooks/useFinancial';
+import { useReceivableDebts, useRecentBulkReceivablePayments } from '@/hooks/useFinancial';
 import { usePeople } from '@/hooks/usePeople';
 import { useSettings } from '@/hooks/useSettings';
 import { useCollectionReminders } from '@/hooks/useCollectionReminders';
@@ -61,6 +61,7 @@ const formatRelativeDays = (date: Date): string => {
 export default function Page() {
   const { user } = useAuth();
   const { debts, mutate } = useReceivableDebts();
+  const { bulkPayments } = useRecentBulkReceivablePayments();
   const { contacts } = usePeople();
   const { settings } = useSettings();
   const { rows: quickCollection, mutatePeople } = useCollectionReminders();
@@ -335,6 +336,7 @@ export default function Page() {
             paymentMethodValue: settings?.metodoPagoValor,
             template: settings?.msgDebtTemplate,
             items: debtsToMessageItems(debts, whatsAppContact.id),
+            bulkPayment: bulkPayments[whatsAppContact.id],
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />
