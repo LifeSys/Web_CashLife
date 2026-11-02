@@ -129,6 +129,10 @@ class FinancialEngineService {
     return receivableService.registerPayment(uid, input);
   }
 
+  collectReceivableBulk(uid: string, input: { contactId: string; amount: number; accountId: string; date: Date; observations?: string }) {
+    return receivableService.registerBulkPayment(uid, input);
+  }
+
   payObligation(uid: string, input: { obligationId: string; contactId?: string; personId?: string; amount: number; accountId: string; date: Date; observations?: string }) {
     return payableService.registerPayment(uid, input);
   }

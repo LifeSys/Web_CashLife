@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { FinancialRepository } from '@/lib/repositories/financial.repository';
 import { transactionService } from '@/services/transaction.service';
 import { clampDueDay } from '@/lib/date';
+import { allocateReceivablePayment, getAllocatableDebts } from '@/lib/receivable-allocation';
 import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 
 const toDate = (value?: Date | { toDate(): Date }) => (value && 'toDate' in value ? value.toDate() : value);
@@ -144,6 +145,48 @@ export async function registerReceivablePaymentAction(
   const pendingBalance = Math.max(debt.pendingBalance - amount, 0);
   await debtsRepo.update(uid, debt.id, { pendingBalance, status: getStatus(pendingBalance, debt.originalAmount, debt.dueDate as Date) });
   return created;
+}
+
+/**
+ * Abono general: un solo monto (ej. S/3,000 en efectivo) que se reparte
+ * entre todas las deudas pendientes en soles del contacto, de la más antigua
+ * a la más reciente. Crea un cobro normal por cada deuda tocada (así borrar
+ * o revertir sigue funcionando igual). Si algo falla a mitad, deshace lo
+ * que ya se había registrado para no dejar el abono a medias.
+ */
+export async function registerBulkReceivablePaymentAction(
+  uid: string,
+  input: { contactId: string; amount: number; accountId: string; date: Date; observations?: string }
+) {
+  const debts = getAllocatableDebts(await debtsRepo.getAll(uid), input.contactId);
+  const totalPending = debts.reduce((sum, d) => sum + d.pendingBalance, 0);
+  if (input.amount <= 0) throw new Error('El monto debe ser mayor a 0');
+  if (input.amount > totalPending + 0.001) throw new Error(`El monto supera lo pendiente (S/${totalPending.toFixed(2)})`);
+
+  const allocations = allocateReceivablePayment(debts, input.amount);
+  const done: { debt: ReceivableDebt; payment: ReceivablePayment }[] = [];
+  try {
+    for (const { debt, amount } of allocations) {
+      const payment = await registerReceivablePaymentAction(uid, {
+        debtId: debt.id,
+        personId: debt.personId,
+        contactId: debt.contactId ?? debt.personId,
+        amount,
+        accountId: input.accountId,
+        date: input.date,
+        observations: input.observations?.trim() || 'Abono general',
+      });
+      done.push({ debt, payment });
+    }
+  } catch (error) {
+    for (const { debt, payment } of done.reverse()) {
+      if (payment.transactionId) await transactionService.delete(uid, payment.transactionId);
+      await prisma.receivablePayment.delete({ where: { id: payment.id } });
+      await debtsRepo.update(uid, debt.id, { pendingBalance: debt.pendingBalance, status: debt.status });
+    }
+    throw error;
+  }
+  return { count: done.length, amount: input.amount, fullyPaid: allocations.filter((a) => a.remaining < 0.01).length };
 }
 
 // ---- Cuentas por pagar ----
