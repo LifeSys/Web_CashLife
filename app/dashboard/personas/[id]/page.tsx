@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/providers/AuthProvider';
 import { usePeople } from '@/hooks/usePeople';
-import { usePayableObligations, useReceivableDebts } from '@/hooks/useFinancial';
+import { usePayableObligations, useReceivableDebts, useRecentBulkReceivablePayments } from '@/hooks/useFinancial';
 import { useSettings } from '@/hooks/useSettings';
 import { personService, PersonFinancialSummary } from '@/services/person.service';
 import { buildDebtMessage, debtsToMessageItems } from '@/lib/whatsapp';
@@ -29,6 +29,7 @@ export default function ContactDetailPage() {
   const { user } = useAuth();
   const { contacts, mutate: mutatePeople } = usePeople();
   const { debts, mutate: mutateDebts } = useReceivableDebts();
+  const { bulkPayments } = useRecentBulkReceivablePayments();
   const { obligations, mutate: mutateObligations } = usePayableObligations();
   const { settings } = useSettings();
 
@@ -101,6 +102,7 @@ export default function ContactDetailPage() {
     paymentMethodValue: settings?.metodoPagoValor,
     template: settings?.msgDebtTemplate,
     items: id ? debtsToMessageItems(debts, id) : undefined,
+    bulkPayment: id ? bulkPayments[id] : undefined,
   });
 
   const handleReminderSent = async () => {

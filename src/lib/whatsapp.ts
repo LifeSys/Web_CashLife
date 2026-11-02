@@ -12,6 +12,7 @@ export const MESSAGE_PLACEHOLDERS = [
   { token: '{perfil}', description: 'Perfil/cupo alquilado (ej. PIN 1234)' },
   { token: '{fecha}', description: 'Fecha de vencimiento' },
   { token: '{monto}', description: 'Monto a cobrar' },
+  { token: '{abono}', description: 'Aviso de que ya se descontó su último abono general (últimos 30 días; si no lo pones, se agrega solo)' },
   { token: '{detalle}', description: 'Lista de qué debe y desde cuándo, una línea por cada cuenta pendiente (se omite si no hay detalle)' },
   { token: '{metodoPago}', description: 'Frase con tu método de cobro, si lo configuraste (se omite si no hay ninguno)' },
 ] as const;
@@ -44,7 +45,13 @@ function detalleClause(items?: DebtLineItem[]): string {
 
 // ---- Cuentas por cobrar (deuda general, no ligada a un alquiler) ----
 
-export const DEFAULT_DEBT_TEMPLATE = 'Hola {cliente}, tenemos registrado que me debes {monto}.{detalle}\n\n¿Puedes agendar un pago?{metodoPago}';
+/** Frase que avisa que el último abono general ya está descontado del monto. Vacío si no hubo. */
+function abonoClause(bulkPayment?: { amount: number; date: Date }): string {
+  if (!bulkPayment || bulkPayment.amount <= 0) return '';
+  return ` Ya está descontado tu abono de ${money(bulkPayment.amount)} del ${shortDate(new Date(bulkPayment.date))}.`;
+}
+
+export const DEFAULT_DEBT_TEMPLATE = 'Hola {cliente}, tenemos registrado que me debes {monto}.{abono}{detalle}\n\n¿Puedes agendar un pago?{metodoPago}';
 
 export interface BuildDebtMessageInput {
   contactName: string;
@@ -56,6 +63,8 @@ export interface BuildDebtMessageInput {
   template?: string;
   /** Detalle de cuentas por cobrar individuales, para el placeholder {detalle}. */
   items?: DebtLineItem[];
+  /** Último abono general del contacto, para avisar que ya se descontó ({abono}). */
+  bulkPayment?: { amount: number; date: Date };
 }
 
 /**
@@ -66,14 +75,21 @@ export interface BuildDebtMessageInput {
  * plantilla personalizable; los otros dos son informativos y no tienen
  * intención de cobro.
  */
-export function buildDebtMessage({ contactName, netBalance, paymentMethodLabel, paymentMethodValue, template, items }: BuildDebtMessageInput): string {
+export function buildDebtMessage({ contactName, netBalance, paymentMethodLabel, paymentMethodValue, template, items, bulkPayment }: BuildDebtMessageInput): string {
   if (netBalance > 0) {
-    return renderTemplate(template?.trim() || DEFAULT_DEBT_TEMPLATE, {
+    const tpl = template?.trim() || DEFAULT_DEBT_TEMPLATE;
+    const abono = abonoClause(bulkPayment);
+    // Plantillas personalizadas antiguas no tienen {abono}: el aviso va igual,
+    // antes del detalle (o al final si tampoco usan {detalle}).
+    const hasAbono = tpl.includes('{abono}');
+    const message = renderTemplate(tpl, {
       cliente: contactName,
       monto: money(netBalance),
-      detalle: detalleClause(items),
+      abono: hasAbono ? abono : '',
+      detalle: (!hasAbono ? abono : '') + detalleClause(items),
       metodoPago: metodoPagoClause(paymentMethodLabel, paymentMethodValue),
     });
+    return !hasAbono && abono && !tpl.includes('{detalle}') ? `${message}\n\n${abono.trim()}` : message;
   }
   if (netBalance < 0) {
     return `Hola ${contactName}, tenemos registrado que yo te debo ${money(netBalance)}. Te aviso para coordinar cuándo te lo paso.`;

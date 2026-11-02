@@ -18,6 +18,7 @@ import { useAccounts } from '@/hooks/useAccounts';
 import {
   usePayableObligations,
   useReceivableDebts,
+  useRecentBulkReceivablePayments,
   useScheduledPayments,
 } from '@/hooks/useFinancial';
 import { useCreditCards } from '@/hooks/useCreditCards';
@@ -91,6 +92,7 @@ export default function DashboardPage() {
   const { transacciones } = useTransactions();
   const { cuentas } = useAccounts();
   const { debts } = useReceivableDebts();
+  const { bulkPayments } = useRecentBulkReceivablePayments();
   const { obligations } = usePayableObligations();
   const { scheduledPayments } = useScheduledPayments();
   const { creditCards } = useCreditCards();
@@ -153,6 +155,7 @@ export default function DashboardPage() {
             paymentMethodValue: settings?.metodoPagoValor,
             template: settings?.msgDebtTemplate,
             items: debtsToMessageItems(debts, whatsAppContact.id),
+            bulkPayment: bulkPayments[whatsAppContact.id],
           })}
           onSend={() => handleReminderSent(whatsAppContact)}
         />

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma';
 import { FinancialRepository } from '@/lib/repositories/financial.repository';
 import { transactionService } from '@/services/transaction.service';
 import { clampDueDay } from '@/lib/date';
-import { allocateReceivablePayment, getAllocatableDebts } from '@/lib/receivable-allocation';
+import { allocateReceivablePayment, BULK_PAYMENT_MARKER, getAllocatableDebts } from '@/lib/receivable-allocation';
 import { IncomeRecord, PayableObligation, PayablePayment, ReceivableDebt, ReceivablePayment, ScheduledPayment, ScheduledPaymentPeriod, ScheduledPaymentSplit } from '@/types';
 
 const toDate = (value?: Date | { toDate(): Date }) => (value && 'toDate' in value ? value.toDate() : value);
@@ -174,7 +174,7 @@ export async function registerBulkReceivablePaymentAction(
         amount,
         accountId: input.accountId,
         date: input.date,
-        observations: input.observations?.trim() || 'Abono general',
+        observations: input.observations?.trim() ? `${BULK_PAYMENT_MARKER} · ${input.observations.trim()}` : BULK_PAYMENT_MARKER,
       });
       done.push({ debt, payment });
     }
@@ -187,6 +187,32 @@ export async function registerBulkReceivablePaymentAction(
     throw error;
   }
   return { count: done.length, amount: input.amount, fullyPaid: allocations.filter((a) => a.remaining < 0.01).length };
+}
+
+/**
+ * Último abono general de cada contacto en los últimos 30 días, para que el
+ * mensaje de cobranza avise que ya está descontado. Los cobros de un mismo
+ * abono comparten fecha y observación, así que se suman por ese par.
+ */
+export async function getRecentBulkReceivablePaymentsAction(uid: string): Promise<Record<string, { amount: number; date: Date }>> {
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const payments = await prisma.receivablePayment.findMany({
+    where: { userId: uid, observations: { startsWith: BULK_PAYMENT_MARKER }, date: { gte: since } },
+    orderBy: { date: 'desc' },
+  });
+  const groups = new Map<string, { contactId: string; amount: number; date: Date }>();
+  for (const p of payments) {
+    const contactId = p.contactId ?? p.personId;
+    const key = `${contactId}|${p.date.toISOString()}|${p.observations}`;
+    const group = groups.get(key) ?? { contactId, amount: 0, date: p.date };
+    group.amount = Math.round((group.amount + p.amount) * 100) / 100;
+    groups.set(key, group);
+  }
+  const result: Record<string, { amount: number; date: Date }> = {};
+  for (const g of groups.values()) {
+    if (!result[g.contactId] || g.date > result[g.contactId].date) result[g.contactId] = { amount: g.amount, date: g.date };
+  }
+  return result;
 }
 
 // ---- Cuentas por pagar ----
