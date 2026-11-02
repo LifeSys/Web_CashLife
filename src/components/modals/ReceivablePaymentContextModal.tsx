@@ -9,6 +9,10 @@ import { financialEngine } from '@/services/financial-engine.service';
 import { useSWRInvalidation } from '@/lib/swr/swr-config';
 import { toast } from 'sonner';
 import { parseLocalDate, formatDateInput } from '@/lib/date';
+import { allocateReceivablePayment, getAllocatableDebts } from '@/lib/receivable-allocation';
+
+// Valor especial del selector: repartir el monto entre todas las deudas.
+const BULK = '__abono_general__';
 
 interface ReceivablePaymentContextModalProps {
   isOpen: boolean;
@@ -49,9 +53,22 @@ export function ReceivablePaymentContextModal({
     [contactDebts, selectedDebtId]
   );
 
+  const isBulk = selectedDebtId === BULK;
+  const bulkDebts = useMemo(() => getAllocatableDebts(debts, contactId), [debts, contactId]);
+  const bulkTotal = useMemo(() => Math.round(bulkDebts.reduce((s, d) => s + d.pendingBalance, 0) * 100) / 100, [bulkDebts]);
+  const bulkPreview = useMemo(
+    () => (isBulk && Number(amount) > 0 ? allocateReceivablePayment(bulkDebts, Math.min(Number(amount), bulkTotal)) : []),
+    [isBulk, amount, bulkDebts, bulkTotal]
+  );
+  const maxAmount = isBulk ? bulkTotal : selectedDebt?.pendingBalance;
+
   // Auto-fill amount when debt is selected
   const handleDebtChange = (debtId: string) => {
     setSelectedDebtId(debtId);
+    if (debtId === BULK) {
+      setAmount('');
+      return;
+    }
     const debt = contactDebts.find((d) => d.id === debtId);
     if (debt) {
       setAmount(debt.pendingBalance.toString());
@@ -71,30 +88,40 @@ export function ReceivablePaymentContextModal({
       return;
     }
 
-    if (!selectedDebt) {
+    if (!isBulk && !selectedDebt) {
       toast.error('Deuda no encontrada');
       return;
     }
 
     const parsedAmount = Number(amount);
-    if (parsedAmount <= 0 || parsedAmount > selectedDebt.pendingBalance) {
-      toast.error(`El monto debe ser entre 0 y ${selectedDebt.pendingBalance.toFixed(2)}`);
+    if (parsedAmount <= 0 || parsedAmount > (maxAmount ?? 0) + 0.001) {
+      toast.error(`El monto debe ser entre 0 y ${(maxAmount ?? 0).toFixed(2)}`);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await financialEngine.collectReceivable(user.uid, {
-        debtId: selectedDebtId,
-        personId: contactId,
-        contactId: contactId,
-        amount: parsedAmount,
-        accountId,
-        date: parseLocalDate(date),
-        observations: notes,
-      });
-
-      toast.success('Pago registrado correctamente');
+      if (isBulk) {
+        const result = await financialEngine.collectReceivableBulk(user.uid, {
+          contactId,
+          amount: parsedAmount,
+          accountId,
+          date: parseLocalDate(date),
+          observations: notes,
+        });
+        toast.success(`Abono de S/${parsedAmount.toFixed(2)} repartido en ${result.count} deuda(s) · ${result.fullyPaid} cancelada(s)`);
+      } else {
+        await financialEngine.collectReceivable(user.uid, {
+          debtId: selectedDebtId,
+          personId: contactId,
+          contactId: contactId,
+          amount: parsedAmount,
+          accountId,
+          date: parseLocalDate(date),
+          observations: notes,
+        });
+        toast.success('Pago registrado correctamente');
+      }
 
       // Invalidate relevant SWR caches (includes person/people data)
       invalidateAfterReceivable(user.uid);
@@ -154,6 +181,11 @@ export function ReceivablePaymentContextModal({
                   required
                 >
                   <option value="">Elige una deuda pendiente</option>
+                  {bulkDebts.length > 1 && (
+                    <option value={BULK}>
+                      Abono general — repartir entre {bulkDebts.length} deudas (S/{bulkTotal.toFixed(2)})
+                    </option>
+                  )}
                   {contactDebts.map((debt) => (
                     <option key={debt.id} value={debt.id}>
                       {debt.description} - Pendiente: S/{debt.pendingBalance.toFixed(2)}
@@ -170,7 +202,7 @@ export function ReceivablePaymentContextModal({
                   <input
                     type="number"
                     step="0.01"
-                    max={selectedDebt?.pendingBalance}
+                    max={maxAmount}
                     min="0"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -182,7 +214,33 @@ export function ReceivablePaymentContextModal({
                 {selectedDebt && (
                   <p className="mt-1 text-xs text-muted-foreground">Pendiente: S/{selectedDebt.pendingBalance.toFixed(2)}</p>
                 )}
+                {isBulk && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Total pendiente en soles: S/{bulkTotal.toFixed(2)}. Se aplica de la deuda más antigua a la más reciente.
+                  </p>
+                )}
               </div>
+
+              {/* Vista previa del reparto */}
+              {isBulk && bulkPreview.length > 0 && (
+                <div className="rounded-lg border border-border bg-muted/50 p-3 text-xs space-y-1">
+                  <p className="font-medium text-sm">
+                    {bulkPreview.filter((a) => a.remaining < 0.01).length} deuda(s) quedan canceladas
+                    {bulkPreview.some((a) => a.remaining >= 0.01) && ', 1 con abono parcial'}
+                  </p>
+                  <ul className="max-h-40 overflow-y-auto space-y-0.5 text-muted-foreground">
+                    {bulkPreview.map((a) => (
+                      <li key={a.debt.id} className="flex justify-between gap-2">
+                        <span className="truncate">{a.debt.description}</span>
+                        <span className="shrink-0">
+                          S/{a.amount.toFixed(2)}
+                          {a.remaining >= 0.01 ? ` · quedan S/${a.remaining.toFixed(2)}` : ' ✓'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Account */}
               <div>

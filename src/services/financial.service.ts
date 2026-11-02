@@ -6,6 +6,7 @@ import {
   updateReceivableDebtAction,
   deleteReceivableDebtAction,
   registerReceivablePaymentAction,
+  registerBulkReceivablePaymentAction,
   getAllPayableObligationsAction,
   createPayableObligationAction,
   updatePayableObligationAction,
@@ -48,6 +49,9 @@ class ReceivableService {
   }
   registerPayment(uid: string, payment: Omit<ReceivablePayment, 'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy' | 'transactionId'>) {
     return registerReceivablePaymentAction(uid, payment);
+  }
+  registerBulkPayment(uid: string, input: { contactId: string; amount: number; accountId: string; date: Date; observations?: string }) {
+    return registerBulkReceivablePaymentAction(uid, input);
   }
 }
 
